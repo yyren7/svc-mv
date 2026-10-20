@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+tmp/
+models/
+ref/
+assets/audio/
+assets/models/
+*.blend
+*.blend1
+*.mp4
+# renders are rebuilt by the scripts; only the style frames and S3 stills are kept
+renders/*
+!renders/frame_A.png
+!renders/frame_A_post.png
+!renders/frame_B.png
+!renders/frame_B_post.png
+!renders/s3/
+renders/s3/*
+!renders/s3/*.png
