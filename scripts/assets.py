@@ -230,8 +230,8 @@ def lathe(name, profile, segments=64, mats=(), parent=None):
     return _obj(name, mesh, mats, parent)
 
 
-def tube_along(name, points, radius, mats=(), parent=None, resolution=6):
-    """A curve through points with a round bevel (vessels, wires, cables)."""
+def tube_along(name, points, radius, mats=(), parent=None, resolution=6, cyclic=False, radii=None):
+    """A curve through points with a round bevel (vessels, wires, cables). radii scales the bevel per point."""
     cu = bpy.data.curves.new(name, "CURVE")
     cu.dimensions = "3D"
     cu.bevel_depth = radius
@@ -239,9 +239,12 @@ def tube_along(name, points, radius, mats=(), parent=None, resolution=6):
     cu.use_fill_caps = True
     sp = cu.splines.new("NURBS")
     sp.points.add(len(points) - 1)
-    for p, co in zip(sp.points, points):
+    for i, (p, co) in enumerate(zip(sp.points, points)):
         p.co = (*co, 1)
-    sp.use_endpoint_u = True
+        if radii is not None:
+            p.radius = radii[i]
+    sp.use_cyclic_u = cyclic
+    sp.use_endpoint_u = not cyclic
     sp.order_u = min(4, len(points))
     obj = bpy.data.objects.new(name, cu)
     for mt in mats:
@@ -309,29 +312,35 @@ def uraomote_heart(width=0.045, seed=3):
         sub = o.modifiers.new("sub", "SUBSURF")
         sub.levels, sub.render_levels = 1, 2
 
-    # resin seam: the cross-section at x = 0, a little proud of the surface, glowing pink
+    # resin seam: the cross-section at x = 0, walked into ordered loops and swept as a tube that stands
+    # proud of both halves, glowing pink (kintsugi). A Skin modifier on this loop came out flat in X.
     bm = bmesh.new()
     bm.from_mesh(base)
     res = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=(0, 0, 0),
                                  plane_no=(1, 0, 0))
     cut = [e for e in res["geom_cut"] if isinstance(e, bmesh.types.BMEdge)]
-    keep = set(cut)
-    for e in list(bm.edges):
-        if e not in keep:
-            bm.edges.remove(e)
-    for v in list(bm.verts):
-        if not v.link_edges:
-            bm.verts.remove(v)
-    seam_mesh = bpy.data.meshes.new("seam")
-    bm.to_mesh(seam_mesh)
+    nbr = {}
+    for e in cut:
+        a, b = e.verts
+        nbr.setdefault(a, []).append(b)
+        nbr.setdefault(b, []).append(a)
+    seen = set()
+    seam_mat = emissive("#FF3D8B", 22.0)
+    for start in list(nbr):
+        if start in seen:
+            continue
+        loop, prev, cur = [], None, start
+        while cur is not None and cur not in seen:
+            seen.add(cur)
+            loop.append(cur.co.copy())
+            nxt = [v for v in nbr[cur] if v is not prev and v not in seen]
+            prev, cur = cur, (nxt[0] if nxt else None)
+        if len(loop) < 8:
+            continue
+        pts = [tuple(c) for c in loop[::2]]
+        radii = [rnd.uniform(0.75, 1.3) for _ in pts]
+        tube_along("heart_seam", pts, s * 0.075, [seam_mat], root, resolution=4, cyclic=True, radii=radii)
     bm.free()
-    seam = _obj("heart_seam", seam_mesh, [emissive("#FF3D8B", 70.0)], root)
-    sk = seam.modifiers.new("skin", "SKIN")
-    for v in seam.data.skin_vertices[0].data:
-        r = s * rnd.uniform(0.055, 0.085)
-        v.radius = (r, r)
-    seam.modifiers.new("sub", "SUBSURF").render_levels = 2
-    _ = sk
 
     # glaze vessels on the porcelain face (front, +Z) and back: meander down from the top cleft
     # One BVH per half from the base mesh, reused for every ray. Object.ray_cast rebuilds a BVH on each
@@ -385,7 +394,7 @@ def uraomote_heart(width=0.045, seed=3):
     # trapped cyan motes inside the glass half
     motes = bmesh.new()
     count = 0
-    while count < 160:
+    while count < 90:
         x, y = rnd.uniform(0.05, 0.9) * s, rnd.uniform(-0.8, 0.8) * s
         loc, _n, _i, _d = bvh_right.ray_cast(Vector((x, y, 2 * s)), Vector((0, 0, -1)), 4 * s)
         if loc is None:
@@ -394,14 +403,14 @@ def uraomote_heart(width=0.045, seed=3):
         if top < 0.12 * s:
             continue
         z = rnd.uniform(-0.75, 0.75) * top
-        r = s * rnd.uniform(0.006, 0.016)
+        r = s * rnd.uniform(0.004, 0.011)
         bmesh.ops.create_icosphere(motes, subdivisions=1, radius=r,
                                    matrix=__import__("mathutils").Matrix.Translation((x, y, z)))
         count += 1
     mm = bpy.data.meshes.new("motes")
     motes.to_mesh(mm)
     motes.free()
-    _obj("heart_motes", mm, [emissive("#34E3E8", 40.0)], root)
+    _obj("heart_motes", mm, [emissive("#34E3E8", 18.0)], root)
 
     root.rotation_euler = (math.radians(90), 0, 0)   # stand up, front faces -Y
     bpy.data.meshes.remove(base)
