@@ -312,7 +312,9 @@ def rig(char_path, spec_path, out):
     tail, tail_s  尾巴：框里的紫色像素；tail_s 是沿尾巴从根（0）到尖（1）的位置，按绕拱心的角度算
     dress         裙摆：白色、在 dress 的 v 范围里，越往下越大
     mouth         嘴：以嘴为中心的圆形衰减（嘴的位置按颜色在给定位置附近修正）
-    皮肤、话筒、颈带附近，头发的权重压到 0；sleeves 的多边形里也是 0；距离都以画面高为单位。"""
+    皮肤、话筒、话筒线、颈带附近（加上 rigid 折线画的一条带子），头发、裙摆、嘴的权重都压到 0；
+    sleeves 的多边形里头发也是 0；距离都以画面高为单位。
+    最后 solidify() 把人物内部半透明的地方补满（translucent 的框里不动）。"""
     spec = json.load(open(spec_path, encoding="utf-8"))
     meta = json.load(open(os.path.join(out, "meta.json")))
     w, h = meta["work_w"], meta["work_h"]
@@ -341,6 +343,13 @@ def rig(char_path, spec_path, out):
     dark = (V < 0.3) & (S < 0.35) & solid
     k = np.ones((15, 15), np.uint8)
     rigid = smooth(cv2.dilate((skin | dark).astype(np.uint8), k), 4)
+    # rig.json 的 rigid 折线（话筒、话筒线：插画坐标，width 是半宽，画面高为单位）：线到下面变细变浅，按颜色抓不全
+    hard = np.zeros((h, w), np.uint8)
+    for line in spec.get("rigid", []):
+        pts = np.round(np.array(line["line"]) * (w, h)).astype(np.int32)
+        cv2.polylines(hard, [pts], False, 1, thickness=max(1, int(round(2 * line["width"] * h))))
+    hard = smooth(hard, 3)
+    rigid = np.maximum(rigid, hard)
     skin_d = smooth(cv2.dilate(skin.astype(np.uint8), k), 4)
     # 头发是饱和的紫红；裙子的阴影也带淡紫，但饱和度低，归到裙摆
     hairc = ((H > 255) | (H < 12)) & (S > 0.34) & (V > 0.12) & solid
@@ -371,7 +380,7 @@ def rig(char_path, spec_path, out):
     center = smooth((U > c0) & (U < c1) & (Y > d0 - 0.12), 8)
     lo, hi = spec["hair_reach"]
     hair = smooth(hairc | ribbon, 3) * ramp(dist(spec["head"]), lo, hi) * away * (1 - center)
-    hair = smooth(hair * (1 - rigid), 4)
+    hair = smooth(hair * (1 - rigid), 4) * (1 - rigid)     # 模糊会把权重渗回手上，再乘一次
     # 袖子：半透明的袖子后面透出头发，按颜色分不开，按 rig.json 画的多边形整块压到 0；
     # 出了袖子按距离慢慢放开，贴着袖子的发丝不会被挤成一道折痕
     still = np.ones((h, w), np.uint8)
@@ -379,7 +388,8 @@ def rig(char_path, spec_path, out):
         cv2.fillPoly(still, [np.round(np.array(poly) * (w, h)).astype(np.int32)], 0)
     hair *= ramp(cv2.distanceTransform(still, cv2.DIST_L2, 5) / h, 0.002, 0.025)
     side_hair = smooth(hairc, 3) * (1 - center)
-    dress = smooth(solid, 4) * ramp(Y, d0, d1) * (1 - skin_d) * (1 - side_hair) * (1 - smooth(box(T["box"]), 6))
+    # 裙摆：话筒线垂在裙子上，跟着摆会弯，和手一样不动
+    dress = smooth(solid, 4) * ramp(Y, d0, d1) * (1 - rigid) * (1 - side_hair) * (1 - smooth(box(T["box"]), 6))
 
     mu, mv, mr = spec["mouth"]
     inside = ((H < 15) | (H > 330)) & (S > 0.3) & (V > 0.35) & (V < 0.92) & (dist((mu, mv)) < mr * 0.6) & solid
@@ -387,13 +397,18 @@ def rig(char_path, spec_path, out):
     if n > 1:
         i = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
         mu, mv = cent[i][0] / w, cent[i][1] / h
-    mouth = 1 - ramp(dist((mu, mv)), mr * 0.45, mr)
+    # 话筒头就在下巴边上，不能跟着嘴伸缩；只排除连成大块的深色（话筒、线、颈带），嘴里零星的暗处照常跟着动
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(dark.astype(np.uint8))
+    big = np.isin(lab, 1 + np.nonzero(stats[1:, cv2.CC_STAT_AREA] >= 300)[0])
+    mouth = (1 - ramp(dist((mu, mv)), mr * 0.45, mr)) * (1 - smooth(cv2.dilate(big.astype(np.uint8), np.ones((5, 5), np.uint8)), 2)) \
+        * (1 - hard)
 
     np.savez_compressed(os.path.join(out, "rig.npz"), hair=hair, ear_l=ears[0], ear_r=ears[1], tail=tail,
                         tail_s=tail_s.astype(np.float32), dress=dress, mouth=mouth.astype(np.float32))
     info = {"mouth": [mu, mv], "tail_base": T["base"], "head": spec["head"]}
     json.dump(info, open(os.path.join(out, "rig.json"), "w"), indent=1)
     print("rig", json.dumps(info), flush=True)
+    solidify(out, spec.get("translucent", []))
 
     base = cv2.cvtColor(img[..., :3], cv2.COLOR_BGR2RGB).astype(np.float32) / 255 * alpha[..., None] * 0.6
     colors = [(hair, (1, 0.2, 0.2)), (ears[0] + ears[1], (0.2, 1, 0.2)), (tail * (0.3 + 0.7 * tail_s), (0.3, 0.5, 1)),
@@ -403,8 +418,35 @@ def rig(char_path, spec_path, out):
     imwrite(os.path.join(out, "rig_check.png"), base)
 
 
+def solidify(out, keep):
+    """人物层内部的 alpha 补满，写成 layer_char_solid.png，meta.json 里人物层改用它。分层时抠出来的人物，
+    尾巴、几缕头发是半透明的，渲染时后面的花会透出来，看着像糊了。离边缘约画面宽 0.16% 以内（抗锯齿的边、
+    细发丝）不动；keep 是本来就该透的地方（插画坐标的框，比如透出花的裙边），也不动。"""
+    mpath = os.path.join(out, "meta.json")
+    meta = json.load(open(mpath))
+    L = next(x for x in meta["layers"] if x["name"] == "char")
+    src = L.get("color_src", L["color"])
+    img = cv2.imread(src, cv2.IMREAD_UNCHANGED)
+    a = img[..., 3].astype(np.float32) / 255
+    H, W = a.shape
+    r = max(2, round(W * 0.0016))
+    core = cv2.erode((a > 0.25).astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * r + 1,) * 2))
+    core = cv2.GaussianBlur(core.astype(np.float32), (0, 0), r / 2)
+    still = np.zeros((H, W), np.float32)
+    for b in keep:
+        still[int(b[1] * H):int(b[3] * H), int(b[0] * W):int(b[2] * W)] = 1
+    core *= 1 - cv2.GaussianBlur(still, (0, 0), 4 * r)
+    a2 = np.maximum(a, core)
+    print(f"solidify: alpha raised on {(a2 - a > 0.05).mean() * 100:.2f}% of the layer", flush=True)
+    img[..., 3] = (a2 * 255 + 0.5).astype(np.uint8)
+    dst = os.path.join(out, "layer_char_solid.png")
+    cv2.imwrite(dst, img)
+    L["color_src"], L["color"] = src, os.path.abspath(dst)
+    json.dump(meta, open(mpath, "w"), indent=1)
+
+
 def main():
-    if sys.argv[1] == "rig":         # rig <人物层 png> <case 的 rig.json> <输出目录>
+    if sys.argv[1] == "rig":        # rig <人物层 png> <case 的 rig.json> <输出目录>
         rig(sys.argv[2], sys.argv[3], sys.argv[4])
         return
     if sys.argv[1] == "layers":

@@ -896,7 +896,7 @@ class Camera:
     """镜头：一串 shot（开始秒、结束秒、起始 pose、结束 pose、缓动），逐帧写成关键帧。
 
     pose：u, v 是画面中心对准的插画坐标；zoom 是相对原始画幅的放大（1 = 整张画）；dx, dy, dz 是机位离开原点的
-    米数（横移、推近、升降，带来视差）；roll 度；focus 对焦点 (u, v)（默认就是 u, v 那一点）；
+    米数（横移、推近、升降，带来视差）；roll 度；focus 对焦点 (u, v)（默认就是 u, v 那一点），或 focus_m 直接给对焦米数；
     blur 是无穷远处的虚化直径占画面宽的比例（默认 0.003），按焦距和对焦距离换算成光圈；也可以直接给 fstop。
     kick：{帧: 0..1} 重拍上的轻推（焦距乘 1 + kick × amount）。
     """
@@ -932,25 +932,38 @@ class Camera:
         if p.get("roll"):
             rot.rotate_axis("Z", math.radians(p["roll"]))
         lens = pic.lens * p.get("zoom", 1.0) * d.length / tgt.length
+        return c, rot, lens, self.focus_dist(p, c)
+
+    def focus_dist(self, p, c):
+        """对焦距离：focus_m 直接给米数（比如对在镜头前的标题上），否则是 focus 那一点（默认画面中心）到机位的距离。"""
+        if "focus_m" in p:
+            return p["focus_m"]
         fu, fv = p.get("focus") or (p["u"], p["v"])
-        focus = (pic.point(fu, fv, pic.depth(fu, fv)) - c).length
-        return c, rot, lens, focus
+        return (self.pic.point(fu, fv, self.pic.depth(fu, fv)) - c).length
 
     def path(self, keys):
         """一条不断开的镜头：keys = [(秒, pose)]，每个参数用 pchip 在关键帧之间平滑过渡。对焦按屈光度（1/距离）插值，
-        从月亮换到脸时焦点是一路拉过来的，不会跳。返回每帧的 (pose, 对焦距离)。"""
-        ts = [k[0] for k in keys]
+        从月亮换到脸时焦点是一路拉过来的，不会跳。每个参数只在写了它的关键帧之间插值：只写 focus / focus_m / blur
+        的关键帧单独管对焦，镜头不会在那里停一下。返回每帧的 (pose, 对焦距离)。"""
         t = np.arange(self.n) / self.fps
+
+        def track(ks):
+            ks = sorted(ks, key=lambda k: k[0])
+            if len(ks) == 1:
+                return np.full(len(t), float(ks[0][1]))
+            return pchip([a for a, _ in ks], [b for _, b in ks], t)
         cols = {}
         for name in POSE_KEYS:
-            if any(name in k[1] for k in keys):
-                default = {"zoom": 1.0, "blur": 0.003}.get(name, 0.0)
-                cols[name] = pchip(ts, [k[1].get(name, default) for k in keys], t)
+            ks = [(k[0], k[1][name]) for k in keys if name in k[1]]
+            if ks:
+                cols[name] = track(ks)
         diopter = []
-        for _, p in keys:
-            c, _, _, fd = self.solve(p)
-            diopter.append(1 / fd)
-        fd = 1 / pchip(ts, diopter, t)
+        for tk, p in keys:
+            if "focus" in p or "focus_m" in p:
+                i = min(int(round(tk * self.fps)), self.n - 1)
+                c = Vector([float(cols[a][i]) if a in cols else 0.0 for a in ("dx", "dy", "dz")])
+                diopter.append((tk, 1 / self.focus_dist(dict(p, u=cols["u"][i], v=cols["v"][i]), c)))
+        fd = 1 / track(diopter)
         return [({k: float(v[i]) for k, v in cols.items()}, float(fd[i])) for i in range(self.n)]
 
     def bake(self, shots=None, keys=None, kick=None, kick_amount=0.012, shake=0.0):
@@ -1032,8 +1045,10 @@ class Camera:
 
 # ---------------------------------------------------------------- 合成
 
-def compositor(bloom=0.2, threshold=0.8, size=0.6):
-    """辉光（Bloom）-> 月光光束（Sun Beams，源点和强度逐帧写入）-> 一点色散。返回光束节点。"""
+def compositor(bloom=0.2, threshold=0.8, size=0.6, beam_size=0.3, beam_threshold=0.8):
+    """辉光（Bloom）-> 月光光束 -> 一点色散。光束只从月亮那一块发出：画面乘一个跟着月亮走的椭圆遮罩再做 Sun Beams，
+    只把光束加回去，白裙子、亮的花不会拉出光束，强度可以开大。返回 (tree, 光束节点, 遮罩节点)：
+    光束的 Sun Position、Strength 和遮罩的 Position（0..1，左下为原点）、Size（直径，按画面宽算）逐帧写入。"""
     s = bpy.context.scene
     tree = bpy.data.node_groups.new("post", "CompositorNodeTree")
     s.compositing_node_group = tree
@@ -1049,16 +1064,28 @@ def compositor(bloom=0.2, threshold=0.8, size=0.6):
                 print("glare", nm, e)
     setup(glare, (("Type", "Bloom"), ("Threshold", threshold), ("Strength", bloom), ("Size", size), ("Quality", "High")))
     g.link(rl.outputs["Image"], kit.sock(glare.inputs, "Image"))
+
+    def mix(blend, a, b):
+        n = g.node("ShaderNodeMix", data_type="RGBA", blend_type=blend)
+        kit.sock(n.inputs, "Factor", "VALUE").default_value = 1.0
+        g.link(a, kit.sock(n.inputs, "A", "RGBA"))
+        g.link(b, kit.sock(n.inputs, "B", "RGBA"))
+        return kit.sock(n.outputs, "Result", "RGBA")
+    mask = g.node("CompositorNodeEllipseMask")
+    size_in = kit.sock(mask.inputs, "Size")
+    for i in range(len(size_in.default_value)):
+        size_in.default_value[i] = 0.0
     beams = g.node("CompositorNodeGlare")
-    setup(beams, (("Type", "Sun Beams"), ("Threshold", 0.95), ("Strength", 0.0), ("Size", 0.3), ("Jitter", 0.2),
-                  ("Quality", "High")))
-    g.link(glare.outputs[0], kit.sock(beams.inputs, "Image"))
+    setup(beams, (("Type", "Sun Beams"), ("Threshold", beam_threshold), ("Strength", 0.0), ("Size", beam_size),
+                  ("Jitter", 0.2), ("Quality", "High")))
+    g.link(mix("MULTIPLY", glare.outputs[0], mask.outputs[0]), kit.sock(beams.inputs, "Image"))
+    lit = mix("ADD", glare.outputs[0], kit.sock(beams.outputs, "Glare"))
     lens = g.node("CompositorNodeLensdist")
     kit.sock(lens.inputs, "Dispersion").default_value = 0.004
-    g.link(beams.outputs[0], kit.sock(lens.inputs, "Image"))
+    g.link(lit, kit.sock(lens.inputs, "Image"))
     g.link(lens.outputs[0], g.node("NodeGroupOutput").inputs[0])
     s.render.use_compositing = True
-    return tree, beams
+    return tree, beams, mask
 
 
 def video_output(path, crf="PERC_LOSSLESS"):

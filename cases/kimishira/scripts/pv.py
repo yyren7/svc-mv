@@ -53,20 +53,32 @@ SECTIONS = [
 
 FACE = (0.620, 0.352)
 MOON = (0.179, 0.142)
+TITLE_Y = 0.5          # 开头的竖排标题离镜头 0.5 米：对焦在它上面时，人物和背景都在焦外
 
 
-def P(u, v, zoom, dx=0.0, dy=0.0, dz=0.0, blur=0.003, focus=FACE):
-    return dict(u=u, v=v, zoom=zoom, dx=dx, dy=dy, dz=dz, blur=blur, focus=focus)
+def P(u, v, zoom, dx=0.0, dy=0.0, dz=0.0):
+    return dict(u=u, v=v, zoom=zoom, dx=dx, dy=dy, dz=dz)
+
+
+def F(blur=0.003, focus=FACE, at=None):
+    """只管对焦的关键帧：focus 是插画上的点，at 是米数（对在镜头前的标题上）。"""
+    return dict(blur=blur, focus_m=at) if at else dict(blur=blur, focus=focus)
 
 
 def camera_keys():
     """一条从头到尾不断开的镜头：关键帧放在段落交界，中间平滑过渡（Camera.path 的 pchip）。
     始终是整张画：放大只在 1.04~1.10 倍之间，画面中心只在正中附近漂，不推近人物，整首的氛围是稳的。
-    动感来自机位的平移（左右、上下最多约 1.2 厘米）带出的前后景视差：副歌升起一点，主歌左右慢慢挪。"""
+    动感来自机位的平移（左右、上下最多约 1.2 厘米）带出的前后景视差：副歌升起一点，主歌左右慢慢挪。
+    对焦另走一条：开头歌名浮现时焦点拉到镜头前的标题上，人物和背景一起虚下去；乐队进来、标题淡出时再拉回她脸上。"""
     return [
-        # 开头：整张画，焦点在月亮上（她微微虚着），乐队进来时焦点慢慢拉到她脸上
-        (0.00, P(0.47, 0.46, 1.10, dx=-0.006, focus=MOON)),
-        (8.75, P(0.48, 0.47, 1.09, dx=-0.004, focus=MOON)),
+        # 对焦
+        (0.80, F()),
+        (2.60, F(0.014, at=TITLE_Y)),
+        (8.75, F(0.014, at=TITLE_Y)),
+        (12.0, F()),
+        # 开头：整张画
+        (0.00, P(0.47, 0.46, 1.10, dx=-0.006)),
+        (8.75, P(0.48, 0.47, 1.09, dx=-0.004)),
         (15.30, P(0.50, 0.48, 1.07)),
         # 前奏、主歌 1：左右慢慢挪
         (28.57, P(0.51, 0.49, 1.05, dx=0.008)),
@@ -85,8 +97,8 @@ def camera_keys():
         (181.48, P(0.51, 0.48, 1.06, dx=0.006)),
         # 间奏：往左上的星空和月亮那边偏一点，看流星雨
         (203.12, P(0.50, 0.48, 1.06)),
-        (218.00, P(0.47, 0.46, 1.09, blur=0.002)),
-        (226.95, P(0.47, 0.46, 1.09, blur=0.002)),
+        (218.00, P(0.47, 0.46, 1.09)),
+        (226.95, P(0.47, 0.46, 1.09)),
         # C 段
         (239.98, P(0.50, 0.47, 1.08)),
         (244.58, P(0.50, 0.48, 1.07)),
@@ -191,12 +203,14 @@ def kit_vec(x, y, z):
 
 def title(pic):
     """开头月亮旁边竖排的「君の知らない物語」，一个字一个字浮现，乐队进来后淡出。
-    镜头是整张画，字要大一些（约画面宽的 2.7%），离月亮远一点，让开月亮外圈的频谱。"""
+    镜头是整张画，字要大一些（约画面宽的 2.7%），离月亮远一点，让开月亮外圈的频谱。
+    字放在镜头前 TITLE_Y 米（尺寸按距离缩小，画面上一样大）：开头对焦在字上，后面的人物和背景一起虚下去。"""
     mu, mv, _ = pic.meta["moon"]
-    y = 40.0
+    y = TITLE_Y
+    k = y / 40.0                          # 下面的尺寸按 40 米处写的
     mat = op.fading_mat("title", (0.93, 0.96, 1.0), 1.7)
     chars = "君の知らない物語"
-    size, line = 1.1, 1.18
+    size, line = 1.1 * k, 1.18 * k
     top = mv - 0.055
     x0 = op.Vector(pic.point(mu + 0.155, top, y))
     obs = []
@@ -206,15 +220,19 @@ def title(pic):
         t_in = 1.2 + 0.22 * i
         f = lambda s: int(round(s * FPS))   # noqa: E731
         op.key_prop(ob, "a", [(0, 0.0), (f(t_in), 0.0), (f(t_in + 0.9), 1.0), (f(9.6), 1.0), (f(11.6), 0.0)])
-        kit.fcurve(ob, "location", 2, [0, f(t_in), f(t_in + 1.2)], [loc.z - 0.12, loc.z - 0.12, loc.z], "BEZIER")
+        kit.fcurve(ob, "location", 2, [0, f(t_in), f(t_in + 1.2)], [loc.z - 0.12 * k, loc.z - 0.12 * k, loc.z], "BEZIER")
         obs.append(ob)
-    sub_loc = x0 + op.Vector((0, 0, -len(chars) * line - 0.3))
-    sub = op.text_obj("supercell", os.path.join(FONTS, "DINNextLTPro-Light.ttf"), 0.36, sub_loc, spacing=1.3,
+    sub_loc = x0 + op.Vector((0, 0, -len(chars) * line - 0.3 * k))
+    sub = op.text_obj("supercell", os.path.join(FONTS, "DINNextLTPro-Light.ttf"), 0.36 * k, sub_loc, spacing=1.3,
                       mat=op.fading_mat("title_sub", (0.85, 0.9, 1.0), 1.3))
     f = lambda s: int(round(s * FPS))   # noqa: E731
     op.key_prop(sub, "a", [(0, 0.0), (f(3.6), 0.0), (f(4.6), 0.85), (f(9.6), 0.85), (f(11.6), 0.0)])
     return obs + [sub]
 
+
+# 月光光束：强度 = BEAM_GAIN × 段落表的光束列 × 心跳；光源遮罩是月亮半径的 BEAM_MASK 倍（包住外圈的频谱）
+BEAM_GAIN = 2.5
+BEAM_MASK = 2.8
 
 # Depth Anything 把左下、右下角的大花估得比人物还远；按画面它们离镜头最近，这层的 1/距离 乘一下
 LAYER_GAIN = {"near": 2.2, "far": 0.8}   # far 往后推一点，免得和中景的花田重叠打架
@@ -266,7 +284,7 @@ def build():
     op.drift("motes", mote, audio, 320, (-9.0, 2.0, -0.35), (18.0, 22.0, 1.3), (0.02, -0.02, 0.05), 0.006,
              seed=2, size_var=0.5, flutter=0.08, rate=0.5, spin=0.0, density="motes", tilt=-0.12)
     # 旋律盘就是月亮：外圈的频谱，低音来时整圈像心跳一样鼓起来
-    op.spectrum_ring(pic, audio, d["spec"].shape[1], length=(0.05, 0.7), width=0.03, strength=1.3, pulse="heart")
+    op.spectrum_ring(pic, audio, d["spec"].shape[1], length=(0.06, 0.85), width=0.04, strength=1.8, pulse="heart")
     title(pic)
 
     cam = op.Camera(pic, FPS, n)
@@ -283,18 +301,25 @@ def build():
     sky = np.load(os.path.join(PREP, "sky.npy"))
     op.meteors(pic, pick_meteors(pic, cam, sky), FPS)
 
-    tree, beam = op.compositor()
-    moon = pic.point(pic.meta["moon"][0], pic.meta["moon"][1], pic.y_sky)
-    pos, strength = [], []
+    # 月光光束：只从月亮和外圈的频谱发出（遮罩跟着月亮走），跟低音的心跳一起亮
+    tree, beam, bmask = op.compositor()
+    mu, mv, mr = pic.meta["moon"]
+    moon = pic.point(mu, mv, pic.y_sky)
+    edge = moon + op.Vector((mr * pic.sx * pic.y_sky, 0, 0))
+    pos, strength, size = [], [], []
     for f in range(n):
-        q = cam.project(f, moon)
+        q, e = cam.project(f, moon), cam.project(f, edge)
         inside = q is not None and -0.1 < q[0] < 1.1 and -0.1 < q[1] < 1.1
         pos.append(q if q else (0.5, 0.5))
-        strength.append(beams[f] * (0.7 + 0.5 * float(d["bass"][f])) if inside else 0.0)
+        size.append(2 * BEAM_MASK * (e[0] - q[0]) if inside and e else 0.0)
+        strength.append(BEAM_GAIN * beams[f] * (0.6 + 0.8 * float(cols["heart"][f])) if inside else 0.0)
     fr = list(range(n))
-    sp = kit.sock(beam.inputs, "Sun Position")
+    for sock, vals in ((kit.sock(beam.inputs, "Sun Position"), pos), (kit.sock(bmask.inputs, "Position"), pos)):
+        for i in range(2):
+            kit.fcurve(tree, sock.path_from_id("default_value"), i, fr, [p[i] for p in vals])
+    sz = kit.sock(bmask.inputs, "Size")
     for i in range(2):
-        kit.fcurve(tree, sp.path_from_id("default_value"), i, fr, [p[i] for p in pos])
+        kit.fcurve(tree, sz.path_from_id("default_value"), i, fr, size)
     kit.fcurve(tree, kit.sock(beam.inputs, "Strength").path_from_id("default_value"), 0, fr, strength)
 
     op.video_output(os.path.join(C.RENDERS, "chunks", "c_#####"))   # 5 位帧号，文件名排序就是时间顺序
