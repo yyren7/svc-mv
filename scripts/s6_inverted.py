@@ -27,48 +27,65 @@ OUT, SHOTS = cyc.args("s6", ["fall", "hang", "macro"])
 W, D, H = S1.W, S1.D, S1.H
 
 
-def lift_group(objs, t, rise, tumble_deg, pivot=None, seed=0):
-    """Move a group of objects up by rise * t and tumble it about its centre."""
+def lift_xf(objs, t, rise, tumble_deg, seed=0, pivot=None):
+    """The move of a group at time t (0..1): up by rise * t, tumbled about its centre by up to tumble_deg * t."""
     rnd = random.Random(seed)
-    if not objs:
-        return
     if pivot is None:
         pivot = sum((o.matrix_world.translation for o in objs), Vector()) / len(objs)
     rot = Euler((math.radians(rnd.uniform(-1, 1) * tumble_deg * t), math.radians(rnd.uniform(-1, 1) * tumble_deg * t),
                  math.radians(rnd.uniform(-1, 1) * tumble_deg * t))).to_matrix().to_4x4()
-    xf = Matrix.Translation(pivot + Vector((0, 0, rise * t))) @ rot @ Matrix.Translation(-pivot)
+    return Matrix.Translation(pivot + Vector((0, 0, rise * t))) @ rot @ Matrix.Translation(-pivot)
+
+
+def lift_group(objs, t, rise, tumble_deg, pivot=None, seed=0):
+    """Move a group of objects up by rise * t and tumble it about its centre."""
+    if not objs:
+        return
+    xf = lift_xf(objs, t, rise, tumble_deg, seed, pivot)
     for o in objs:
         if o.parent is None:
             o.matrix_world = xf @ o.matrix_world
-    return pivot + Vector((0, 0, rise * t))
 
 
-def build(t=0.55):
-    info = S1.build("ura", ceiling=True)
+# what leaves its place: (name prefixes, rise, tumble in degrees, seed); two polaroids drop instead
+LIFTS = [(("desk_",), 0.10, 40, 1), (("clock",), 0.13, 160, 2), (("glass", "milk", "heart_bulb"), 0.09, 90, 3),
+         (("phone",), 0.07, 120, 4), (("print",), 0.05, 60, 5), (("notebook",), 0.12, 70, 6), (("stool",), 0.06, 25, 7)]
+
+
+def lift_groups():
+    """The groups that move, as (objects, rise, tumble_deg, seed). Call before the bulb cloud exists."""
     objs = bpy.context.scene.objects
     by = lambda *prefixes: [o for o in objs if o.name.startswith(prefixes) and o.parent is None]   # noqa: E731
-    lift_group(by("desk_"), t, 0.10, 40, seed=1)
-    lift_group(by("clock"), t, 0.13, 160, seed=2)
-    # the tumble is random: if it has turned the clock's face to a wall, turn the clock about the vertical through
-    # its dial until the face looks out of the open side, where the macro camera can stand
-    dial = info["dial_ob"]
+    groups = [(by(*names), rise, tumble, seed) for names, rise, tumble, seed in LIFTS]
+    groups += [([p], -0.08 - 0.03 * k, 140, 10 + k) for k, p in enumerate(by("polaroid")[:2])]
+    return [g for g in groups if g[0]]
+
+
+def face_out(dial):
+    """The tumble is random: if it has turned the clock's face to a wall, the turn about the vertical through its
+    dial that makes the face look out of the open side, where the macro camera can stand. (angle, axis point)."""
     bpy.context.view_layer.update()
     c = dial.matrix_world.translation.copy()
     n = (dial.matrix_world.to_3x3() @ Vector((0.0, 0.0, 1.0))).normalized()
     if n.x > 0.35 or n.y > 0.3:
-        spin = Matrix.Translation(c) @ Matrix.Rotation(math.atan2(-0.94, -0.34) - math.atan2(n.y, n.x), 4, "Z") \
-            @ Matrix.Translation(-c)
-        for o in by("clock"):
-            o.matrix_world = spin @ o.matrix_world
-        bpy.context.view_layer.update()
-    lift_group(by("glass", "milk", "heart_bulb"), t, 0.09, 90, seed=3)
-    lift_group(by("phone"), t, 0.07, 120, seed=4)
-    lift_group(by("print"), t, 0.05, 60, seed=5)
-    lift_group(by("notebook"), t, 0.12, 70, seed=6)
-    lift_group(by("stool"), t, 0.06, 25, seed=7)
-    pols = by("polaroid")
-    for k, p in enumerate(pols[:2]):
-        lift_group([p], t, -0.08 - 0.03 * k, 140, seed=10 + k)
+        return math.atan2(-0.94, -0.34) - math.atan2(n.y, n.x), c
+    return 0.0, c
+
+
+def build(t=0.55, lift=True):
+    """The room at time t of its collapse. lift=False leaves everything in place (the animatic moves it per frame)
+    but still fills the room with t's share of bulbs."""
+    info = S1.build("ura", ceiling=True)
+    groups = lift_groups()
+    if lift:
+        for objs, rise, tumble, seed in groups:
+            lift_group(objs, t, rise, tumble, seed=seed)
+        angle, c = face_out(info["dial_ob"])
+        if angle:
+            spin = Matrix.Translation(c) @ Matrix.Rotation(angle, 4, "Z") @ Matrix.Translation(-c)
+            for o in next(g[0] for g in groups if g[3] == 2):
+                o.matrix_world = spin @ o.matrix_world
+            bpy.context.view_layer.update()
     # the bulbs: a cloud rising from the floor, denser near the top; one in the milk stays
     rnd = random.Random(8)
     pts = []
@@ -82,7 +99,7 @@ def build(t=0.55):
     cyc.point_light("bulb_glow_b", (0.08, 0.04, 0.08), 6500, 1.2, radius=0.05, color="#FF3D8B")
     cyc.point_light("bulb_glow_c", (-0.09, 0.06, 0.05), 6500, 0.5, radius=0.04, color="#34E3E8")
     cyc.glass_lets_light_through()
-    return dict(info=info, cloud=cloud, dial=info["dial_ob"])
+    return dict(info=info, cloud=cloud, dial=info["dial_ob"], groups=groups)
 
 
 def main():

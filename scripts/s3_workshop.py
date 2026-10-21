@@ -191,4 +191,5 @@ def main():
     _ = heart
 
 
-main()
+if __name__ == "__main__":
+    main()

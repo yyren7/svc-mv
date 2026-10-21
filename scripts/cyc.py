@@ -182,7 +182,7 @@ def glass_lets_light_through(names=("clear_glass",)):
     return n
 
 
-def autofocus(cam, target, skip=None):
+def autofocus(cam, target, skip=None, verbose=True):
     """Focus on the first surface along the ray from the camera to target, ignoring volumes and flags."""
     skip = tuple(SKIP_FOCUS) if skip is None else tuple(skip)   # read at call time: scenes extend SKIP_FOCUS
     scene = bpy.context.scene
@@ -203,7 +203,8 @@ def autofocus(cam, target, skip=None):
         dist = (loc - origin).length
         break
     cam.data.dof.focus_distance = dist if dist else (target - origin).length
-    print(f"focus {cam.name}: {cam.data.dof.focus_distance * 1000:.1f} mm")
+    if verbose:
+        print(f"focus {cam.name}: {cam.data.dof.focus_distance * 1000:.1f} mm")
     return cam.data.dof.focus_distance
 
 
