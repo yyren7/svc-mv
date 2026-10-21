@@ -32,6 +32,16 @@ def clamp01(v):
     return 0.0 if v < 0 else 1.0 if v > 1 else v
 
 
+def _lab(c):
+    """sRGB (0..1, ...x3 array) to CIE Lab, D65."""
+    import numpy as np
+    c = np.where(c > 0.04045, ((c + 0.055) / 1.055) ** 2.4, c / 12.92)
+    xyz = c @ np.array([[0.4124, 0.2126, 0.0193], [0.3576, 0.7152, 0.1192], [0.1805, 0.0722, 0.9505]], np.float32)
+    xyz /= np.array([0.95047, 1.0, 1.08883], np.float32)
+    f = np.where(xyz > 0.008856, np.cbrt(xyz), 7.787 * xyz + 16 / 116)
+    return np.stack([116 * f[..., 1] - 16, 500 * (f[..., 0] - f[..., 1]), 200 * (f[..., 1] - f[..., 2])], -1)
+
+
 class Print:
     def __init__(self, w, h, ss=2, paper=INKS["paper"], seed=0, register=2.0):
         self.w, self.h, self.ss = w, h, ss
@@ -179,6 +189,64 @@ class Print:
 
     def text(self, name, s, face, size, xy, **kw):
         self.apply(name, self.text_mask(s, face, size, xy, **kw))
+
+    # ---------------------------------------------------------------- pictures
+    def separate(self, img, box, inks=("navy", "vermilion", "pink", "yellow"), key="black", screens=None, levels=6,
+                 solid=0.8, dark=26.0, floor=0.15, mask=None):
+        """Print a picture (an illustration) into box = (x0, y0, x1, y1). Line art and the darkest parts (grey
+        below Lab L `dark`, anything below 0.4 x that) go to the key ink as solids, so lines stay lines; every
+        other pixel takes the coverages of
+        the colour inks whose overprint on this paper comes nearest to it in Lab (steps of 1/(levels-1)). The
+        coverage maps are smoothed and anything under `floor` dropped (no speckle on near-paper colours); above
+        `solid` prints solid, the rest goes through each ink's screen. screens: ink -> (angle_deg, cell_px).
+        mask: an L image the size of img, limiting where it prints."""
+        import numpy as np
+        from itertools import product
+        from scipy.ndimage import gaussian_filter
+        from scipy.spatial import cKDTree
+        x0, y0, x1, y1 = box
+        W, H = int(self._s(x1 - x0)), int(self._s(y1 - y0))
+        pic = np.asarray(img.convert("RGB").resize((W, H), Image.LANCZOS), np.float32) / 255
+        lab = _lab(pic.reshape(-1, 3))
+        paper = np.array(rgb(self.paper), np.float32) / 255
+        ink_rgb = np.array([rgb(INKS.get(n, n)) for n in inks], np.float32) / 255
+        steps = np.linspace(0, 1, levels)
+        combos = np.array(list(product(steps, repeat=len(inks))), np.float32)
+        cols = np.tile(paper, (len(combos), 1))
+        for i in range(len(inks)):
+            cols *= 1 - combos[:, i:i + 1] * (1 - ink_rgb[i])
+        _, idx = cKDTree(_lab(cols)).query(lab)
+        cov = combos[idx].reshape(H, W, len(inks))
+        chroma = np.hypot(lab[:, 1], lab[:, 2])     # navy is as dark as line art (L 14) but not grey: keep it
+        line = ((lab[:, 0] < dark * 0.4) | ((lab[:, 0] < dark) & (chroma < 9))).reshape(H, W)
+        from scipy.ndimage import binary_dilation
+        cov[binary_dilation(line, iterations=int(self.ss * 1.5))] = 0.0   # the grey fringe of a line is line, not a tint
+        keep = None if mask is None else np.asarray(mask.convert("L").resize((W, H)), np.float32) / 255
+        screens = screens or {}
+        default = {"navy": (15, 9), "vermilion": (45, 9), "pink": (75, 8), "yellow": (0, 8), "black": (45, 9), "teal": (30, 8)}
+        layers = [(key, line.astype(np.float32))] if key else []
+        for i, name in enumerate(inks):
+            c = gaussian_filter(cov[:, :, i], self.ss * 0.8)
+            layers.append((name, np.where(c < floor, 0.0, c)))
+        for name, c in layers:
+            if keep is not None:
+                c = c * keep
+            full = Image.new("L", (self.w * self.ss, self.h * self.ss), 0)
+            full.paste(Image.fromarray(((c > solid) * 255).astype(np.uint8)), (int(self._s(x0)), int(self._s(y0))))
+            self.apply(name, full)
+            tint = np.where(c > solid, 0.0, c)
+            if not tint.any():
+                continue
+            angle, cell = screens.get(name, default.get(name, (45, 9)))
+            sx, sy = W / (x1 - x0), H / (y1 - y0)
+
+            def radius(x, y, tint=tint, cell=cell):
+                u, v = int((x - x0) * sx), int((y - y0) * sy)
+                if u < 0 or v < 0 or u >= W or v >= H:
+                    return 0
+                return cell * math.sqrt(tint[v, u] / math.pi)
+            self.halftone(name, angle, cell, radius)
+        return cov
 
     # ---------------------------------------------------------------- print marks
     def register_mark(self, name, cx, cy, r=14, width=1.6):
