@@ -48,7 +48,19 @@ def build(t=0.55):
     objs = bpy.context.scene.objects
     by = lambda *prefixes: [o for o in objs if o.name.startswith(prefixes) and o.parent is None]   # noqa: E731
     lift_group(by("desk_"), t, 0.10, 40, seed=1)
-    clock_at = lift_group(by("clock"), t, 0.13, 160, seed=2)
+    lift_group(by("clock"), t, 0.13, 160, seed=2)
+    # the tumble is random: if it has turned the clock's face to a wall, turn the clock about the vertical through
+    # its dial until the face looks out of the open side, where the macro camera can stand
+    dial = info["dial_ob"]
+    bpy.context.view_layer.update()
+    c = dial.matrix_world.translation.copy()
+    n = (dial.matrix_world.to_3x3() @ Vector((0.0, 0.0, 1.0))).normalized()
+    if n.x > 0.35 or n.y > 0.3:
+        spin = Matrix.Translation(c) @ Matrix.Rotation(math.atan2(-0.94, -0.34) - math.atan2(n.y, n.x), 4, "Z") \
+            @ Matrix.Translation(-c)
+        for o in by("clock"):
+            o.matrix_world = spin @ o.matrix_world
+        bpy.context.view_layer.update()
     lift_group(by("glass", "milk", "heart_bulb"), t, 0.09, 90, seed=3)
     lift_group(by("phone"), t, 0.07, 120, seed=4)
     lift_group(by("print"), t, 0.05, 60, seed=5)
@@ -70,21 +82,24 @@ def build(t=0.55):
     cyc.point_light("bulb_glow_b", (0.08, 0.04, 0.08), 6500, 1.2, radius=0.05, color="#FF3D8B")
     cyc.point_light("bulb_glow_c", (-0.09, 0.06, 0.05), 6500, 0.5, radius=0.04, color="#34E3E8")
     cyc.glass_lets_light_through()
-    return dict(info=info, cloud=cloud, clock=clock_at)
+    return dict(info=info, cloud=cloud, dial=info["dial_ob"])
 
 
 def main():
     info = build(0.55)
     scene = bpy.context.scene
-    clock = info["clock"]
+    bpy.context.view_layer.update()
+    dial = info["dial"].matrix_world.translation.copy()
+    face = (info["dial"].matrix_world.to_3x3() @ Vector((0.0, 0.0, 1.0))).normalized()
     # "fall": the room reads upright and the furniture falls up; "hang": the camera rolls over and the room is
-    # seen for what it is, hanging upside down; "macro": the tumbling clock among the rising bulbs
+    # seen for what it is, hanging upside down; "macro": the tumbling clock's face among the rising bulbs
+    eye = dial + face * 0.09 + Vector((0.0, 0.0, 0.01))
     cams = {
         "fall": cyc.camera("cam_fall", (0.03, -0.40, 0.11), (0.0, 0.03, 0.10), 50, 8.0),
         "hang": cyc.camera("cam_hang", (0.03, -0.40, 0.11), (0.0, 0.03, 0.10), 50, 8.0, roll_deg=180),
-        "macro": cyc.camera("cam_macro", tuple(clock + Vector((-0.03, -0.15, 0.04))), tuple(clock), 100, 8.0),
+        "macro": cyc.camera("cam_macro", tuple(eye), tuple(dial), 100, 8.0),
     }
-    cams["macro"].data.dof.focus_distance = (Vector(cams["macro"].location) - clock).length
+    cams["macro"].data.dof.focus_distance = (eye - dial).length
     haze = [scene.objects["haze"]]
     cyc.render_shots(cams, SHOTS, OUT, "s6", focus={"fall": (0.0, 0.03, 0.10), "hang": (0.0, 0.03, 0.10)},
                      hide={"macro": haze})

@@ -5,12 +5,13 @@ through the window; the iron bed, the twin-bell clock, the lit phone and the hal
 
 The same builder makes S6 (the inverted bedroom) with palette="ura". Metres, Z up, the open side faces -Y.
 """
+import colorsys
 import math
 import os
 import sys
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import assets as A  # noqa: E402
@@ -32,6 +33,75 @@ PALETTES = {
 }
 BED = (-0.02, D / 2 - 0.0415 - 0.004, 0.0)   # the bed's centre on the floor, along X, head to the right
 BED_BASE = 0.041                              # the wire mesh of old_bed_frame, probed at 1:12
+
+
+def repaint_green(mat, hexstr, value=7.0):
+    """Turn the green enamel in a model's texture into another colour, keeping its wear; the chrome and the cream
+    dial are not green and keep theirs. value lifts the dark green to the new paint's brightness."""
+    nt = mat.node_tree
+    b = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    src = b.inputs["Base Color"].links[0].from_socket
+    sep = nt.nodes.new("ShaderNodeSeparateColor")
+    nt.links.new(src, sep.inputs["Color"])
+    green = T._math(nt, "MULTIPLY", T._math(nt, "SUBTRACT", sep.outputs["Green"],
+                                            T._math(nt, "MAXIMUM", sep.outputs["Red"], sep.outputs["Blue"])), 8.0, clamp=True)
+    h, s, v = colorsys.rgb_to_hsv(*m.srgb(hexstr)[:3])
+    hsv = nt.nodes.new("ShaderNodeHueSaturation")
+    hsv.inputs["Hue"].default_value = (0.5 + h - 0.43) % 1.0     # the enamel's green sits at hue 0.43
+    hsv.inputs["Saturation"].default_value = 1.3
+    hsv.inputs["Value"].default_value = value
+    nt.links.new(src, hsv.inputs["Color"])
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    nt.links.new(green, mix.inputs["Factor"])
+    nt.links.new(src, mix.inputs["A"])
+    nt.links.new(hsv.outputs["Color"], mix.inputs["B"])
+    nt.links.new(mix.outputs["Result"], b.inputs["Base Color"])
+
+
+def bedside_clock(loc, yaw_deg=-28.0, time=(6, 59, 20), red="#E0301E"):
+    """Poly Haven's twin-bell alarm clock (alarm_clock_01) at 1:12, its green tin repainted in the set's vermilion
+    and its hands put to the time. Returns (top object, dial empty): the empty sits on the dial centre with its Z
+    out of the face, and goes wherever the clock goes (S6 throws it)."""
+    root = T.model("alarm_clock_01", name="clock", pick="alarm_clock_01")
+    top = T.place(root, loc, yaw_deg=yaw_deg)
+    bpy.context.view_layer.update()
+    meshes = [o for o in root.children_recursive if o.type == "MESH"]
+    part = lambda key: next(o for o in meshes if o.name.startswith("alarm_clock_01_" + key))   # noqa: E731
+    for mat in {ms.material for o in meshes for ms in o.material_slots if ms.material}:
+        if not mat.name.startswith("alarm_clock_01_glass"):
+            repaint_green(mat, red)
+    n = (root.matrix_world.to_3x3() @ Vector((0.0, -1.0, 0.0))).normalized()   # modelled facing -Y
+    deps = bpy.context.evaluated_depsgraph_get()
+
+    def posed(ob):
+        """World vertices as rendered: the model's rig poses the hands through an armature modifier."""
+        ev = ob.evaluated_get(deps)
+        me = ev.to_mesh()
+        pts = [ev.matrix_world @ v.co for v in me.vertices]
+        ev.to_mesh_clear()
+        return pts
+    glass = part("glass")
+    gc = sum((glass.matrix_world @ Vector(c) for c in glass.bound_box), Vector()) / 8
+    hand_pts = posed(part("minute_hand"))
+    plane = sum(hand_pts, Vector()) / len(hand_pts)
+    c = gc - n * (gc - plane).dot(n)                 # the hands' axis, where it meets their plane
+    up = (Vector((0.0, 0.0, 1.0)) - n * n.z).normalized()
+    right = (-n).cross(up)
+    hh, mi, se = time
+    turns = {"hour_hand": ((hh % 12) + mi / 60 + se / 3600) / 12, "minute_hand": (mi + se / 60) / 60, "second_hand": se / 60}
+    for key, turn in turns.items():
+        hand = part(key)
+        tip = max((p - c - n * (p - c).dot(n) for p in posed(hand)), key=lambda q: q.length)
+        now = math.atan2(tip.dot(right), tip.dot(up))
+        spin = Matrix.Translation(c) @ Matrix.Rotation(-(2 * math.pi * turn - now), 4, n) @ Matrix.Translation(-c)
+        hand.matrix_world = spin @ hand.matrix_world
+    dial = bpy.data.objects.new("clock_dial", None)
+    m._link(dial)
+    dial.matrix_world = Matrix.Translation(c) @ Vector((0.0, 0.0, 1.0)).rotation_difference(n).to_matrix().to_4x4()
+    dial.parent = top
+    dial.matrix_parent_inverse = top.matrix_world.inverted()
+    return top, dial
 
 
 def build(palette="omote", ceiling=False):
@@ -71,10 +141,11 @@ def build(palette="omote", ceiling=False):
                         ms.material.node_tree.links.new(hs.outputs["Color"], b.inputs["Base Color"])
     bed = P.iron_bed(BED, length=0.160, width=0.070, head=+1, sheet=sheet, duvet=duvet, pillow_mat=pillow,
                      mattress_z=BED_BASE, frame=False)
-    stool_top = 0.046
-    stool = A.rounded_box("stool", (0.032, 0.032, stool_top), 0.001, [A.stained_wood("#8A6A48", (), ())])
-    stool.location = (0.105, 0.072, stool_top / 2)
-    clock, dial = P.alarm_clock((0.105, 0.072, stool_top), size=0.016, time=(6, 59, 20), red=pal["clock"], yaw_deg=-28)
+    stool = T.model("side_table_01", name="stool")      # a bedside table; S6 lifts it by this name
+    T.place(stool, (0.105, 0.085, 0.0))
+    stool_top = T.model_bounds(stool)[1].z
+    clock, dial_ob = bedside_clock((0.105, 0.082, stool_top), yaw_deg=-28, time=(6, 59, 20), red=pal["clock"])
+    dial = dial_ob.matrix_world.translation.copy()
 
     # the desk on the right, front: phone, milk, a stack of proofs
     desk = T.model("small_wooden_table_01", name="desk")
@@ -119,21 +190,22 @@ def build(palette="omote", ceiling=False):
     cyc.point_light("phone_glow", (0.082, -0.058, desk_top + 0.012), 6500, 0.02, radius=0.004)
     cyc.glass_lets_light_through()
     cyc.post(bloom=0.4 if palette == "omote" else 0.6, threshold=1.0 if palette == "omote" else 0.7)
-    return dict(dial=dial, pillow=bed["pillow_top"], bed_front=bed["front_y"], desk_top=desk_top, walls=walls)
+    return dict(dial=dial, dial_ob=dial_ob, pillow=bed["pillow_top"], bed_front=bed["front_y"], desk_top=desk_top,
+                walls=walls)
 
 
 def main():
     info = build("omote")
     dial = info["dial"]
-    n = Vector((-math.sin(math.radians(28)), -math.cos(math.radians(28)), 0.0))   # the dial's normal (yaw -28)
-    eye_clock = dial + n * 0.15 + Vector((0, 0, 0.018))
+    n = (info["dial_ob"].matrix_world.to_3x3() @ Vector((0.0, 0.0, 1.0))).normalized()
+    eye_clock = dial + n * 0.10 + Vector((0, 0, 0.012))
     cams = {
         "clock": cyc.camera("cam_clock", tuple(eye_clock), tuple(dial), 100, 8.0),
         "wide": cyc.camera("cam_wide", (0.02, -0.47, 0.15), (0.0, 0.02, 0.09), 24, 8.0),
         "pov": cyc.camera("cam_pov", tuple(info["pillow"]), (-0.155, 0.01, 0.105), 50, 5.6),
     }
     focus = {"clock": dial, "wide": (0.0, 0.0, 0.05), "pov": (-0.19, 0.01, 0.105)}
-    cyc.SKIP_FOCUS = cyc.SKIP_FOCUS + ("clock_glass", "window_glass", "curtain")
+    cyc.SKIP_FOCUS = cyc.SKIP_FOCUS + ("alarm_clock_01_glass", "window_glass", "curtain")
     objs = bpy.context.scene.objects
     haze, rim = [objs["haze"]], [objs["rim_pink"]]
     # the rim lamp glows as a blob in the haze of the wide shot (lamps ignore visible_volume_scatter), so it

@@ -216,7 +216,7 @@ def main():
     cyc.SKIP_FOCUS = cyc.SKIP_FOCUS + ("jar", "petri")
     eye = Vector(cams["orbit"].location)
     cams["orbit"].data.dof.focus_distance = (Vector((TOP.x, TOP.y, eye.z)) - eye).length - JAR_R
-    cyc.render_shots(cams, SHOTS, OUT, "s2", focus={"macro": bulb})
+    cyc.render_shots(cams, SHOTS, OUT, "s2", focus={"macro": bulb}, exposure={"macro": -0.9})
 
 
 if __name__ == "__main__":

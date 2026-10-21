@@ -1,9 +1,10 @@
-"""S4「雨夜的电话亭」: the one realistic passage. A 1:12 alley corner in heavy rain: wet asphalt and a strip
-of brick pavement, plank walls with soaked posters, a corrugated awning dripping, a Japanese public phone
-booth lit from inside with a payphone (Poly Haven's Korean payphone, its handset taken off the hook and hung
-on a slack coiled cord), a clear vinyl umbrella upside down with rain pooled in it, crates and a rubbish bag
-by the wall, a vending machine far down the alley, infected heart bulbs glowing pink in the puddles.
-Surfaces and props are CC0 Poly Haven assets (scripts/fetch_assets.py). Cycles stills.
+"""S4「雨夜的电话亭」: the one realistic passage. A 1:12 alley corner in heavy rain: wet asphalt with rain rings
+in its puddles and a strip of brick pavement, plank walls with soaked posters, a corrugated awning dripping, a
+Japanese public phone booth lit from inside with the green payphone (its handset off the hook, hanging on a
+slack coiled cord), a clear vinyl umbrella upside down with rain pooled in it, crates and a rubbish bag by the
+wall, two lit signs and a red lantern, a vending machine at the far end, infected heart bulbs glowing pink in
+the puddles. Surfaces and most props are CC0 Poly Haven assets, the payphone, vending machine and lantern are
+CC BY (docs/CREDITS.md; scripts/fetch_assets.py fetches them). Cycles stills.
 
     blender -b -P scripts/s4_booth.py -- [renders/s4] [long handset umbrella]
 
@@ -39,14 +40,6 @@ UMBRELLA = Vector((-0.15, -0.02, 0.0))
 def water():
     mat, b = A._principled("water", **{"Base Color": (1, 1, 1, 1), "Transmission Weight": 1.0, "Roughness": 0.0,
                                        "IOR": 1.33})
-    return mat
-
-
-def vinyl():
-    """Clear umbrella film: slightly milky, crumpled."""
-    mat, b = A._principled("vinyl", **{"Base Color": (0.92, 0.94, 0.96, 1.0), "Transmission Weight": 1.0,
-                                       "Roughness": 0.10, "IOR": 1.45, "Coat Weight": 0.3})
-    A._bump(mat, b, 40.0, 0.5, detail=3.0, distance=0.0015)
     return mat
 
 
@@ -87,7 +80,7 @@ def materials():
         asphalt=T.pbr("asphalt_02", rough=0.45, scale=1 / 12, name="wet_asphalt"),
         brick=T.pbr("brick_wall_001", rough=0.5, scale=1 / 12, rotation_deg=90, name="wet_brick"),
         kerb=T.pbr("brushed_concrete", tint="#8E8B84", rough=0.3, coat=0.5, scale=1 / 12),
-        planks=T.pbr("dark_wooden_planks", rough=0.45, coat=0.3, scale=1 / 10, rotation_deg=90, name="wet_planks"),
+        planks=T.pbr("dark_wooden_planks", rough=0.4, scale=1 / 10, rotation_deg=90, name="wet_planks"),
         backwall=T.pbr("peeling_painted_wall", tint="#B9B2A4", rough=0.6, scale=1 / 10),
         awning=T.pbr("corrugated_iron_02", scale=1 / 10, rough=0.35, coat=0.4, name="awning_iron"),
         vm=T.pbr("rusty_painted_metal", flat=("#C8CBD0", 0.75), rough=0.4, scale=1 / 8, name="vm_body"),
@@ -95,8 +88,8 @@ def materials():
 
 
 def wet_ground(M):
-    T.wet(M["asphalt"], cover=0.5, scale=6.0, seed=1.3, dark=0.32, puddle_dark=0.18, film_rough=0.05)
-    T.wet(M["brick"], cover=0.3, scale=9.0, seed=4.1, dark=0.5, puddle_dark=0.3, film_rough=0.06)
+    T.wet(M["asphalt"], cover=0.5, scale=6.0, seed=1.3, dark=0.32, puddle_dark=0.18, film_rough=0.04, ripple=1.0)
+    T.wet(M["brick"], cover=0.3, scale=9.0, seed=4.1, dark=0.5, puddle_dark=0.3, film_rough=0.05, ripple=0.8)
     T.wet(M["kerb"], cover=0.1, scale=9.0, seed=2.2)
 
 
@@ -151,8 +144,12 @@ def alley(M):
     lamp = T.model("street_lamp_02", name="street_lamp")
     T.place(lamp, (0.20, 0.95, 0.004))
     street_lamp_on(lamp)
-    vending((0.0, 0.78))
+    vending(0.86)
     lantern_and_door()
+    signboard("sign_snack", [("スナック", 0.009), ("こころ", 0.022)], -0.25, +1, 0.66, 0.152, w=0.04, h=0.13, glow=1.0,
+              ink_glow=0.2)
+    signboard("sign_tabaco", [("たばこ", 0.015)], 0.25, -1, 0.50, 0.17, face="#C9281D", ink="#FBF7EE", h=0.07,
+              glow=2.0, ink_glow=3.0)
 
 
 # ---------------------------------------------------------------- the booth
@@ -280,9 +277,10 @@ def booth():
     return root
 
 
-def vinyl_beads():
-    """Clear umbrella vinyl after rain: a thin see-through film with a Fresnel reflection, a little milky,
-    covered in water beads (Voronoi cells, in the canopy's own metres) that catch the lights."""
+def vinyl_film(wave_scale=250.0):
+    """Clear umbrella vinyl: a thin see-through film with a Fresnel reflection, a little milky, never quite flat
+    (slow waves a few centimetres across from the folding, `wave_scale` per metre of the canopy's own space).
+    The rain on it is real geometry; at 1:12 a bead is a few pixels, so it is not faked in the shader."""
     mat = bpy.data.materials.new("vinyl")
     try:
         mat.use_nodes = True
@@ -294,35 +292,14 @@ def vinyl_beads():
             nt.nodes.remove(n)
     out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
     tc = nt.nodes.new("ShaderNodeTexCoord")
-    vo = nt.nodes.new("ShaderNodeTexVoronoi")
-    vo.inputs["Scale"].default_value = 260.0          # a bead every ~4 mm of real vinyl
-    vo.inputs["Randomness"].default_value = 0.9
-    nt.links.new(tc.outputs["Object"], vo.inputs["Vector"])
-    sep = nt.nodes.new("ShaderNodeSeparateColor")      # a random value per cell: bead size, some cells dry
-    nt.links.new(vo.outputs["Color"], sep.inputs["Color"])
-    rad = nt.nodes.new("ShaderNodeMapRange")
-    rad.inputs["To Min"].default_value, rad.inputs["To Max"].default_value = 0.08, 0.24
-    nt.links.new(sep.outputs["Red"], rad.inputs["Value"])
-    ratio = nt.nodes.new("ShaderNodeMath")
-    ratio.operation = "DIVIDE"
-    nt.links.new(vo.outputs["Distance"], ratio.inputs[0])
-    nt.links.new(rad.outputs["Result"], ratio.inputs[1])
-    dome = nt.nodes.new("ShaderNodeMapRange")          # 1 at the bead centre, 0 at its edge, a rounded cap
-    dome.interpolation_type = "SMOOTHSTEP"
-    dome.inputs["From Min"].default_value, dome.inputs["From Max"].default_value = 1.0, 0.0
-    nt.links.new(ratio.outputs[0], dome.inputs["Value"])
-    keep = nt.nodes.new("ShaderNodeMath")
-    keep.operation = "GREATER_THAN"
-    keep.inputs[1].default_value = 0.55
-    nt.links.new(sep.outputs["Green"], keep.inputs[0])
-    bead = nt.nodes.new("ShaderNodeMath")
-    bead.operation = "MULTIPLY"
-    nt.links.new(dome.outputs["Result"], bead.inputs[0])
-    nt.links.new(keep.outputs[0], bead.inputs[1])
+    wave = nt.nodes.new("ShaderNodeTexNoise")
+    wave.inputs["Scale"].default_value = wave_scale
+    wave.inputs["Detail"].default_value = 2.0
+    nt.links.new(tc.outputs["Object"], wave.inputs["Vector"])
     bp = nt.nodes.new("ShaderNodeBump")
-    bp.inputs["Strength"].default_value = 0.6
+    bp.inputs["Strength"].default_value = 0.8
     bp.inputs["Distance"].default_value = 0.0004
-    nt.links.new(bead.outputs[0], bp.inputs["Height"])
+    nt.links.new(wave.outputs["Fac"], bp.inputs["Height"])
     tr = nt.nodes.new("ShaderNodeBsdfTransparent")
     tr.inputs["Color"].default_value = (0.93, 0.95, 0.96, 1.0)
     gl = None
@@ -334,8 +311,8 @@ def vinyl_beads():
             continue
     gl.inputs["Roughness"].default_value = 0.02
     nt.links.new(bp.outputs["Normal"], gl.inputs["Normal"])
-    fr = nt.nodes.new("ShaderNodeFresnel")
-    fr.inputs["IOR"].default_value = 1.45
+    fr = nt.nodes.new("ShaderNodeFresnel")              # two faces of film: a little more than one surface's 4 %
+    fr.inputs["IOR"].default_value = 1.55
     nt.links.new(bp.outputs["Normal"], fr.inputs["Normal"])
     film = nt.nodes.new("ShaderNodeMixShader")
     nt.links.new(fr.outputs[0], film.inputs[0])
@@ -351,105 +328,200 @@ def vinyl_beads():
     return mat
 
 
-def umbrella(loc, yaw_deg=205.0, tilt_deg=26.0):
-    """al_syd's umbrella (CC BY) made a clear vinyl one and left upside down on the wet ground: canopy a bowl,
-    the vermilion J-handle up in the air, rain pooled in it."""
+def pool_water():
+    """Rain water standing in the umbrella, rings running across it."""
+    mat, b = A._principled("water_pool", **{"Base Color": (1, 1, 1, 1), "Transmission Weight": 1.0, "Roughness": 0.0,
+                                            "IOR": 1.33})
+    nt = mat.node_tree
+    nt.links.new(T.ripple_normal(nt, T.ripple_height(nt, 420.0)), b.inputs["Normal"])
+    return mat
+
+
+def _drop_template(seg=10, rings=4):
+    """A water drop sitting on a surface: a dome of unit radius on a flat base at z = 0. Returns (verts, faces)."""
+    verts = [(0.0, 0.0, 0.0)]
+    for i in range(rings):
+        e = 0.5 * math.pi * i / rings
+        verts += [(math.cos(e) * math.cos(2 * math.pi * k / seg), math.cos(e) * math.sin(2 * math.pi * k / seg),
+                   math.sin(e)) for k in range(seg)]
+    verts.append((0.0, 0.0, 1.0))
+    top = len(verts) - 1
+
+    def ring(i, k):
+        return 1 + i * seg + k % seg
+    faces = [(0, ring(0, k + 1), ring(0, k)) for k in range(seg)]
+    for i in range(rings - 1):
+        faces += [(ring(i, k), ring(i, k + 1), ring(i + 1, k + 1), ring(i + 1, k)) for k in range(seg)]
+    faces += [(ring(rings - 1, k), ring(rings - 1, k + 1), top) for k in range(seg)]
+    return verts, faces
+
+
+def vinyl_umbrella(loc, yaw_deg=205.0, tilt_deg=27.0, seed=3, drops=1800):
+    """A convenience-store clear umbrella (ビニール傘) built to its real measure: eight 60 cm steel ribs under a
+    taut clear vinyl dome, white plastic rib tips, runner and top cap, a steel shaft and a vermilion J-handle.
+    Built upright (apex at the origin, the shaft down -Z), then turned over and laid on the wet ground on the low
+    side of its canopy, the handle in the air; rain beaded on the film and pooled in the bowl."""
+    from bisect import bisect_left
     from mathutils.geometry import convex_hull_2d
-    pivot, meshes = T.glb("umbrella_alsyd", name="umbrella", scale=1.0 / 12)
-    bpy.context.view_layer.update()
-    frame = next(o for o in meshes if o.name.startswith("Helix"))
-    canopy = next(o for o in meshes if o.name.startswith("Line"))
-    canopy.name = "umbrella_canopy"
-    inv = pivot.matrix_world.inverted()
+    s = 1.0 / 12
+    RS, RIB, N = 0.70 * s, 0.60 * s, 8
+    alpha = RIB / RS                      # the rib tips' polar angle on the canopy's sphere, 49 degrees
+    psi0, scallop = 0.012, 0.035          # the opening under the top cap; how far the hem rises between tips
+    C = Vector((0.0, 0.0, -RS))
 
-    def native(o):
-        mw = inv @ o.matrix_world
-        return [mw @ v.co for v in o.data.vertices]
+    def sph(psi, th):
+        return Vector((RS * math.sin(psi) * math.cos(th), RS * math.sin(psi) * math.sin(th), -RS * (1 - math.cos(psi))))
 
-    cpts, fpts = native(canopy), native(frame)
-    cc = sum(cpts, Vector()) / len(cpts)
-    handle_end = max(fpts, key=lambda p: (p - cc).length)
-    d = (handle_end - cc).normalized()
-    # the handle is the last 20 cm of the frame along the shaft; in the frame's own coordinates for the shader
-    to_frame = (inv @ frame.matrix_world).inverted()
-    he_l, cc_l = to_frame @ handle_end, to_frame @ cc
-    d_l = (he_l - cc_l).normalized()
-    per_m = (he_l - cc_l).length / (handle_end - cc).length
-    t_h = (he_l - cc_l).length - 0.20 * per_m
-    fm = bpy.data.materials.new("umbrella_frame")
-    try:
-        fm.use_nodes = True
-    except AttributeError:
-        pass
-    nt = fm.node_tree
-    b = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
-    tc = nt.nodes.new("ShaderNodeTexCoord")
-    sub = nt.nodes.new("ShaderNodeVectorMath")
-    sub.operation = "SUBTRACT"
-    sub.inputs[1].default_value = tuple(cc_l)
-    nt.links.new(tc.outputs["Object"], sub.inputs[0])
-    dot = nt.nodes.new("ShaderNodeVectorMath")
-    dot.operation = "DOT_PRODUCT"
-    dot.inputs[1].default_value = tuple(d_l)
-    nt.links.new(sub.outputs[0], dot.inputs[0])
-    gt = nt.nodes.new("ShaderNodeMath")
-    gt.operation = "GREATER_THAN"
-    gt.inputs[1].default_value = t_h
-    nt.links.new(dot.outputs["Value"], gt.inputs[0])
-    for name, metal, red in (("Base Color", (0.55, 0.56, 0.58, 1.0), m.srgb("#C4301E")), ("Metallic", 1.0, 0.0),
-                             ("Roughness", 0.28, 0.32)):
-        mx = nt.nodes.new("ShaderNodeMix")
-        mx.data_type = "RGBA" if name == "Base Color" else "FLOAT"
-        nt.links.new(gt.outputs[0], mx.inputs["Factor"])
-        if name == "Base Color":
-            mx.inputs["A"].default_value, mx.inputs["B"].default_value = metal, red
-            nt.links.new(mx.outputs["Result"], b.inputs[name])
-        else:
-            mx.inputs[2].default_value, mx.inputs[3].default_value = metal, red
-            nt.links.new(mx.outputs[0], b.inputs[name])
-    b.inputs["Coat Weight"].default_value = 0.5
-    frame.data.materials.clear()
-    frame.data.materials.append(fm)
-    canopy.data.materials.clear()
-    canopy.data.materials.append(vinyl_beads())
-    # turn it over: the canopy-to-handle direction points up, leaning towards yaw_deg
+    root = bpy.data.objects.new("umbrella", None)
+    m._link(root)
+    # the canopy: each gore is ruled between its two ribs, chord by chord, and gives a little towards the hem
+    bm = bmesh.new()
+    NU, NP = 14, 26
+    hem = []
+    for k in range(N):
+        t0, t1 = 2 * math.pi * k / N, 2 * math.pi * (k + 1) / N
+        grid = []
+        for j in range(NP + 1):
+            row = []
+            for i in range(NU + 1):
+                u = i / NU
+                psi = psi0 + (alpha - scallop * math.sin(math.pi * u) - psi0) * j / NP
+                p = sph(psi, t0).lerp(sph(psi, t1), u)
+                p -= (p - C).normalized() * (0.004 * RS * math.sin(math.pi * u) * j / NP)
+                row.append(bm.verts.new(p))
+            grid.append(row)
+        hem += [v.co.copy() for v in grid[NP][:-1]]
+        for j in range(NP):
+            for i in range(NU):
+                bm.faces.new((grid[j][i], grid[j + 1][i], grid[j + 1][i + 1], grid[j][i + 1]))
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-8)
+    step = 2 * math.pi / N
+
+    def on_rib(v):
+        a = math.atan2(v.co.y, v.co.x) % step
+        return min(a, step - a) < 1e-6
+    for f in bm.faces:
+        f.smooth = True
+    for e in bm.edges:
+        if on_rib(e.verts[0]) and on_rib(e.verts[1]):
+            e.smooth = False                  # the film folds over each rib
+    me = bpy.data.meshes.new("umbrella_canopy")
+    bm.to_mesh(me)
+    bm.free()
+    canopy = A._obj("umbrella_canopy", me, [vinyl_film()], root)
+
+    # the frame: ribs just under the film, stretchers from the runner, white plastic tips, cap, notch and runner
+    steel = A.metal("#34373A", 0.35, "rib_steel")
+    white = A.plastic("#F1EFE9", 0.35, "umbrella_white")
+    r_rib = 0.0013 * s
+    psi_a = 0.27 * s / RS                 # the stretchers meet the ribs 27 cm out
+    a0 = sph(psi_a, 0.0) - (sph(psi_a, 0.0) - C).normalized() * 2 * r_rib
+    r_run = 0.0095 * s
+    z_run = a0.z - math.sqrt(max((0.29 * s) ** 2 - (a0.xy.length - r_run) ** 2, 1e-12))
+    for k in range(N):
+        th = 2 * math.pi * k / N
+        pts = []
+        for j in range(25):
+            p = sph(psi0 * 0.5 + (alpha - psi0 * 0.5) * j / 24, th)
+            pts.append(tuple(p - (p - C).normalized() * 1.4 * r_rib))
+        A.tube_along("umbrella_rib", pts, r_rib, [steel], root, resolution=2)
+        a = Matrix.Rotation(th, 3, "Z") @ a0
+        r = Vector((r_run * math.cos(th), r_run * math.sin(th), z_run))
+        A.tube_along("umbrella_stretcher", [tuple(r), tuple(r.lerp(a, 0.5)), tuple(a)], 0.0009 * s, [steel], root,
+                     resolution=2)
+        tip = sph(alpha, th)
+        d = Vector((math.cos(alpha) * math.cos(th), math.cos(alpha) * math.sin(th), -math.sin(alpha)))
+        cap = A.lathe("umbrella_tip", [(0.0001 * s, -0.012 * s), (0.0034 * s, -0.012 * s), (0.0036 * s, 0.004 * s),
+                                       (0.0022 * s, 0.009 * s), (0.0001 * s, 0.010 * s)], 12, [white], root)
+        cap.matrix_basis = Matrix.Translation(tip - (tip - C).normalized() * r_rib) \
+            @ Vector((0.0, 0.0, 1.0)).rotation_difference(d).to_matrix().to_4x4()
+    A.lathe("umbrella_cap", [(0.0001 * s, -0.004 * s), (0.010 * s, -0.004 * s), (0.010 * s, 0.010 * s),
+                             (0.006 * s, 0.028 * s), (0.0001 * s, 0.032 * s)], 20, [white], root)
+    A.lathe("umbrella_notch", [(0.0001 * s, -0.03 * s), (0.012 * s, -0.03 * s), (0.013 * s, -0.004 * s),
+                               (0.0001 * s, -0.004 * s)], 20, [white], root)
+    A.lathe("umbrella_runner", [(0.0001 * s, z_run - 0.02 * s), (r_run, z_run - 0.02 * s), (r_run * 1.1, z_run + 0.015 * s),
+                                (0.0001 * s, z_run + 0.02 * s)], 20, [white], root)
+    z_h = -0.66 * s
+    A.lathe("umbrella_shaft", [(0.0001 * s, z_h), (0.0045 * s, z_h), (0.0045 * s, 0.0), (0.0001 * s, 0.0)], 16,
+            [A.metal("#C3C6CA", 0.18, "shaft_steel")], root)
+    # the J-handle: a 10 cm grip, then the hook
+    hook = 0.032 * s
+    e = Vector((0.0, 0.0, z_h - 0.10 * s))
+    pts = [(0.0, 0.0, z_h + 0.01 * s), (0.0, 0.0, z_h - 0.05 * s), tuple(e)]
+    for q in range(1, 13):
+        ph = math.pi * q / 12
+        pts.append((hook - hook * math.cos(ph), 0.0, e.z - hook * math.sin(ph)))
+    pts.append((2 * hook, 0.0, e.z + 0.012 * s))
+    lacquer = A.plastic("#D0341F", 0.22, "umbrella_handle")
+    next(n for n in lacquer.node_tree.nodes if n.type == "BSDF_PRINCIPLED").inputs["Coat Weight"].default_value = 0.8
+    A.tube_along("umbrella_handle", pts, 0.0105 * s, [lacquer], root, resolution=4)
+
+    # rain beaded on the film: real drops, most on the inside (it faces the sky now), a few under the hem
+    rnd = random.Random(seed)
+    me.calc_loop_triangles()
+    tris, acc, total = list(me.loop_triangles), [], 0.0
+    for lt in tris:
+        total += lt.area
+        acc.append(total)
+    dv, df = _drop_template()
+    verts, faces = [], []
+    for _ in range(drops):
+        lt = tris[min(bisect_left(acc, rnd.random() * total), len(tris) - 1)]
+        a, b, c = (me.vertices[i].co for i in lt.vertices)
+        r1, r2 = rnd.random(), rnd.random()
+        if r1 + r2 > 1.0:
+            r1, r2 = 1.0 - r1, 1.0 - r2
+        p = a + (b - a) * r1 + (c - a) * r2
+        n = Vector(lt.normal)
+        if rnd.random() < 0.72:
+            n = -n                        # the face normals point out of the dome; the inside is up now
+        r = math.exp(rnd.uniform(math.log(0.0010 * s), math.log(0.0035 * s)))   # beads 2-7 mm across
+        rot = Vector((0.0, 0.0, 1.0)).rotation_difference(n).to_matrix() @ Matrix.Rotation(rnd.uniform(0, 2 * math.pi), 3, "Z")
+        sx = rnd.uniform(0.85, 1.2)
+        base = len(verts)
+        for x, y, z in dv:
+            verts.append(tuple(p + n * 0.00001 + rot @ Vector((x * r * sx, y * r, z * r * 0.75))))
+        faces += [tuple(base + i for i in f) for f in df]
+    dm = bpy.data.meshes.new("umbrella_drops")
+    dm.from_pydata(verts, [], faces)
+    for poly in dm.polygons:
+        poly.use_smooth = True
+    A._obj("umbrella_drops", dm, [water()], root)
+
+    # turn it over: the shaft up, leaning tilt_deg towards yaw_deg; then down onto the ground
     az, tl = math.radians(yaw_deg), math.radians(tilt_deg)
     up = Vector((math.sin(tl) * math.cos(az), math.sin(tl) * math.sin(az), math.cos(tl)))
-    pivot.rotation_mode = "QUATERNION"
-    pivot.rotation_quaternion = d.rotation_difference(up)
-    pivot.location = loc
+    root.rotation_mode = "QUATERNION"
+    root.rotation_quaternion = Vector((0.0, 0.0, -1.0)).rotation_difference(up)
+    root.location = loc
     bpy.context.view_layer.update()
-    cw = [canopy.matrix_world @ v.co for v in canopy.data.vertices]
-    fw = [frame.matrix_world @ v.co for v in frame.data.vertices]
-    zmin = min(p.z for p in cw + fw)
-    pivot.location.z += loc[2] - zmin + 0.0002
+    low = min((ob.matrix_world @ v.co).z for ob in root.children if ob.type == "MESH" for v in ob.data.vertices)
+    root.location.z += loc[2] - low + 0.00003
     bpy.context.view_layer.update()
-    cw = [canopy.matrix_world @ v.co for v in canopy.data.vertices]
-    # the pool: water level a third of the way up the bowl, its rim where the canopy crosses that level
-    axis = pivot.matrix_world.to_3x3() @ d
-    axis.normalize()
-    base = min(cw, key=lambda p: p.z)
-    radial = sorted(cw, key=lambda p: ((p - base) - axis * (p - base).dot(axis)).length)
-    rim = radial[int(len(radial) * 0.9):]
-    z_rim = min(p.z for p in rim)
-    z_w = base.z + 0.38 * (z_rim - base.z)
+    # the pool: rain in the bottom of the bowl, as deep as the hem lets it be before it spills
+    cw = [canopy.matrix_world @ v.co for v in me.vertices]
+    z_low = min(p.z for p in cw)
+    z_spill = min((root.matrix_world @ h).z for h in hem)
+    z_w = z_low + min(0.0022, 0.8 * (z_spill - z_low))
     below = [p for p in cw if p.z <= z_w]
-    if len(below) >= 3:
+    print(f"umbrella: pool {1000 * (z_w - z_low):.2f} mm deep, hem spills at {1000 * (z_spill - z_low):.2f} mm, "
+          f"{len(below)} canopy points under water")
+    if len(below) >= 3 and z_w > z_low + 0.0003:
         hull = [below[i] for i in convex_hull_2d([p.xy for p in below])]
         cen = sum((p.xy for p in hull), Vector((0.0, 0.0))) / len(hull)
-        poly = [cen + (p.xy - cen) * 0.95 for p in hull]
         bm = bmesh.new()
-        bm.faces.new([bm.verts.new((p.x, p.y, z_w)) for p in poly])
-        me = bpy.data.meshes.new("umbrella_water")
-        bm.to_mesh(me)
+        bm.faces.new([bm.verts.new((*(cen + (p.xy - cen) * 0.985), z_w)) for p in hull])
+        pm = bpy.data.meshes.new("umbrella_water")
+        bm.to_mesh(pm)
         bm.free()
-        pool = A._obj("umbrella_water", me, [water()])
+        pool = A._obj("umbrella_water", pm, [pool_water()])
         pool.modifiers.new("solid", "SOLIDIFY").thickness = 0.0012
-    return pivot
+    return root
 
 
-def vending(loc_xy, wall_x=0.25, base_z=0.004):
-    """Watanuki_San's red vending machine (CC BY), back to the right wall, lit for the night."""
+def vending(y, wall_x=-0.25, facing_deg=-25.0, base_z=0.004):
+    """Watanuki_San's red vending machine (CC BY) far down the alley, back to the left wall, its lit front turned
+    across the alley and a little towards the mouth: the cold white light the script puts at the end."""
     vm, meshes = T.glb("red_vending", name="vending", scale=1.0 / 12)
     for ob in list(meshes):
         if any(ms.material and ms.material.name.startswith("Concrete_Floor") for ms in ob.material_slots):
@@ -459,10 +531,14 @@ def vending(loc_xy, wall_x=0.25, base_z=0.004):
     lo, hi = T.model_bounds(vm)
     panel = next(o for o in meshes if any(ms.material and ms.material.name.startswith("Vending_1_light") for ms in o.material_slots))
     pc = sum((panel.matrix_world @ Vector(c) for c in panel.bound_box), Vector()) / 8
-    front_plus_x = pc.x > (lo.x + hi.x) / 2
-    vm.rotation_euler.z = math.pi if front_plus_x else 0.0    # the lit front faces -x, into the alley
+    native = 0.0 if pc.x > (lo.x + hi.x) / 2 else 180.0     # the lit front faces +x or -x as modelled
     depth = hi.x - lo.x
-    vm.location = (wall_x - depth / 2 - 0.002, loc_xy[1], base_z)
+    vm.rotation_euler.z = math.radians(facing_deg - native)
+    bpy.context.view_layer.update()
+    lo, hi = T.model_bounds(vm)
+    side = 1 if wall_x < 0 else -1
+    spot = Vector((wall_x + side * ((hi.x - lo.x) / 2 + 0.002), y, base_z))
+    vm.location += spot - Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
     for mat in {ms.material for o in meshes for ms in o.material_slots if ms.material}:
         b = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
         if b is None:
@@ -473,10 +549,50 @@ def vending(loc_xy, wall_x=0.25, base_z=0.004):
         elif mat.name.startswith(("Vending_1_sign", "Vending_price")) and b.inputs["Base Color"].links:
             mat.node_tree.links.new(b.inputs["Base Color"].links[0].from_socket, b.inputs["Emission Color"])
             b.inputs["Emission Strength"].default_value = 2.5
-    front_x = wall_x - depth - 0.004
-    cyc.area_light("vending_glow", (front_x - 0.004, loc_xy[1], base_z + 0.09), (front_x - 0.2, loc_xy[1], 0.0), 0.06,
-                   6500, 1.4, size_y=0.08, color="#EAF2FF")
+    a = math.radians(facing_deg)
+    f = Vector((math.cos(a), math.sin(a), 0.0))
+    front = Vector((spot.x, y, base_z + 0.09)) + f * (depth / 2 + 0.005)
+    cyc.area_light("vending_glow", tuple(front), tuple(front + f * 0.2 - Vector((0, 0, 0.09))), 0.06, 6500, 1.4,
+                   size_y=0.08, color="#EAF2FF")
     return vm
+
+
+def signboard(name, lines, wall_x, side, y, z_mid, face="#F3F0E8", ink="#C4301E", w=0.036, h=0.12, t=0.011,
+              glow=4.0, ink_glow=2.2):
+    """A projecting light box (袖看板) on two arms: a steel case, acrylic faces lit from inside, the name set top
+    to bottom in the ink colour. side = +1 on the left wall (it sticks out towards +x), -1 on the right;
+    lines = [(text, character size), ...] from the top. It faces the alley's mouth, as they are hung to."""
+    root = bpy.data.objects.new(name, None)
+    m._link(root)
+    cx = wall_x + side * (0.007 + w / 2)
+    root.location = (cx, y, z_mid)
+    A.rounded_box(name + "_case", (w, t, h), 0.0012, [A.metal("#2A2B2D", 0.45, "sign_case")], root)
+    acrylic, _ = A._principled(name + "_acrylic", **{"Base Color": m.srgb(face), "Emission Color": m.srgb(face),
+                                                     "Emission Strength": glow, "Roughness": 0.12, "Coat Weight": 0.6})
+    ink_mat, _ = A._principled(name + "_ink", **{"Base Color": m.srgb(ink), "Emission Color": m.srgb(ink),
+                                                 "Emission Strength": ink_glow, "Roughness": 0.15, "Coat Weight": 0.6})
+    for sy in (-1, 1):
+        pane = A.rounded_box(name + "_face", (w - 0.003, 0.0008, h - 0.003), 0.0, [acrylic], root)
+        pane.location = (0, sy * (t / 2 + 0.0002), 0)
+    total = sum(len(body) * size * 1.04 for body, size in lines) + sum(0.25 * size for _, size in lines[:-1])
+    z = total / 2
+    for body, size in lines:
+        for ch in body:
+            tx = m.text(ch, "gothic", size, 0, 0, ink, z=0.0, align="CENTER", valign="TOP")
+            tx.data.materials.clear()
+            tx.data.materials.append(ink_mat)
+            tx.data.extrude = 0.00003
+            tx.parent = root
+            tx.rotation_euler = (math.radians(90), 0, 0)
+            tx.location = (0, -(t / 2 + 0.0007), z)
+            z -= size * 1.04
+        z -= size * 0.25
+    iron = A.metal("#1E1F21", 0.5, "sign_arm")
+    edge = cx - side * w / 2
+    for dz in (h / 2 - 0.01, -h / 2 + 0.01):
+        A.tube_along(name + "_arm", [(wall_x, y, z_mid + dz), ((wall_x + edge) / 2, y, z_mid + dz), (edge, y, z_mid + dz)],
+                     0.0006, [iron])
+    return root
 
 
 def lantern_and_door(y=0.47, wall_x=-0.25):
@@ -574,14 +690,14 @@ def build():
     wet_ground(M)
     alley(M)
     booth()
-    umbrella(tuple(UMBRELLA))
+    vinyl_umbrella(tuple(UMBRELLA))
     puddles_and_bulbs()
     rain()
     cyc.area_light("booth_light", tuple(BOOTH + Vector((0, 0.01, BH - 0.02))), tuple(BOOTH + Vector((0, 0, 0.02))), 0.05,
                    5000, 2.2, size_y=0.03, color="#D9EBF2")
     cyc.area_light("lightbox_glow", tuple(BOOTH + Vector((0, -BW / 2 - 0.02, BH - 0.01))), tuple(BOOTH + Vector((0, -0.2, 0.0))),
                    0.06, 3200, 0.12, size_y=0.015)
-    cyc.haze("haze", (0.7, 1.5, 0.36), (0, 0.3, 0.18), 0.003, color="#A9C4E0", anisotropy=0.55)
+    cyc.haze("haze", (0.7, 1.5, 0.36), (0, 0.3, 0.18), 0.0045, color="#A9C4E0", anisotropy=0.55)
     cyc.glass_lets_light_through(("clear_glass", "rain_glass", "water", "vinyl"))
     cyc.post(bloom=0.55, threshold=0.8, size=0.6, dispersion=0.004)
 
@@ -602,12 +718,15 @@ def main():
         umb = sum(pts, Vector()) / len(pts)
         print("umbrella canopy centre mm", tuple(round(v * 1000, 1) for v in umb))
     cams = {
-        "long": cyc.camera("cam_long", (-0.075, -0.23, 0.03), tuple(HANDSET + Vector((0, 0, -0.02))), 35, 5.6),
+        # the booth on the right third, the umbrella in the foreground on the left, the vending machine between
+        "long": cyc.camera("cam_long", (-0.075, -0.23, 0.03), (-0.07, 0.20, HANDSET.z - 0.02), 35, 5.6),
         "handset": cyc.camera("cam_handset", tuple(HANDSET + Vector((-0.03, -0.19, 0.012))), tuple(HANDSET + Vector((0.0, 0, 0.004))), 100, 8.0),
-        "umbrella": cyc.camera("cam_umbrella", tuple(umb + Vector((0.07, -0.17, 0.055))), tuple(umb), 50, 8.0),
+        # the umbrella from the alley's mouth: its handle rising on the left, the booth lit behind it on the right
+        "umbrella": cyc.camera("cam_umbrella", tuple(umb + Vector((0.02, -0.21, 0.05))), tuple(umb + Vector((-0.005, 0.0, 0.012))),
+                               40, 8.0),
     }
     cams = {k: v for k, v in cams.items() if k in SHOTS}
-    cyc.SKIP_FOCUS = cyc.SKIP_FOCUS + ("rain", "booth_glass", "door_glass", "umbrella_canopy", "umbrella_water")
+    cyc.SKIP_FOCUS = cyc.SKIP_FOCUS + ("rain", "booth_glass", "door_glass", "umbrella_canopy", "umbrella_water", "umbrella_drops")
     cyc.render_shots(cams, SHOTS, OUT, "s4", focus={"long": HANDSET, "handset": HANDSET, "umbrella": umb})
 
 

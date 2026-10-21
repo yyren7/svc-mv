@@ -495,9 +495,61 @@ def uv_to_world(meshes, uv):
     return hits
 
 
-def wet(mat, cover=0.4, scale=8.0, seed=0.0, dark=0.72, puddle_dark=0.45, film_rough=0.14):
+def _math(nt, op, *args, clamp=False):
+    n = nt.nodes.new("ShaderNodeMath")
+    n.operation = op
+    n.use_clamp = clamp
+    for k, v in enumerate(args):
+        if isinstance(v, (int, float)):
+            n.inputs[k].default_value = v
+        else:
+            nt.links.new(v, n.inputs[k])
+    return n.outputs[0]
+
+
+def ripple_height(nt, scale=125.0, spacing=0.08, mask=None):
+    """Rain rings on standing water. In each Voronoi cell (object space, `scale` cells per metre) a drop has
+    landed: its rings run out to a front 0.2-0.45 of a cell from the impact, `spacing` apart, fading behind the
+    front; a third of the cells are still. Returns a height socket in [-1, 1], times mask if given."""
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    mp = nt.nodes.new("ShaderNodeMapping")
+    mp.inputs["Scale"].default_value = (scale, scale, scale)
+    nt.links.new(tc.outputs["Object"], mp.inputs["Vector"])
+    vo = nt.nodes.new("ShaderNodeTexVoronoi")
+    vo.voronoi_dimensions = "2D"
+    vo.inputs["Scale"].default_value = 1.0
+    vo.inputs["Randomness"].default_value = 1.0
+    nt.links.new(mp.outputs[0], vo.inputs["Vector"])
+    sep = nt.nodes.new("ShaderNodeSeparateColor")
+    nt.links.new(vo.outputs["Color"], sep.inputs["Color"])
+    front = _math(nt, "MULTIPLY_ADD", sep.outputs["Red"], 0.25, 0.2)
+    behind = _math(nt, "SUBTRACT", front, vo.outputs["Distance"])
+    fade_in = _math(nt, "SUBTRACT", 1.0, _math(nt, "DIVIDE", behind, 3.0 * spacing), clamp=True)
+    fade_out = _math(nt, "ADD", 1.0, _math(nt, "DIVIDE", behind, 0.5 * spacing), clamp=True)
+    wave = _math(nt, "SINE", _math(nt, "MULTIPLY", behind, 2.0 * math.pi / spacing))
+    h = _math(nt, "MULTIPLY", wave, _math(nt, "MULTIPLY", fade_in, fade_out))
+    h = _math(nt, "MULTIPLY", h, _math(nt, "GREATER_THAN", sep.outputs["Green"], 0.33))
+    h = _math(nt, "MULTIPLY", h, _math(nt, "MULTIPLY_ADD", sep.outputs["Blue"], 0.5, 0.5))
+    if mask is not None:
+        h = _math(nt, "MULTIPLY", h, mask)
+    return h
+
+
+def ripple_normal(nt, height, depth=0.00002, strength=1.0):
+    """A Bump normal from a ripple height: `depth` metres of swell (20 um at 1:12 is a quarter millimetre of
+    real ripple)."""
+    bp = nt.nodes.new("ShaderNodeBump")
+    bp.inputs["Strength"].default_value = strength
+    bp.inputs["Distance"].default_value = depth
+    nt.links.new(height, bp.inputs["Height"])
+    return bp.outputs["Normal"]
+
+
+def wet(mat, cover=0.4, scale=8.0, seed=0.0, dark=0.72, puddle_dark=0.45, film_rough=0.14, ripple=0.0,
+        ripple_scale=125.0):
     """Rain on a Principled material: darker, glossier, a clear water coat, and puddles where a noise mask
-    (object space, `scale` per metre) passes; in them the surface is mirror-flat. Returns the mask socket."""
+    (object space, `scale` per metre) passes; in them the surface is mirror-flat. ripple > 0 puts rain rings
+    on the puddles' water (the coat's normal), that strong. Returns the mask socket."""
     nt = mat.node_tree
     bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
     tc = nt.nodes.new("ShaderNodeTexCoord")
@@ -553,6 +605,9 @@ def wet(mat, cover=0.4, scale=8.0, seed=0.0, dark=0.72, puddle_dark=0.45, film_r
     nt.links.new(mix_val(0.8, 1.0), bsdf.inputs["Coat Weight"])
     nt.links.new(mix_val(film_rough, 0.0), bsdf.inputs["Coat Roughness"])
     bsdf.inputs["Coat IOR"].default_value = 1.33
+    if ripple:
+        nt.links.new(ripple_normal(nt, ripple_height(nt, ripple_scale, mask=mask), strength=ripple),
+                     bsdf.inputs["Coat Normal"])
     # puddles are flat: fade the relief under water
     nl = bsdf.inputs["Normal"].links
     if nl and nl[0].from_node.type == "BUMP":

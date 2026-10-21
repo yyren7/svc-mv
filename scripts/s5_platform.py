@@ -548,23 +548,25 @@ def pen_heart(point_above, meshes, full=True, size=0.00011):
     if not hit or ob.name not in names:
         print("pen_heart: no shoe under", point_above, hit, ob.name if hit else None)
         return
-    ink = A.plastic("#243585", 0.75, "ballpoint")
+    ink = A.plastic("#243585", 0.45, "ballpoint")
     quat = nrm.to_track_quat("Z", "Y")
     frame = quat.to_matrix()
 
-    def drop(x, y):
+    def drop(x, y, lift):
         start = loc + frame @ Vector((x, y, 0.004))
         h, p, n, _i2, o2, _m2 = bpy.context.scene.ray_cast(deps, start, -nrm, distance=0.012)
         if h and o2.name in names:
-            return p + n * 0.00012
-        return loc + frame @ Vector((x, y, 0.00012))
+            return p + n * lift
+        return loc + frame @ Vector((x, y, lift))
 
     def stroke(name, pts2d, radius, cyclic=False):
-        pts = [tuple(drop(x, y)) for x, y in pts2d]
+        # ink lies in the fabric: the stroke's core sits under the surface and only a sliver shows, a line
+        # 0.7 x its diameter wide
+        pts = [tuple(drop(x, y, -0.7 * radius)) for x, y in pts2d]
         return A.tube_along(name, pts, radius, [ink], cyclic=cyclic, resolution=3)
 
     S = size * 16
-    stroke("pen_heart", [(x * S, y * S) for x, y in m.heart_outline(64)], 0.00007, cyclic=True)
+    stroke("pen_heart", [(x * S, y * S) for x, y in m.heart_outline(64)], 0.00004, cyclic=True)
     if full:
         # ballpoint hatching inside the outline, at a slant, like a quick colour-in
         for k in range(9):
@@ -574,12 +576,12 @@ def pen_heart(point_above, meshes, full=True, size=0.00011):
                 continue
             steps = 6
             pts = [(-half + 2 * half * t / steps, y0 + 0.08 * S * t / steps) for t in range(steps + 1)]
-            stroke("pen_fill", pts, 0.00005)
+            stroke("pen_fill", pts, 0.000032)
     else:
         for sx in (-1, 1):
             for sy in (-1, 1):
-                stroke("crop", [(sx * 1.3 * S, sy * 1.3 * S), (sx * 1.9 * S, sy * 1.3 * S)], 0.00008)
-                stroke("crop", [(sx * 1.3 * S, sy * 1.3 * S), (sx * 1.3 * S, sy * 1.9 * S)], 0.00008)
+                stroke("crop", [(sx * 1.3 * S, sy * 1.3 * S), (sx * 1.9 * S, sy * 1.3 * S)], 0.000045)
+                stroke("crop", [(sx * 1.3 * S, sy * 1.3 * S), (sx * 1.3 * S, sy * 1.9 * S)], 0.000045)
     return loc
 
 
