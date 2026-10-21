@@ -213,14 +213,14 @@ def main():
     cams = {
         # the script's macro: the lens close to the jar's wall, the first heart seen through the glass, the
         # bubbles in the wall out of focus in front of it
-        "macro": cyc.camera("cam_macro", tuple(macro_eye), tuple(bulb), 100, 16.0),
+        "macro": cyc.camera("cam_macro", tuple(macro_eye), tuple(bulb), 100, 32.0),
         "orbit": cyc.camera("cam_orbit", (0.27, -0.23, 0.15), (TOP.x, TOP.y, TOP.z + 0.085), 35, 8.0),
     }
     cyc.SKIP_FOCUS = cyc.SKIP_FOCUS + ("jar", "petri")
     eye = Vector(cams["orbit"].location)
     cams["orbit"].data.dof.focus_distance = (Vector((TOP.x, TOP.y, eye.z)) - eye).length - JAR_R
     # the filament glows 4.5 mm behind the straight line to the bulb's origin once the curved wall (4 mm of
-    # glass) has moved its image: found by bracketing, the depth of field here is about a millimetre
+    # glass) has moved its image: found by bracketing. At f/32 the depth of field is about two millimetres
     cams["macro"].data.dof.focus_distance = (Vector(bulb) - macro_eye).length + 0.0045
     cyc.render_shots(cams, SHOTS, OUT, "s2", exposure={"macro": -0.9})
 
