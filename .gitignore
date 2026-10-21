@@ -21,3 +21,5 @@ cases/*/renders/*
 !cases/*/renders/s[0-9]/
 cases/*/renders/s[0-9]/*
 !cases/*/renders/s[0-9]/*.png
+# 歌曲文件（用户放进来的混音），不进仓库
+music/

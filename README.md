@@ -15,6 +15,7 @@ jobs files.
 | Case | What it is |
 |---|---|
 | [cases/uraomote](cases/uraomote/) | The first experiment: six sets as stills, an animatic cut on the downbeats, a script for 2D and 3D invading each other |
+| [cases/kimishira](cases/kimishira/) | 一图流鉴赏 PV：一张插画拆层摆成 2.5D 场景，人物随风摆、跟着唱，粒子、月亮外圈的频谱跟着歌走，4K60 成片 |
 
 ## Shared scripts
 
@@ -35,10 +36,18 @@ jobs files.
 | `scripts/art_sheet.py` | Tiles pictures into a labelled contact sheet |
 | `scripts/encode.py` | Frames + audio slice to MP4, with film grain |
 | `scripts/test_kit.py` | Smoke test for `kit.py` |
+| `scripts/onepic.py` | 一图流的 Blender 场景：按深度起伏的插画层、音频数据贴图、漂流粒子、频谱环、流星、立体标题、镜头、合成 |
+| `scripts/onepic_prep.py` | 一图流的素材准备（AutoDL）：深度、人物遮罩、补全背景、天空、星点、月亮；接入另外做好的分层并放大 |
+| `scripts/onepic_setup.sh` | AutoDL 上一图流的环境：依赖装进单独的 pylib，下载模型 |
+| `scripts/audio_bands.py` | 逐帧音频特征：节拍、重拍、响度、低频、高频、人声、对数频谱 |
+| `scripts/onepic_player.py` | 一图流左下角的歌名、进度条和时间，可选带唱片和一圈频谱的旋律盘，逐帧透明 PNG |
+| `scripts/lrc2ass.py` | LRC 歌词（可带译文）和制作信息 -> ASS 字幕 |
+| `scripts/onepic_finish.py` | 分段视频拼接，一次编码成片：颗粒、暗角、淡入淡出、字幕、音轨 |
 
 Notes that apply to every case:
 
 - [docs/comfyui.md](docs/comfyui.md): drawing illustrations on ComfyUI: the server, the two models, the jobs file, and the recipes that worked.
+- [docs/onepic.md](docs/onepic.md)：一图流 PV 的做法和踩过的坑。
 
 ## A case's folder
 
