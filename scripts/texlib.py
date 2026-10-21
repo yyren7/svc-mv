@@ -493,3 +493,70 @@ def uv_to_world(meshes, uv):
                         continue
                     hits.append((mw @ q, (nm @ tri.normal).normalized()))
     return hits
+
+
+def wet(mat, cover=0.4, scale=8.0, seed=0.0, dark=0.72, puddle_dark=0.45, film_rough=0.14):
+    """Rain on a Principled material: darker, glossier, a clear water coat, and puddles where a noise mask
+    (object space, `scale` per metre) passes; in them the surface is mirror-flat. Returns the mask socket."""
+    nt = mat.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    nz = nt.nodes.new("ShaderNodeTexNoise")
+    nz.noise_dimensions = "4D"
+    next(sk for sk in nz.inputs if sk.name == "W").default_value = seed
+    nz.inputs["Scale"].default_value = scale
+    nz.inputs["Detail"].default_value = 3.0
+    nz.inputs["Roughness"].default_value = 0.55
+    nt.links.new(tc.outputs["Object"], nz.inputs["Vector"])
+    t = 0.5 + (0.5 - cover) * 0.3
+    mr = nt.nodes.new("ShaderNodeMapRange")
+    mr.inputs["From Min"].default_value, mr.inputs["From Max"].default_value = t, t + 0.025
+    nt.links.new(nz.outputs["Fac"], mr.inputs["Value"])
+    mask = mr.outputs["Result"]
+
+    def mix_val(a, b):
+        mx = nt.nodes.new("ShaderNodeMix")
+        mx.data_type = "FLOAT"
+        nt.links.new(mask, mx.inputs["Factor"])
+        for sk, v in ((mx.inputs[2], a), (mx.inputs[3], b)):
+            if isinstance(v, float):
+                sk.default_value = v
+            else:
+                nt.links.new(v, sk)
+        return mx.outputs[0]
+
+    # colour: everything darker when wet, the puddles darker still
+    links = bsdf.inputs["Base Color"].links
+    if links:
+        mul = nt.nodes.new("ShaderNodeMix")
+        mul.data_type = "RGBA"
+        mul.blend_type = "MULTIPLY"
+        mul.inputs["Factor"].default_value = 1.0
+        nt.links.new(links[0].from_socket, mul.inputs["A"])
+        k = mix_val(dark, puddle_dark)
+        comb = nt.nodes.new("ShaderNodeCombineColor")
+        for ch in ("Red", "Green", "Blue"):
+            nt.links.new(k, comb.inputs[ch])
+        nt.links.new(comb.outputs[0], mul.inputs["B"])
+        nt.links.new(mul.outputs["Result"], bsdf.inputs["Base Color"])
+    # roughness: the map damped, the puddles glassy
+    rl = bsdf.inputs["Roughness"].links
+    if rl:
+        damp = nt.nodes.new("ShaderNodeMath")
+        damp.operation = "MULTIPLY"
+        damp.inputs[1].default_value = 0.55
+        nt.links.new(rl[0].from_socket, damp.inputs[0])
+        nt.links.new(mix_val(damp.outputs[0], 0.015), bsdf.inputs["Roughness"])
+    else:
+        nt.links.new(mix_val(bsdf.inputs["Roughness"].default_value * 0.55, 0.015), bsdf.inputs["Roughness"])
+    # a water film on top: thin and a little blurred on the asphalt, a mirror in the puddles
+    nt.links.new(mix_val(0.8, 1.0), bsdf.inputs["Coat Weight"])
+    nt.links.new(mix_val(film_rough, 0.0), bsdf.inputs["Coat Roughness"])
+    bsdf.inputs["Coat IOR"].default_value = 1.33
+    # puddles are flat: fade the relief under water
+    nl = bsdf.inputs["Normal"].links
+    if nl and nl[0].from_node.type == "BUMP":
+        bp = nl[0].from_node
+        s0 = bp.inputs["Strength"].default_value
+        nt.links.new(mix_val(s0, 0.0), bp.inputs["Strength"])
+    return mask

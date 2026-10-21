@@ -41,7 +41,8 @@ def build(palette="omote", ceiling=False):
     cyc.world()
     window = (-0.02, 0.07, 0.09, 0.105)          # y0, z0, wy, wz on the left wall
     wall_mat = T.pbr("decrepit_wallpaper", flat=(pal["wall"], pal["wall_mix"]), rough=0.85, scale=1 / 12, name="wallpaper")
-    floor_mat = T.pbr("wood_floor_worn", flat=(pal["floor"], pal["floor_mix"]), scale=1 / 12, rotation_deg=90, name="floorboards")
+    floor_mat = T.pbr("wood_floor_worn", flat=(pal["floor"], pal["floor_mix"]), scale=1 / 12, rotation_deg=90, name="floorboards",
+                      coat=0.6)   # varnish: the window light lies on it as a long reflection
     walls = P.set_box(W, D, H, wall=wall_mat, floor=floor_mat, window=window, ceiling=ceiling)
     xl = -W / 2
     P.window(xl, *window, paint=P.painted(pal["paint"], name="window_paint"))
@@ -117,6 +118,7 @@ def build(palette="omote", ceiling=False):
         cyc.haze("haze", (W, D, H), (0, 0, H / 2), 0.004, color="#F2468A")
     cyc.point_light("phone_glow", (0.082, -0.058, desk_top + 0.012), 6500, 0.02, radius=0.004)
     cyc.glass_lets_light_through()
+    cyc.post(bloom=0.4 if palette == "omote" else 0.6, threshold=1.0 if palette == "omote" else 0.7)
     return dict(dial=dial, pillow=bed["pillow_top"], bed_front=bed["front_y"], desk_top=desk_top, walls=walls)
 
 

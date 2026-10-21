@@ -158,6 +158,8 @@ def build():
     nt.links.new(vol.outputs[0], out.inputs["Volume"])
     haze = A.rounded_box("haze", (0.78, 0.6, 0.44), 0.0, [haze_mat])
     haze.location = (0, 0.06, 0.22)
+    import cyc as _cyc
+    _cyc.post(bloom=0.5, threshold=0.85)
     return heart, haze
 
 

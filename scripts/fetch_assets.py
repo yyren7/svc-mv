@@ -63,6 +63,13 @@ OBJAVERSE = {
     "nazo_no_eki": dict(uid="6cbd6ce6354f44a4b6517e8176d8741b", title="Nazo no eki (Mystery Station)", author="Thomas Nguyen"),
     "jp_payphone86": dict(uid="50f9b9982885403396f46d5f46c7b4be", title="Japanese Payphone 86'", author="Yevhen Avramenko"),
     "old_green_payphone": dict(uid="ad06f3ec91a24943ad4a38dd70413cda", title="Old Green Payphone", author="Yevhen Avramenko"),
+    "umbrella": dict(uid="ae0abff9bb9d4bb3b2ef634b8bc539d5", title="Umbrella", author="Tatiana Sumarokova"),
+    "parasol_clear": dict(uid="c97432ffbe97469694f2ee4364aabf30", title="Parasol Clear", author="Sungebob"),
+    "jp_vending": dict(uid="4768555100004c75b5167d1aa02c683b", title="Japanese Vending Machine", author="filadog"),
+    "red_vending": dict(uid="a8a6874f62da478f8572554959d3c62e", title="Red Japanese Vending Machine", author="Watanuki_San"),
+    "chochin": dict(uid="20bcc5d20f2847f88aef3a267275d16c", title="Chinese / Japanese paper lantern chochin", author="DeepDown"),
+    "umbrella_alsyd": dict(uid="ef0d9c9ce02345479b934720fe54ba2d", title="Umbrella", author="al_syd"),
+    "umbrella_lizzy": dict(uid="67bc029c98454971a213c526bc1fbec0", title="Umbrella", author="Lizzy Koopa"),
 }
 # other files with their own licences
 THIRDPARTY = {

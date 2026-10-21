@@ -201,6 +201,7 @@ def build(infection=0.0):
     # a small examination light on the dish itself, from the front-top, so the agar is the brightest thing
     cyc.area_light("exam", (0.06, JAR.y - 0.16, 0.30), (0.0, JAR.y, TOP.z + 0.006), 0.03, 5000, 0.3, spread_deg=40)
     cyc.glass_lets_light_through()
+    cyc.post(bloom=0.45, threshold=0.9)
     _ = (jar, agar)
     return dict(bulb=TOP + Vector(bulb.location))
 

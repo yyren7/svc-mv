@@ -147,7 +147,7 @@ def platform(M):
     ground.location = (0, -0.2, -0.002)
     ground_back = A.rounded_box("ground_back", (L + 1.0, 1.0, 0.004), 0.0, [M["ground"]])
     ground_back.location = (0, BACK + 0.5, PH - 0.030)
-    steel = A.metal("#C4C4BE", 0.22, "rail_head")
+    steel = A.metal("#D2D2CE", 0.07, "rail_head")   # the running surface is polished by the wheels
     x = -L / 2
     while x < L / 2:
         t = A.rounded_box("tie", (0.2 * KIHA_S, 2.1 * KIHA_S, 0.012), 0.001, [M["tie"]])
@@ -380,6 +380,17 @@ def livery(mat, cream="#EADFC6"):
     nt.links.new(m1.outputs["Result"], m2.inputs["A"])
     m2.inputs["B"].default_value = m.srgb(cream)
     nt.links.new(m2.outputs["Result"], bsdf.inputs["Base Color"])
+    # the map's roughness is 1.0 on the paint, which made the car chalk-matte: real paint is glossy under a
+    # clear coat, so the body takes a quarter of it and reflects the sky
+    rl = bsdf.inputs["Roughness"].links
+    if rl:
+        damp = nt.nodes.new("ShaderNodeMath")
+        damp.operation = "MULTIPLY"
+        damp.inputs[1].default_value = 0.28
+        nt.links.new(rl[0].from_socket, damp.inputs[0])
+        nt.links.new(damp.outputs[0], bsdf.inputs["Roughness"])
+    bsdf.inputs["Coat Weight"].default_value = 0.7
+    bsdf.inputs["Coat Roughness"].default_value = 0.04
     # glass: see-through with a Fresnel reflection, where the map says glass
     glass_mask = nt.nodes.new("ShaderNodeMath")
     glass_mask.operation = "SUBTRACT"
@@ -617,6 +628,7 @@ def build(palette="omote"):
         cyc.area_light("tube_glow", (-0.1, -0.02, PH + 0.20), (-0.1, -0.02, PH), 0.9, 4000, 0.3, size_y=0.08)
         cyc.haze("haze", (PL + 2.8, 2.5, 0.6), (0, 0.1, 0.3), 0.0015)
     cyc.glass_lets_light_through()
+    cyc.post(bloom=0.35 if palette == "omote" else 0.55, threshold=1.0 if palette == "omote" else 0.8)
     return dict(arrows=arrows, toe=toe_l)
 
 

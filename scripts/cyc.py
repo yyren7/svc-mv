@@ -230,3 +230,28 @@ def render_shots(cams, shots, out, prefix, focus=None, samples=None, hide=None, 
         bpy.ops.render.render(write_still=True)
     for ob in hidden:
         ob.hide_render = False
+
+
+def post(bloom=0.5, threshold=0.9, size=0.6, dispersion=0.004):
+    """A camera's finish on the render: bloom around bright lights and a hint of colour dispersion."""
+    import kit
+    scene = bpy.context.scene
+    tree = bpy.data.node_groups.new("post", "CompositorNodeTree")
+    scene.compositing_node_group = tree
+    kit._iface(tree, "Image", "OUTPUT", "NodeSocketColor")
+    g = kit.G(tree)
+    rl = g.node("CompositorNodeRLayers")
+    glare = g.node("CompositorNodeGlare")
+    for name, val in (("Type", "Bloom"), ("Threshold", threshold), ("Strength", bloom), ("Size", size)):
+        try:
+            kit.sock(glare.inputs, name).default_value = val
+        except (KeyError, TypeError, ValueError) as e:
+            print("glare", name, e)
+    g.link(rl.outputs["Image"], kit.sock(glare.inputs, "Image"))
+    lens = g.node("CompositorNodeLensdist")
+    g.link(glare.outputs[0], kit.sock(lens.inputs, "Image"))
+    kit.sock(lens.inputs, "Dispersion").default_value = dispersion
+    out = g.node("NodeGroupOutput")
+    g.link(lens.outputs[0], out.inputs[0])
+    scene.render.use_compositing = True
+    return tree
