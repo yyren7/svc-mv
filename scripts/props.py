@@ -494,7 +494,7 @@ def phone(loc, yaw_deg=0.0, parent=None):
     screen.location = (0, 0, 0.00075)
     banner = A.rounded_box("phone_banner", (0.0050, 0.0014, 0.00005), 0.0002, [A.emissive("#F4F4F2", 3.0)], root)
     banner.location = (0, 0.0046, 0.00083)
-    heart = flat_shape("phone_heart", [(x * 0.00003, y * 0.00003) for x, y in m.heart_outline(48)],
+    heart = flat_shape("phone_heart", [(x * 0.00045, y * 0.00045) for x, y in m.heart_outline(48)],
                        [A.emissive("#FF3D8B", 6.0)], root)
     heart.location = (-0.0018, 0.0046, 0.00087)
     return screen

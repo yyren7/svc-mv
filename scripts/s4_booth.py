@@ -242,7 +242,7 @@ def booth():
         cup = P.sphere("handset_cup", 0.0045, [green], root)
         cup.location = (hs.x, hs.y, hs.z + dz)
         cup.scale = (1, 1, 0.6)
-    sticker = P.flat_shape("sticker", [(x * 0.00012, y * 0.00012) for x, y in m.heart_outline(40)],
+    sticker = P.flat_shape("sticker", [(x * 0.0019, y * 0.0019) for x, y in m.heart_outline(40)],
                            [P.paper("#FF3D8B", name="sticker")], root)
     sticker.rotation_euler = (math.radians(90), 0, math.radians(-10))
     sticker.location = (hs.x - 0.0027, hs.y, hs.z + 0.004)
