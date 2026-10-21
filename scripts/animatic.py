@@ -33,6 +33,8 @@ FPS = int(os.environ.get("FPS", 12))
 SAMPLES = int(os.environ.get("SAMPLES", 24))
 WIDTH = int(os.environ.get("WIDTH", 640))
 LIMIT = int(os.environ.get("LIMIT", 0))          # LIMIT=1: only the first frame of every shot, to check the cameras
+AT = [float(a) for a in os.environ.get("AT", "").split(",") if a]     # AT=0,0.5,1: those points of every shot
+ONLY = [s for s in os.environ.get("ONLY", "").split(",") if s]       # ONLY=macro,three: only those shots
 TIMING = json.load(open(os.path.join(ROOT, "assets", "audio", "urao_timing.json"), encoding="utf-8"))
 DOWN, BEATS, DURATION = TIMING["downbeats"], TIMING["beats"], TIMING["duration"]
 RAIN_SPEED = 0.75       # m/s: 9 m/s of real rain at 1:12
@@ -192,7 +194,7 @@ def s1_wide(c, u, t, kw):
 def s1_pov(c, u, t, kw):
     window = Vector((-0.155, 0.01, 0.105))
     far = (window - c["pillow"]).length          # the focus walks from the pillow to the printed sky in 1.5 s
-    return dict(eye=c["pillow"], target=window, lens=50, fstop=5.6, focus=0.03 + (far - 0.03) * ease((u - 0.3) / 0.33),
+    return dict(eye=c["pillow"], target=window, lens=50, fstop=5.6, focus=0.03 + (far - 0.03) * ease((u - 0.12) / 0.33),
                 hide=("haze",), exposure=-1.2)
 
 
@@ -236,8 +238,11 @@ def s3_rise(c, u, t, kw):
 
 
 def s3_macro(c, u, t, kw):
+    # at 16 cm a 100 mm lens holds about 1 mm sharp at f/8: f/45 keeps both halves of the seam, the back wall still
+    # melts; the white half is the brightest thing on the bench and goes to a glow unless the exposure comes down
     start = Vector((0.03, -0.17, c["seam"].z + 0.014))
-    return dict(eye=start.lerp(c["seam"], 0.08 * u), target=c["seam"], lens=100, fstop=8, focus=c["seam"])
+    return dict(eye=start.lerp(c["seam"], 0.08 * u), target=c["seam"], lens=100, fstop=45, focus=c["seam"],
+                exposure=-0.8)
 
 
 def s3_wide(c, u, t, kw):
@@ -249,13 +254,13 @@ def s3_wide(c, u, t, kw):
 def s3_three(c, u, t, kw):
     bt = c["bt"]
     return dict(eye=lerp((-0.16, -0.2, bt + 0.11), (-0.15, -0.19, bt + 0.105), u), target=Vector((0.0, 0.02, bt + 0.03)),
-                lens=85, fstop=2.0, focus=c["seam"], hide=("haze",))
+                lens=85, fstop=16, focus=c["seam"], hide=("haze",), exposure=-0.8)
 
 
 def s3_arc(c, u, t, kw):
     a = math.radians(span(kw["a"], ease(u)))      # round the front of the heart: 表 and 裏 trade sides
     eye = c["hc"] + Vector((0.2 * math.sin(a), -0.2 * math.cos(a), 0.02))
-    return dict(eye=eye, target=c["hc"], lens=50, fstop=5.6, focus=c["seam"])
+    return dict(eye=eye, target=c["hc"], lens=50, fstop=11, focus=c["seam"], exposure=-0.5)
 
 
 # ---------------------------------------------------------------- S4 the phone booth in the rain
@@ -325,15 +330,17 @@ def setup_s5(pal):
 
 def s5_track(c, u, t, kw):
     end = Vector((0.115, c["edge"] + 0.048, c["ph"] + 0.016))         # low along the tactile strip, to the shoes
-    look = c["shoes"] + Vector((0.008, 0.0, 0.005)) - end
-    eye = lerp(end + Vector((0.22, 0.0, 0.0)), end, ease(u))
-    return dict(eye=eye, target=eye + look, lens=24, fstop=8, focus=c["shoes"] + Vector((0.0, 0.0, 0.004)))
+    shoes = c["shoes"] + Vector((0.008, 0.0, 0.005))
+    eye = lerp(end + Vector((0.22, 0.0, 0.0)), end, ease(u))         # looking at them all the way in
+    return dict(eye=eye, target=shoes, lens=24, fstop=11, focus=(shoes - eye).length)
 
 
 def s5_shoes(c, u, t, kw):
+    # the right shoe stands 13 mm nearer than the left; at 10 cm only f/128 holds both (the platform behind stays soft)
     toe = c["toe"]
     eye = lerp(toe + Vector((0.09, -0.004, 0.04)), toe + Vector((0.08, -0.0035, 0.036)), u)
-    return dict(eye=eye, target=toe + Vector((0.006, 0.004, 0.0)), lens=100, fstop=11, focus=toe)
+    return dict(eye=eye, target=toe + Vector((0.006, 0.004, 0.0)), lens=100, fstop=128,
+                focus=(toe + Vector((0.0065, 0.0, 0.0)) - eye).length)
 
 
 def s5_wide(c, u, t, kw):
@@ -358,6 +365,8 @@ def setup_s6():
     c["face"], _ = S6.face_out(info["dial"])
     lift(c, 0.0)
     c["cloud0"] = [v.co.copy() for v in info["cloud"].data.vertices]
+    cyc.SKIP_FOCUS = cyc.SKIP_FOCUS + ("bulb_lib", "bulb_cloud")   # focus on the room, not on a bulb in the way
+    c["clear"] = {}
     return c
 
 
@@ -374,33 +383,55 @@ def lift(c, t):
     bpy.context.view_layer.update()
 
 
-def animate_s6(c, t):
-    """The bulbs drift up through the room and come round again from the floor."""
+def collapse(c, u, t, kw, clear=()):
+    """The room at this frame: the furniture at the shot's point of the collapse, and the bulbs drifting up and
+    coming round again from the floor. The cloud thickens from shot to shot as the collapse goes on (S6.build's
+    30 % at the start), never within a shot; the bulbs not yet there wait under the floor, and so do the
+    indices in `clear`."""
+    lift(c, span(kw["t"], u))
+    n = int(len(c["cloud0"]) * min(1.0, 0.3 + kw["t"][0]))
     h, co = c["h"], []
-    for p in c["cloud0"]:
-        co += (p.x, p.y, (p.z + BULB_RISE * t) % h)
+    for k, p in enumerate(c["cloud0"]):
+        co += (p.x, p.y, (p.z + BULB_RISE * t) % h if k < n and k not in clear else -1.0)
     c["cloud"].data.vertices.foreach_set("co", co)
     c["cloud"].data.update()
 
 
 def s6_fall(c, u, t, kw):
-    lift(c, span(kw["t"], u))
+    collapse(c, u, t, kw)
     eye = lerp((0.03, -0.40, 0.11), (0.03, -0.37, 0.11), ease(u))
     return dict(eye=eye, target=Vector((0.0, 0.03, 0.10)), lens=50, fstop=8, focus=Vector((0.0, 0.03, 0.10)),
                 roll=span(kw.get("roll", (0, 0)), ease(u)))
 
 
 def s6_desk(c, u, t, kw):
-    lift(c, span(kw["t"], u))
+    collapse(c, u, t, kw)
     eye = lerp((0.14, -0.22, 0.09), (0.13, -0.20, 0.085), ease(u))
-    return dict(eye=eye, target=Vector((0.10, -0.04, 0.06)), lens=50, fstop=5.6, focus=Vector((0.10, -0.04, 0.06)))
+    things = Vector((0.10, -0.045, 0.054))          # the phone, the milk and the proofs, 1 cm over the desk top
+    return dict(eye=eye, target=Vector((0.10, -0.04, 0.06)), lens=50, fstop=16, focus=(things - eye).length)
+
+
+def clock_eye(c):
+    """The clock's dial and the macro's camera 9 cm in front of its face, wherever the tumble has taken it."""
+    dial = c["dial"].matrix_world.translation.copy()
+    face = (c["dial"].matrix_world.to_3x3() @ Vector((0.0, 0.0, 1.0))).normalized()
+    return dial, dial + face * 0.09 + Vector((0.0, 0.0, 0.01))
 
 
 def s6_macro(c, u, t, kw):
-    lift(c, span(kw["t"], u))
-    dial = c["dial"].matrix_world.translation.copy()
-    face = (c["dial"].matrix_world.to_3x3() @ Vector((0.0, 0.0, 1.0))).normalized()
-    eye = dial + face * 0.09 + Vector((0.0, 0.0, 0.01))
+    # the camera rides in front of the tumbling clock, inside the cloud: a bulb drifting in front of the lens fogs
+    # whole frames, so the bulbs anywhere between the lens and the face during the shot are left out of it
+    key = tuple(kw["t"])
+    if key not in c["clear"]:
+        mids = []
+        for k in range(11):
+            lift(c, span(kw["t"], k / 10))
+            dial, eye = clock_eye(c)
+            mids.append((dial + eye) / 2)
+        c["clear"][key] = {k for k, p in enumerate(c["cloud0"]) if any(
+            (Vector((p.x, p.y, (p.z + BULB_RISE * t) % c["h"])) - mid).length < 0.065 for mid in mids)}
+    collapse(c, u, t, kw, c["clear"][key])
+    dial, eye = clock_eye(c)
     return dict(eye=eye, target=dial, lens=100, fstop=8, focus=(eye - dial).length, hide=("haze",))
 
 
@@ -408,7 +439,7 @@ def s6_macro(c, u, t, kw):
 
 SETUP = {"title": setup_title, "s1": setup_s1, "s2": setup_s2, "s3": setup_s3, "s4": setup_s4,
          "s5_omote": lambda: setup_s5("omote"), "s5_ura": lambda: setup_s5("ura"), "s6": setup_s6}
-ANIMATE = {"s4": animate_s4, "s6": animate_s6}
+ANIMATE = {"s4": animate_s4}
 SHOTS = {"title": {"cover": title_cover, "back": title_back},
          "s1": {"clock": s1_clock, "wide": s1_wide, "pov": s1_pov},
          "s2": {"macro": s2_macro, "orbit": s2_orbit},
@@ -451,9 +482,18 @@ def main():
     os.makedirs(FRAMES, exist_ok=True)
     shots = [(at(b0), at(b1), shot, kw) for b0, b1, part, shot, kw in EDL if part == PART]
     path = lambda f: os.path.join(FRAMES, f"f_{f:05d}.png")   # noqa: E731
-    todo = [(t0, t1, shot, kw, [f for f in range(round(t0 * FPS), round(t1 * FPS)) if not os.path.exists(path(f))])
-            for t0, t1, shot, kw in shots]
-    todo = [(t0, t1, shot, kw, frames[:LIMIT] if LIMIT else frames) for t0, t1, shot, kw, frames in todo if frames]
+    todo = []
+    for t0, t1, shot, kw in shots:
+        if ONLY and shot not in ONLY:
+            continue
+        frames = list(range(round(t0 * FPS), round(t1 * FPS)))
+        if AT:
+            frames = sorted({frames[round(a * (len(frames) - 1))] for a in AT})
+        elif LIMIT:
+            frames = frames[:LIMIT]
+        frames = [f for f in frames if not os.path.exists(path(f))]
+        if frames:
+            todo.append((t0, t1, shot, kw, frames))
     if not todo:
         print(f"animatic {PART}: nothing to do")
         return
