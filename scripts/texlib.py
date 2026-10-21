@@ -137,13 +137,15 @@ def pbr(aid, scale=1.0 / 12, rough=None, tint=None, bump=1.0, displace=0.0, coat
         nt.links.new(mt.outputs["Color"], bsdf.inputs["Metallic"])
     elif metallic is not None:
         bsdf.inputs["Metallic"].default_value = metallic
-    nr = tex("nor_gl", True)
-    if nr is not None and bump > 0:
-        nm = nt.nodes.new("ShaderNodeNormalMap")
-        nm.space = "OBJECT"   # box projection has no tangents; object space matches the Object coordinates
-        nm.inputs["Strength"].default_value = bump
-        nt.links.new(nr.outputs["Color"], nm.inputs["Color"])
-        nt.links.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
+    # relief from the height map as a Bump: the nor_gl maps are tangent space, which box projection can't
+    # use (read as object space they tilt every wall's normal towards +Z and the walls go dark)
+    hm = tex("displacement", True)
+    if hm is not None and bump > 0:
+        bp = nt.nodes.new("ShaderNodeBump")
+        bp.inputs["Strength"].default_value = min(1.0, 0.6 * bump)
+        bp.inputs["Distance"].default_value = 0.0004 * scale * 12
+        nt.links.new(hm.outputs["Color"], bp.inputs["Height"])
+        nt.links.new(bp.outputs["Normal"], bsdf.inputs["Normal"])
     if displace > 0:
         dp = tex("displacement", True)
         if dp is not None:
@@ -205,19 +207,27 @@ def model(aid, location=(0, 0, 0), rotation_deg=(0, 0, 0), scale=1.0 / 12, name=
     root.scale = (scale, scale, scale)
     kept = []
     picks = (pick,) if isinstance(pick, str) else pick
-    for ob in dst.objects:
-        if ob is None:
-            continue
-        if ob.type not in ("MESH", "CURVE"):
+    objs = [ob for ob in dst.objects if ob is not None]
+    names = {o.name for o in objs}
+    wanted = [ob for ob in objs if ob.type in ("MESH", "CURVE")
+              and (not picks or any(p.lower() in ob.name.lower() for p in picks))]
+    # keep the empties that the wanted meshes hang from (rigged props such as the desk lamp), drop the rest
+    needed = set()
+    for ob in wanted:
+        p = ob.parent
+        while p is not None and p.name in names:
+            needed.add(p.name)
+            p = p.parent
+    for ob in objs:
+        if ob in wanted or ob.name in needed:
+            m._link(ob)
+            if ob.parent is None or ob.parent.name not in names:
+                ob.parent = root
+            if ob in wanted:
+                kept.append(ob)
+    for ob in objs:
+        if ob not in wanted and ob.name not in needed:
             bpy.data.objects.remove(ob)
-            continue
-        if picks and not any(p.lower() in ob.name.lower() for p in picks):
-            bpy.data.objects.remove(ob)
-            continue
-        m._link(ob)
-        if ob.parent is None or ob.parent.name not in {o.name for o in dst.objects if o}:
-            ob.parent = root
-        kept.append(ob)
     for ob in kept:
         for ms in ob.material_slots:
             if ms.material is None:
@@ -309,3 +319,70 @@ def place(root, location, align="base", yaw_deg=0.0):
         piv.rotation_euler.z = math.radians(yaw_deg)
         return piv
     return root
+
+
+def cut_faces(ob, keep):
+    """Delete the faces of a mesh object whose world-space centre fails keep(Vector) -> bool.
+    Used to take a part off an appended model, such as the handset off a payphone."""
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    mw = ob.matrix_world
+    doomed = [f for f in bm.faces if not keep(mw @ f.calc_center_median())]
+    bmesh.ops.delete(bm, geom=doomed, context="FACES")
+    bm.to_mesh(ob.data)
+    bm.free()
+    return len(doomed)
+
+
+def cut_islands(ob, keep):
+    """Delete whole connected pieces of a mesh object: keep(lo, hi) gets each island's world-space bounds
+    and returns False for the ones to drop (the handset and cord of the payphone, say)."""
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bm.verts.ensure_lookup_table()
+    mw = ob.matrix_world
+    seen = set()
+    doomed = []
+    for v in bm.verts:
+        if v.index in seen:
+            continue
+        stack, comp = [v], []
+        while stack:
+            x = stack.pop()
+            if x.index in seen:
+                continue
+            seen.add(x.index)
+            comp.append(x)
+            for e in x.link_edges:
+                o = e.other_vert(x)
+                if o.index not in seen:
+                    stack.append(o)
+        cos = [mw @ c.co for c in comp]
+        lo = Vector((min(c.x for c in cos), min(c.y for c in cos), min(c.z for c in cos)))
+        hi = Vector((max(c.x for c in cos), max(c.y for c in cos), max(c.z for c in cos)))
+        if not keep(lo, hi):
+            doomed.extend(comp)
+    bmesh.ops.delete(bm, geom=doomed, context="VERTS")
+    bm.to_mesh(ob.data)
+    bm.free()
+    return len(doomed)
+
+
+def split_islands(ob, take, name="split"):
+    """Move the connected pieces of a mesh for which take(lo, hi) is True (world-space bounds) into a new
+    object with the same materials and transform; returns it (None when nothing matched)."""
+    import bmesh
+    dup = ob.copy()
+    dup.data = ob.data.copy()
+    dup.name = name
+    for c in ob.users_collection:
+        c.objects.link(dup)
+    keep_in_dup = lambda lo, hi: take(lo, hi)            # noqa: E731
+    cut_islands(dup, keep_in_dup)
+    n = cut_islands(ob, lambda lo, hi: not take(lo, hi))
+    if n == 0 or len(dup.data.vertices) == 0:
+        bpy.data.objects.remove(dup)
+        return None
+    return dup

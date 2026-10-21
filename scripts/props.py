@@ -258,7 +258,7 @@ def set_box(w=0.30, d=0.25, h=0.22, t=0.01, wall=None, floor=None, window=None, 
 # ---------------------------------------------------------------- bed
 
 def iron_bed(loc, length=0.167, width=0.083, head=+1, pipe=None, sheet=None, duvet=None, pillow_mat=None,
-             mattress_z=0.030, seed=5):
+             mattress_z=0.030, seed=5, frame=True):
     """Single iron bed along X at loc (its centre on the floor); head is the +X end when head = +1.
     Returns dict(root, pillow_top (world point), front_y)."""
     pipe = pipe or painted("#F1EEE6", rough=0.3, name="bed_paint")
@@ -271,7 +271,7 @@ def iron_bed(loc, length=0.167, width=0.083, head=+1, pipe=None, sheet=None, duv
     root.location = loc
     L, W, r = length / 2, width / 2, 0.0015
     heights = {+1: 0.085, -1: 0.060}
-    for sx in (+1, -1):
+    for sx in ((+1, -1) if frame else ()):
         hh = heights[sx * head]
         for sy in (+1, -1):
             A.tube_along("bed_post", [(sx * L, sy * W, 0), (sx * L, sy * W, hh)], r, [pipe], root, resolution=4)
