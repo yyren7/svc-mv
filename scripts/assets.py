@@ -129,9 +129,9 @@ def plaster(hexstr):
 
 
 def stained_wood(base="#5B3A22", stains=(("#E0301E", 0.62), ("#1B1A19", 0.66)), right_stains=(("#F2468A", 0.6),),
-                 split_x=0.0):
+                 split_x=0.0, light="#74492C", rough=0.55):
     """Old worktop: wood grain (wave texture) with ink stains; stains on x > split_x use right_stains."""
-    mat, b = _principled("bench_wood", **{"Roughness": 0.55})
+    mat, b = _principled("bench_wood", **{"Roughness": rough})
     nt = mat.node_tree
     tc = nt.nodes.new("ShaderNodeTexCoord")
     wave = nt.nodes.new("ShaderNodeTexWave")
@@ -144,7 +144,7 @@ def stained_wood(base="#5B3A22", stains=(("#E0301E", 0.62), ("#1B1A19", 0.66)), 
     nt.links.new(tc.outputs["Object"], wave.inputs["Vector"])
     ramp = nt.nodes.new("ShaderNodeValToRGB")
     ramp.color_ramp.elements[0].color = m.srgb(base)
-    ramp.color_ramp.elements[1].color = m.srgb("#74492C")
+    ramp.color_ramp.elements[1].color = m.srgb(light)
     ramp.color_ramp.elements[0].position = 0.25
     nt.links.new(wave.outputs["Fac"], ramp.inputs["Fac"])
     col = ramp.outputs["Color"]
@@ -432,14 +432,14 @@ def heart_bulb(state="clean", size=0.006, seed=0):
     elif state == "fever":
         glass = clear_glass(roughness=0.25)
     else:
-        glass = clear_glass()
+        glass = clear_glass(0.04)
     shell = _obj("bulb_glass", shell_mesh, [glass], root)
     sol = shell.modifiers.new("wall", "SOLIDIFY")
     sol.thickness = s * 0.06
     pts = [(0.55 * x * s, 0.55 * y * s, 0.0) for x, y in m.heart_outline(24)]
     pts.append(pts[0])
-    fil_col, fil_k = ("#34E3E8", 30.0) if state == "infected" else ("#FFB46B", 18.0)
-    tube_along("filament", pts, s * 0.02, [emissive(fil_col, fil_k)], root, resolution=2)
+    fil_col, fil_k = ("#34E3E8", 60.0) if state == "infected" else ("#FFB46B", 45.0)
+    tube_along("filament", pts, s * 0.045, [emissive(fil_col, fil_k)], root, resolution=3)
     # brass screw base under the heart's tip: lathe along +Z, turned so +Z points down (-Y)
     base = lathe("bulb_base", [(0.22 * s, 0.8 * s), (0.26 * s, 0.95 * s), (0.22 * s, 1.1 * s),
                                (0.26 * s, 1.25 * s), (0.22 * s, 1.4 * s), (0.12 * s, 1.5 * s)], 24, [brass()], root)

@@ -16,6 +16,7 @@ from mathutils import Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import assets as A  # noqa: E402
 import mvlib as m  # noqa: E402
+from cyc import area_light, camera, cycles  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
@@ -25,54 +26,6 @@ BENCH_TOP = 0.072
 BASE_SAMPLES = int(os.environ.get('SAMPLES', 256))
 SHOT_SAMPLES = {}
 NO_HAZE = {"three"}
-
-
-def cycles(samples=int(os.environ.get('SAMPLES', 256))):
-    scene = bpy.context.scene
-    scene.render.engine = "CYCLES"
-    prefs = bpy.context.preferences.addons["cycles"].preferences
-    for dev in ("OPTIX", "CUDA"):
-        try:
-            prefs.compute_device_type = dev
-            prefs.get_devices()
-            if any(d.type == dev for d in prefs.devices):
-                for d in prefs.devices:
-                    d.use = d.type == dev
-                break
-        except TypeError:
-            continue
-    scene.cycles.device = "GPU"
-    scene.cycles.samples = samples
-    scene.cycles.use_denoising = True
-    # keep the GPU fed: denoise on the GPU, and reuse scene data between renders instead of rebuilding
-    scene.cycles.denoising_use_gpu = True
-    scene.render.use_persistent_data = True
-    scene.cycles.max_bounces = 10
-    scene.cycles.transmission_bounces = 10
-    scene.cycles.volume_bounces = 1
-    scene.cycles.caustics_refractive = True
-    scene.view_settings.view_transform = "AgX"
-    try:
-        scene.view_settings.look = "AgX - Medium High Contrast"
-    except TypeError:
-        pass
-    scene.render.resolution_x, scene.render.resolution_y = 1920, 1080
-
-
-def area_light(name, loc, target, size, kelvin_k, power, shape="RECTANGLE", size_y=None):
-    lt = bpy.data.lights.new(name, "AREA")
-    lt.shape = shape
-    lt.size = size
-    if size_y:
-        lt.size_y = size_y
-    lt.color = A.kelvin(kelvin_k)
-    lt.energy = power
-    ob = bpy.data.objects.new(name, lt)
-    m._link(ob)
-    ob.location = loc
-    ob.rotation_mode = "QUATERNION"
-    ob.rotation_quaternion = (Vector(target) - Vector(loc)).to_track_quat("-Z", "Y")
-    return ob
 
 
 def build():
@@ -208,25 +161,6 @@ def build():
     return heart, haze
 
 
-def camera(name, eye, target, lens, fstop, focus_obj=None, focus_dist=None):
-    cam = bpy.data.cameras.new(name)
-    cam.lens = lens
-    cam.sensor_width = 36
-    cam.clip_start = 0.005
-    cam.dof.use_dof = True
-    cam.dof.aperture_fstop = fstop
-    if focus_dist is not None:
-        cam.dof.focus_distance = focus_dist
-    ob = bpy.data.objects.new(name, cam)
-    m._link(ob)
-    ob.location = eye
-    ob.rotation_mode = "QUATERNION"
-    ob.rotation_quaternion = (Vector(target) - Vector(eye)).to_track_quat("-Z", "Y")
-    if focus_obj is not None:
-        cam.dof.focus_object = focus_obj
-    return ob
-
-
 def main():
     heart, haze = build()
     scene = bpy.context.scene
@@ -240,25 +174,9 @@ def main():
         "macro": camera("macro", (0.03, -0.17, seam.z + 0.014), tuple(seam), 100, 8.0, focus),
         "three": camera("three", (-0.16, -0.2, BENCH_TOP + 0.11), (0.0, 0.02, BENCH_TOP + 0.03), 85, 2.0, focus),
     }
-    # autofocus: the first surface hit on the ray from each camera to the heart's centre
-    bpy.context.view_layer.update()
-    deps = bpy.context.evaluated_depsgraph_get()
+    from cyc import autofocus
     for cam in cams.values():
-        cam.data.dof.focus_object = None
-        origin = cam.location.copy()
-        d = (seam - origin).normalized()
-        p, dist = origin.copy(), None
-        for _ in range(16):   # skip the haze container and the split flag, which the camera doesn't see
-            hit, loc, _n, _i, ob, _mx = scene.ray_cast(deps, p, d)
-            if not hit:
-                break
-            if ob.name.startswith(("haze", "split_flag")):
-                p = loc + d * 1e-4
-                continue
-            dist = (loc - origin).length
-            break
-        cam.data.dof.focus_distance = dist if dist else (seam - origin).length
-        print(f"focus {cam.name}: {cam.data.dof.focus_distance * 1000:.1f} mm")
+        autofocus(cam, seam)
     os.makedirs(OUT, exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(os.path.abspath(OUT), "s3_workshop.blend"))
     for name in SHOTS:

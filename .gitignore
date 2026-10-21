@@ -14,7 +14,7 @@ renders/*
 !renders/frame_A_post.png
 !renders/frame_B.png
 !renders/frame_B_post.png
-!renders/s3/
-renders/s3/*
-!renders/s3/*.png
+!renders/s[0-9]/
+renders/s[0-9]/*
+!renders/s[0-9]/*.png
 fonts/
