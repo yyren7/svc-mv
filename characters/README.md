@@ -10,7 +10,7 @@ concept (one as 表 and another as 裏, for example).
 |---|---|
 | [shunka/](shunka/) | 旬夏: Anima text-to-image works directly |
 | [pheebie/](pheebie/) | Pheebie: Qwen-Image-2.1 from her reference sheets, then Anima redraws it |
-| `kue/` | Only the downloaded album so far, in `ref/album/` |
+| [kue/](kue/) | 小铃久绘: Qwen-Image-2.1 from her bust-up, three 4K key visuals, each split into layers for Blender |
 
 A character's folder:
 

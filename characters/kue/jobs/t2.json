@@ -1,0 +1,130 @@
+[
+ {
+  "model": "qwen",
+  "name": "kue_q_stage_107",
+  "ref": [
+   "ref_kue_face.png",
+   "ref_shunka_sing.png"
+  ],
+  "w": 1664,
+  "h": 928,
+  "seed": 107,
+  "negative": "text, letters, title, logo, watermark, signature, name tag, label, two girls, extra person, extra fingers, deformed hands, extra arms, cropped head, blurry, low quality, microphone stand, pole, open eyes",
+  "prompt": "The cat girl from picture 1: keep her face, her big blue eyes, her very long wine-red hair that turns pink towards the ends, her blunt bangs and ahoge, the small braided buns on both sides of her head, her pink cat ears with white fluff inside, the big light-blue ribbon bow on top of her head and the small white flower hairclip exactly as in picture 1. A long wine-red cat tail curls behind her. She sings with her eyes gently closed and her mouth open into a cordless handheld microphone she holds in both hands just below her chin, upper body, just like the girl in picture 2. There is no microphone stand. She wears the outfit of picture 2: an off-shoulder sheer white jacket with wide frilled see-through sleeves over a white dress with thin straps, a black lace choker with a white ribbon, and a light-blue ribbon bow with small white flowers tied into her hair. She stands on a dreamy night concert stage: light-blue and soft pink spotlights beam down through haze, a sea of glowing light sticks far below, sparkles and white petals float in the air, translucent ribbons drift across the frame, shining bokeh everywhere. Lavish, luminous, highly detailed anime key visual for a song video, delicate clean lineart, soft glow, rich colours, a wide 16:9 composition with the girl slightly right of centre and open space on the left."
+ },
+ {
+  "model": "qwen",
+  "name": "kue_q_stage_109",
+  "ref": [
+   "ref_kue_face.png",
+   "ref_shunka_sing.png"
+  ],
+  "w": 1664,
+  "h": 928,
+  "seed": 109,
+  "negative": "text, letters, title, logo, watermark, signature, name tag, label, two girls, extra person, extra fingers, deformed hands, extra arms, cropped head, blurry, low quality, microphone stand, pole, open eyes",
+  "prompt": "The cat girl from picture 1: keep her face, her big blue eyes, her very long wine-red hair that turns pink towards the ends, her blunt bangs and ahoge, the small braided buns on both sides of her head, her pink cat ears with white fluff inside, the big light-blue ribbon bow on top of her head and the small white flower hairclip exactly as in picture 1. A long wine-red cat tail curls behind her. She sings with her eyes gently closed and her mouth open into a cordless handheld microphone she holds in both hands just below her chin, upper body, just like the girl in picture 2. There is no microphone stand. She wears the outfit of picture 2: an off-shoulder sheer white jacket with wide frilled see-through sleeves over a white dress with thin straps, a black lace choker with a white ribbon, and a light-blue ribbon bow with small white flowers tied into her hair. She stands on a dreamy night concert stage: light-blue and soft pink spotlights beam down through haze, a sea of glowing light sticks far below, sparkles and white petals float in the air, translucent ribbons drift across the frame, shining bokeh everywhere. Lavish, luminous, highly detailed anime key visual for a song video, delicate clean lineart, soft glow, rich colours, a wide 16:9 composition with the girl slightly right of centre and open space on the left."
+ },
+ {
+  "model": "qwen",
+  "name": "kue_q_sweets_107",
+  "ref": [
+   "ref_kue_face.png",
+   "ref_shunka_sing.png"
+  ],
+  "w": 1664,
+  "h": 928,
+  "seed": 107,
+  "negative": "text, letters, title, logo, watermark, signature, name tag, label, two girls, extra person, extra fingers, deformed hands, extra arms, cropped head, blurry, low quality, microphone stand, pole, open eyes",
+  "prompt": "The cat girl from picture 1: keep her face, her big blue eyes, her very long wine-red hair that turns pink towards the ends, her blunt bangs and ahoge, the small braided buns on both sides of her head, her pink cat ears with white fluff inside, the big light-blue ribbon bow on top of her head and the small white flower hairclip exactly as in picture 1. A long wine-red cat tail curls behind her. She sings with her eyes gently closed and her mouth open into a cordless handheld microphone she holds in both hands just below her chin, upper body, just like the girl in picture 2. There is no microphone stand. She wears the outfit of picture 2: an off-shoulder sheer white jacket with wide frilled see-through sleeves over a white dress with thin straps, a black lace choker with a white ribbon, and a light-blue ribbon bow with small white flowers tied into her hair. She stands in a fantastical pastel dessert-shop wonderland at dusk: towering layered cakes, macarons and glass candy jars glowing like lanterns, cream-coloured shelves and lace curtains, strings of fairy lights, sparkles and petals floating in warm golden light. Lavish, luminous, highly detailed anime key visual for a song video, delicate clean lineart, soft glow, rich colours, a wide 16:9 composition with the girl slightly right of centre and open space on the left."
+ },
+ {
+  "model": "qwen",
+  "name": "kue_q_sweets_109",
+  "ref": [
+   "ref_kue_face.png",
+   "ref_shunka_sing.png"
+  ],
+  "w": 1664,
+  "h": 928,
+  "seed": 109,
+  "negative": "text, letters, title, logo, watermark, signature, name tag, label, two girls, extra person, extra fingers, deformed hands, extra arms, cropped head, blurry, low quality, microphone stand, pole, open eyes",
+  "prompt": "The cat girl from picture 1: keep her face, her big blue eyes, her very long wine-red hair that turns pink towards the ends, her blunt bangs and ahoge, the small braided buns on both sides of her head, her pink cat ears with white fluff inside, the big light-blue ribbon bow on top of her head and the small white flower hairclip exactly as in picture 1. A long wine-red cat tail curls behind her. She sings with her eyes gently closed and her mouth open into a cordless handheld microphone she holds in both hands just below her chin, upper body, just like the girl in picture 2. There is no microphone stand. She wears the outfit of picture 2: an off-shoulder sheer white jacket with wide frilled see-through sleeves over a white dress with thin straps, a black lace choker with a white ribbon, and a light-blue ribbon bow with small white flowers tied into her hair. She stands in a fantastical pastel dessert-shop wonderland at dusk: towering layered cakes, macarons and glass candy jars glowing like lanterns, cream-coloured shelves and lace curtains, strings of fairy lights, sparkles and petals floating in warm golden light. Lavish, luminous, highly detailed anime key visual for a song video, delicate clean lineart, soft glow, rich colours, a wide 16:9 composition with the girl slightly right of centre and open space on the left."
+ },
+ {
+  "model": "qwen",
+  "name": "kue_q_stars_107",
+  "ref": [
+   "ref_kue_face.png",
+   "ref_shunka_sing.png"
+  ],
+  "w": 1664,
+  "h": 928,
+  "seed": 107,
+  "negative": "text, letters, title, logo, watermark, signature, name tag, label, two girls, extra person, extra fingers, deformed hands, extra arms, cropped head, blurry, low quality, microphone stand, pole, open eyes",
+  "prompt": "The cat girl from picture 1: keep her face, her big blue eyes, her very long wine-red hair that turns pink towards the ends, her blunt bangs and ahoge, the small braided buns on both sides of her head, her pink cat ears with white fluff inside, the big light-blue ribbon bow on top of her head and the small white flower hairclip exactly as in picture 1. A long wine-red cat tail curls behind her. She sings with her eyes gently closed and her mouth open into a cordless handheld microphone she holds in both hands just below her chin, upper body, just like the girl in picture 2. There is no microphone stand. She wears the outfit of picture 2: an off-shoulder sheer white jacket with wide frilled see-through sleeves over a white dress with thin straps, a black lace choker with a white ribbon, and a light-blue ribbon bow with small white flowers tied into her hair. She stands on a hill of white flowers under a vast starry night sky with a huge pale moon: light-blue petals swirl around her in the wind, ribbons of starlight trail across the sky, glittering particles and soft blue-and-pink glow. Lavish, luminous, highly detailed anime key visual for a song video, delicate clean lineart, soft glow, rich colours, a wide 16:9 composition with the girl slightly right of centre and open space on the left."
+ },
+ {
+  "model": "qwen",
+  "name": "kue_q_stars_109",
+  "ref": [
+   "ref_kue_face.png",
+   "ref_shunka_sing.png"
+  ],
+  "w": 1664,
+  "h": 928,
+  "seed": 109,
+  "negative": "text, letters, title, logo, watermark, signature, name tag, label, two girls, extra person, extra fingers, deformed hands, extra arms, cropped head, blurry, low quality, microphone stand, pole, open eyes",
+  "prompt": "The cat girl from picture 1: keep her face, her big blue eyes, her very long wine-red hair that turns pink towards the ends, her blunt bangs and ahoge, the small braided buns on both sides of her head, her pink cat ears with white fluff inside, the big light-blue ribbon bow on top of her head and the small white flower hairclip exactly as in picture 1. A long wine-red cat tail curls behind her. She sings with her eyes gently closed and her mouth open into a cordless handheld microphone she holds in both hands just below her chin, upper body, just like the girl in picture 2. There is no microphone stand. She wears the outfit of picture 2: an off-shoulder sheer white jacket with wide frilled see-through sleeves over a white dress with thin straps, a black lace choker with a white ribbon, and a light-blue ribbon bow with small white flowers tied into her hair. She stands on a hill of white flowers under a vast starry night sky with a huge pale moon: light-blue petals swirl around her in the wind, ribbons of starlight trail across the sky, glittering particles and soft blue-and-pink glow. Lavish, luminous, highly detailed anime key visual for a song video, delicate clean lineart, soft glow, rich colours, a wide 16:9 composition with the girl slightly right of centre and open space on the left."
+ },
+ {
+  "model": "anima",
+  "name": "kue_a_stage_103_35",
+  "init": "kue_q_stage_103_00001_.png",
+  "denoise": 0.35,
+  "seed": 81,
+  "w": 1664,
+  "h": 928,
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, cat girl, cat ears, animal ear fluff, cat tail, very long hair, red hair, pink hair, gradient hair, blunt bangs, ahoge, braided bun, hair bow, light blue bow, white bow, hair flower, hairclip, black choker, lace choker, neck ribbon, off-shoulder, see-through sleeves, white jacket, wide sleeves, frilled sleeves, white dress, upper body, singing, holding microphone, closed eyes, open mouth, stage, stage lights, spotlight, concert, glowstick, audience, light rays, ribbon, night, light particles, sparkle, petals, bokeh, detailed background, soft lighting, delicate lineart. A cat girl with very long wine-red hair fading to pink, pink cat ears with white fluff and a big light-blue bow on her head sings with her eyes closed in a sheer white off-shoulder frilled dress."
+ },
+ {
+  "model": "anima",
+  "name": "kue_a_stage_103_45",
+  "init": "kue_q_stage_103_00001_.png",
+  "denoise": 0.45,
+  "seed": 81,
+  "w": 1664,
+  "h": 928,
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, cat girl, cat ears, animal ear fluff, cat tail, very long hair, red hair, pink hair, gradient hair, blunt bangs, ahoge, braided bun, hair bow, light blue bow, white bow, hair flower, hairclip, black choker, lace choker, neck ribbon, off-shoulder, see-through sleeves, white jacket, wide sleeves, frilled sleeves, white dress, upper body, singing, holding microphone, closed eyes, open mouth, stage, stage lights, spotlight, concert, glowstick, audience, light rays, ribbon, night, light particles, sparkle, petals, bokeh, detailed background, soft lighting, delicate lineart. A cat girl with very long wine-red hair fading to pink, pink cat ears with white fluff and a big light-blue bow on her head sings with her eyes closed in a sheer white off-shoulder frilled dress."
+ },
+ {
+  "model": "qwen",
+  "name": "kue_h_stage_103_q30",
+  "init": "kue_q_stage_103_00001_.png",
+  "upscale": "4x-AnimeSharp.pth",
+  "w": 2496,
+  "h": 1392,
+  "denoise": 0.3,
+  "seed": 81,
+  "ref": [
+   "ref_kue_face.png",
+   "ref_shunka_sing.png"
+  ],
+  "negative": "text, letters, title, logo, watermark, signature, name tag, label, two girls, extra person, extra fingers, deformed hands, extra arms, cropped head, blurry, low quality, microphone stand, pole, open eyes",
+  "prompt": "The cat girl from picture 1: keep her face, her big blue eyes, her very long wine-red hair that turns pink towards the ends, her blunt bangs and ahoge, the small braided buns on both sides of her head, her pink cat ears with white fluff inside, the big light-blue ribbon bow on top of her head and the small white flower hairclip exactly as in picture 1. A long wine-red cat tail curls behind her. She sings with her eyes gently closed and her mouth open into a cordless handheld microphone she holds in both hands just below her chin, upper body, just like the girl in picture 2. There is no microphone stand. She wears the outfit of picture 2: an off-shoulder sheer white jacket with wide frilled see-through sleeves over a white dress with thin straps, a black lace choker with a white ribbon, and a light-blue ribbon bow with small white flowers tied into her hair. She stands on a dreamy night concert stage: light-blue and soft pink spotlights beam down through haze, a sea of glowing light sticks far below, sparkles and white petals float in the air, translucent ribbons drift across the frame, shining bokeh everywhere. Lavish, luminous, highly detailed anime key visual for a song video, delicate clean lineart, soft glow, rich colours, a wide 16:9 composition with the girl slightly right of centre and open space on the left."
+ },
+ {
+  "model": "anima",
+  "name": "kue_h_stage_103_a35",
+  "init": "kue_q_stage_103_00001_.png",
+  "upscale": "4x-AnimeSharp.pth",
+  "w": 2496,
+  "h": 1392,
+  "denoise": 0.35,
+  "seed": 81,
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, cat girl, cat ears, animal ear fluff, cat tail, very long hair, red hair, pink hair, gradient hair, blunt bangs, ahoge, braided bun, hair bow, light blue bow, white bow, hair flower, hairclip, black choker, lace choker, neck ribbon, off-shoulder, see-through sleeves, white jacket, wide sleeves, frilled sleeves, white dress, upper body, singing, holding microphone, closed eyes, open mouth, stage, stage lights, spotlight, concert, glowstick, audience, light rays, ribbon, night, light particles, sparkle, petals, bokeh, detailed background, soft lighting, delicate lineart. A cat girl with very long wine-red hair fading to pink, pink cat ears with white fluff and a big light-blue bow on her head sings with her eyes closed in a sheer white off-shoulder frilled dress."
+ }
+]

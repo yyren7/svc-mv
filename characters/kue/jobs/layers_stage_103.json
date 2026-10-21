@@ -1,0 +1,8 @@
+{
+ "picture": "kue_pv_stage_103_4k_00001_.png",
+ "dir": "/root/autodl-tmp/layers/kue_stage_103",
+ "scene": "A dreamy night concert stage: light-blue and soft pink spotlights beam down through haze from the truss, a sea of glowing light sticks far below, white petals and sparkles float in the air, translucent ribbons drift, shining bokeh.",
+ "far_scene": "The back of a dreamy night concert hall: light-blue and soft pink spotlights beaming down through haze from a dark truss, sparkles and soft bokeh.",
+ "far": 0.1,
+ "near": 0.13
+}

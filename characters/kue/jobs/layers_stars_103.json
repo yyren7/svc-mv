@@ -1,0 +1,8 @@
+{
+ "picture": "kue_pv_stars_103_4k_00001_.png",
+ "dir": "/root/autodl-tmp/layers/kue_stars_103",
+ "scene": "A hill of white flowers under a vast deep-blue starry night sky with a huge pale moon at the upper left, light-blue petals drifting in the wind, ribbons of starlight across the sky, soft blue glow.",
+ "far_scene": "A vast deep-blue starry night sky with a huge pale moon at the upper left, ribbons of starlight and glittering particles, above the distant softly glowing horizon of a white flower field.",
+ "far": 0.15,
+ "near": 0.35
+}

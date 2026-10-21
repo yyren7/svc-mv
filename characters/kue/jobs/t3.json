@@ -1,0 +1,61 @@
+[
+ {
+  "model": "qwen",
+  "name": "kue_h_stars_103_q30",
+  "init": "kue_q_stars_103_00001_.png",
+  "upscale": "4x-AnimeSharp.pth",
+  "w": 2496,
+  "h": 1392,
+  "denoise": 0.3,
+  "seed": 81,
+  "ref": [
+   "ref_kue_face.png",
+   "ref_shunka_sing.png"
+  ],
+  "negative": "text, letters, title, logo, watermark, signature, name tag, label, two girls, extra person, extra fingers, deformed hands, extra arms, cropped head, blurry, low quality, microphone stand, pole, open eyes",
+  "prompt": "The cat girl from picture 1: keep her face, her big blue eyes, her very long wine-red hair that turns pink towards the ends, her blunt bangs and ahoge, the small braided buns on both sides of her head, her pink cat ears with white fluff inside, the big light-blue ribbon bow on top of her head and the small white flower hairclip exactly as in picture 1. A long wine-red cat tail curls behind her. She sings with her eyes gently closed and her mouth open into a cordless handheld microphone she holds in both hands just below her chin, upper body, just like the girl in picture 2. There is no microphone stand. She wears the outfit of picture 2: an off-shoulder sheer white jacket with wide frilled see-through sleeves over a white dress with thin straps, a black lace choker with a white ribbon, and a light-blue ribbon bow with small white flowers tied into her hair. She stands on a hill of white flowers under a vast starry night sky with a huge pale moon: light-blue petals swirl around her in the wind, ribbons of starlight trail across the sky, glittering particles and soft blue-and-pink glow. Lavish, luminous, highly detailed anime key visual for a song video, delicate clean lineart, soft glow, rich colours, a wide 16:9 composition with the girl slightly right of centre and open space on the left."
+ },
+ {
+  "model": "qwen",
+  "name": "kue_h_sweets_107_q30",
+  "init": "kue_q_sweets_107_00001_.png",
+  "upscale": "4x-AnimeSharp.pth",
+  "w": 2496,
+  "h": 1392,
+  "denoise": 0.3,
+  "seed": 81,
+  "ref": [
+   "ref_kue_face.png",
+   "ref_shunka_sing.png"
+  ],
+  "negative": "text, letters, title, logo, watermark, signature, name tag, label, two girls, extra person, extra fingers, deformed hands, extra arms, cropped head, blurry, low quality, microphone stand, pole, open eyes",
+  "prompt": "The cat girl from picture 1: keep her face, her big blue eyes, her very long wine-red hair that turns pink towards the ends, her blunt bangs and ahoge, the small braided buns on both sides of her head, her pink cat ears with white fluff inside, the big light-blue ribbon bow on top of her head and the small white flower hairclip exactly as in picture 1. A long wine-red cat tail curls behind her. She sings with her eyes gently closed and her mouth open into a cordless handheld microphone she holds in both hands just below her chin, upper body, just like the girl in picture 2. There is no microphone stand. She wears the outfit of picture 2: an off-shoulder sheer white jacket with wide frilled see-through sleeves over a white dress with thin straps, a black lace choker with a white ribbon, and a light-blue ribbon bow with small white flowers tied into her hair. She stands in a fantastical pastel dessert-shop wonderland at dusk: towering layered cakes, macarons and glass candy jars glowing like lanterns, cream-coloured shelves and lace curtains, strings of fairy lights, sparkles and petals floating in warm golden light. Lavish, luminous, highly detailed anime key visual for a song video, delicate clean lineart, soft glow, rich colours, a wide 16:9 composition with the girl slightly right of centre and open space on the left."
+ },
+ {
+  "model": "upscale",
+  "name": "kue_pv_stage_103_4k",
+  "init": "kue_h_stage_103_q30_00001_.png",
+  "upscale": "4x-AnimeSharp.pth",
+  "w": 3840,
+  "h": 2160,
+  "crop": "center"
+ },
+ {
+  "model": "upscale",
+  "name": "kue_pv_stars_103_4k",
+  "init": "@kue_h_stars_103_q30",
+  "upscale": "4x-AnimeSharp.pth",
+  "w": 3840,
+  "h": 2160,
+  "crop": "center"
+ },
+ {
+  "model": "upscale",
+  "name": "kue_pv_sweets_107_4k",
+  "init": "@kue_h_sweets_107_q30",
+  "upscale": "4x-AnimeSharp.pth",
+  "w": 3840,
+  "h": 2160,
+  "crop": "center"
+ }
+]

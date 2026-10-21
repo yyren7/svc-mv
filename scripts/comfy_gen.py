@@ -2,6 +2,7 @@
     python comfy_gen.py <jobs.json>      jobs: [{model, name, prompt, negative?, w, h, seed, steps?, cfg?}, ...]
 Images land in ComfyUI/output/<name>_*.png. A job whose init is "@<name>" starts from the picture the job <name>
 of the same file makes (Qwen keeps a character's design from reference pictures, Anima redraws it in its own hand).
+A job with `upscale` enlarges its init picture with an upscale model first; model "upscale" only enlarges it.
 How to run it: docs/comfyui.md."""
 import json
 import os
@@ -69,12 +70,36 @@ def qwen_t2i(j):
     }
 
 
+def enlarge(g, j, pixels):
+    """The picture through the upscale model `upscale` (in models/upscale_models), then Lanczos to w x h. With
+    crop "center" the picture keeps its aspect and loses a sliver at the sides."""
+    g["22"] = {"class_type": "UpscaleModelLoader", "inputs": {"model_name": j["upscale"]}}
+    g["23"] = {"class_type": "ImageUpscaleWithModel", "inputs": {"upscale_model": ["22", 0], "image": pixels}}
+    g["24"] = {"class_type": "ImageScale", "inputs": {"image": ["23", 0], "upscale_method": "lanczos", "width": j["w"], "height": j["h"],
+                                                      "crop": j.get("crop", "disabled")}}
+    return ["24", 0]
+
+
+def upscale(j):
+    """The init picture enlarged to w x h, nothing redrawn."""
+    g = {"20": {"class_type": "LoadImage", "inputs": {"image": j["init"]}}}
+    g["9"] = {"class_type": "SaveImage", "inputs": {"images": enlarge(g, j, ["20", 0]), "filename_prefix": j["name"]}}
+    return g
+
+
 def img2img(g, j, vae):
     """Start from a picture (in ComfyUI/input) instead of noise: the sampler keeps its layout and colours and
-    redraws `denoise` of it."""
+    redraws `denoise` of it. With `upscale`, the picture is enlarged to w x h first, so the redraw draws the detail
+    of the bigger picture instead of stretching it. With `mask` (a picture in ComfyUI/input, white where to draw),
+    only the white part is redrawn: what a layer hides, filled in."""
     g["20"] = {"class_type": "LoadImage", "inputs": {"image": j["init"]}}
-    g["21"] = {"class_type": "VAEEncode", "inputs": {"pixels": ["20", 0], "vae": vae}}
+    pixels = enlarge(g, j, ["20", 0]) if j.get("upscale") else ["20", 0]
+    g["21"] = {"class_type": "VAEEncode", "inputs": {"pixels": pixels, "vae": vae}}
     g["7"]["inputs"]["latent_image"] = ["21", 0]
+    if j.get("mask"):
+        g["25"] = {"class_type": "LoadImageMask", "inputs": {"image": j["mask"], "channel": "red"}}
+        g["26"] = {"class_type": "SetLatentNoiseMask", "inputs": {"samples": ["21", 0], "mask": ["25", 0]}}
+        g["7"]["inputs"]["latent_image"] = ["26", 0]
     g["7"]["inputs"]["denoise"] = j.get("denoise", 0.55)
     g.pop("6", None)
     return g
@@ -112,8 +137,8 @@ def main():
                 continue
             shutil.copy(os.path.join(COMFY, "output", outs[0]), os.path.join(COMFY, "input", outs[0]))
             j["init"] = outs[0]
-        graph = {"anima": anima, "qwen": qwen}[j["model"]](j)
-        if j.get("init"):
+        graph = {"anima": anima, "qwen": qwen, "upscale": upscale}[j["model"]](j)
+        if j.get("init") and j["model"] != "upscale":
             graph = img2img(graph, j, ["3", 0] if j["model"] == "anima" else ["4", 0])
         r = post("/prompt", {"prompt": graph})
         if r.get("node_errors"):

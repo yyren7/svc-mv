@@ -29,14 +29,17 @@ A JSON list, one picture per job:
 
 | Field | |
 |---|---|
-| `model` | `anima` or `qwen` |
+| `model` | `anima`, `qwen`, or `upscale` (only enlarges `init` with `upscale`; nothing is redrawn) |
 | `name` | output prefix: the picture lands in `ComfyUI/output/<name>_00001_.png`. Put the seed in it (`kv_41`) |
 | `prompt`, `negative` | |
 | `w`, `h`, `seed` | about 1 MP: 896×1152, 1152×896, 832×1216, 1024×1024 |
 | `steps`, `cfg`, `sampler`, `unet` | optional overrides (`sampler` and `unet` are Anima only) |
 | `ref` | Qwen only: a file name, or a list of them, in `ComfyUI/input/`; the encoder looks at these pictures |
-| `init` | img2img: a file in `ComfyUI/input/`, or `"@<name>"` for the picture an earlier job in the same file makes (the script waits for it and copies it to `input/`). With `init`, `w` and `h` are ignored |
+| `init` | img2img: a file in `ComfyUI/input/`, or `"@<name>"` for the picture an earlier job in the same file makes (the script waits for it and copies it to `input/`). With `init`, `w` and `h` are ignored unless `upscale` is set |
 | `denoise` | with `init`: how much of the picture is redrawn (default 0.55) |
+| `upscale` | with `init`: an upscale model in `ComfyUI/models/upscale_models/` (`4x-AnimeSharp.pth`); the picture is enlarged to `w`×`h` before it is redrawn |
+| `crop` | with `upscale`: `"center"` keeps the picture's aspect when `w`×`h` has another one; the default `"disabled"` stretches it |
+| `mask` | with `init`: a picture in `ComfyUI/input/`, white where to draw. Only that part is redrawn; at `denoise` 1.0 it is drawn from scratch |
 
 A Qwen picture from reference sheets, then Anima redrawing it:
 
@@ -73,7 +76,11 @@ scp -P <port> 'root@<host>:/root/autodl-tmp/ComfyUI/output/<prefix>*' <local fol
 ```
 
 `comfy_batch.sh` expects `comfy_gen.py` in `/root/autodl-tmp/` and runs it with `/root/miniconda3/bin/python`
-(it needs only the standard library). ComfyUI's own log is `/root/autodl-tmp/comfy.log`.
+(it needs only the standard library). ComfyUI's own log is `/root/autodl-tmp/comfy.log`. It hands each file to
+`$CLIENT` instead when that is set (see [Layers for Blender](#layers-for-blender)).
+
+The upscale models in `ComfyUI/models/upscale_models/` are Kim2091's `4x-AnimeSharp.pth` and
+`2x-AnimeSharpV4_RCAN.safetensors`, from `hf-mirror.com` (the server cannot reach huggingface.co).
 
 ## Recipes that worked
 
@@ -87,3 +94,31 @@ scp -P <port> 'root@<host>:/root/autodl-tmp/ComfyUI/output/<prefix>*' <local fol
 - **Close-ups and half-body shots come out well; full-body long shots are weak** (small faces, details lost).
   Frame a shot tighter, or build the wide shot in 3D and put the character in as a cut-out.
 - Draw two or three seeds of every prompt and pick from the contact sheet.
+- **A 4K picture for a video**: Qwen at 1664×928; the pick drawn again at 2496×1392 with the same prompt
+  (`init` + `upscale`, `denoise` 0.3), which sharpens the line and keeps the design; then `model: "upscale"` to
+  3840×2160 with `crop: "center"`. Anima at the second step changed the hair ornaments, and Anima redrawing at
+  1664×928 came out softer. `characters/kue/jobs/kv.py` is the example.
+
+## Layers for Blender
+
+`scripts/layers.py` splits a finished picture into a character, near, mid and far layer, each the full size of the
+picture and filled in where a nearer layer hid it, plus their depth maps, for animating the layers one by one. It
+runs on the server with ComfyUI up, so it goes through `comfy_batch.sh` with a different client:
+
+```sh
+scp scripts/layers.py scripts/comfy_gen.py scripts/comfy_batch.sh <spec.json> root@<host>:/root/autodl-tmp/
+CLIENT="env PYTHONPATH=/root/autodl-tmp/pv/pylib /root/autodl-tmp/ComfyUI/venv/bin/python /root/autodl-tmp/layers.py" \
+    nohup bash comfy_batch.sh <spec.json> > layers.log 2>&1 &
+```
+
+The first run (a spec without `near` and `far`) cuts the character out (anime-seg), fills the plate behind her
+(Qwen, `mask`), and writes the depth (Depth Anything V2) with its quantiles. Pick `far` and `near` from the
+quantiles and a look at the plate, add them to the spec, and run it again for the layers; the second run keeps the
+first run's files. Delete a file in the out dir to make it again (`far.png` after changing the thresholds).
+The models are the one-picture PV's, in `/root/autodl-tmp/pv/models/` (`scripts/onepic_setup.sh`).
+Depth splits a scene with solid things in it well (a flower field, cake towers); a stage of haze and bokeh splits
+less cleanly. The specs for the 小铃久绘 pictures are in `characters/kue/jobs/layers_*.json`.
+
+In Blender (the one-picture PV of stars_103): where `far.png` fills in what mid hides, its depth is almost mid's,
+so the two meshes z-fight in a blocky pattern; set far about 20% further back. Depth Anything puts big foreground
+flowers behind the character; that PV pulls near 2.2× closer than its depth.
