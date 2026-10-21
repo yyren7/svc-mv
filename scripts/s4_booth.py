@@ -342,7 +342,7 @@ def main():
     build()
     cams = {
         "long": cyc.camera("cam_long", (-0.075, -0.23, 0.03), tuple(HANDSET + Vector((0, 0, -0.02))), 35, 5.6),
-        "handset": cyc.camera("cam_handset", tuple(HANDSET + Vector((0.004, -0.105, 0.03))), tuple(HANDSET), 100, 8.0),
+        "handset": cyc.camera("cam_handset", tuple(HANDSET + Vector((0.006, -0.175, 0.04))), tuple(HANDSET), 100, 8.0),
     }
     cyc.SKIP_FOCUS = cyc.SKIP_FOCUS + ("rain", "booth_glass", "door_glass", "umbrella_canopy", "umbrella_water")
     cyc.render_shots(cams, SHOTS, OUT, "s4", focus={"long": HANDSET, "handset": HANDSET})
