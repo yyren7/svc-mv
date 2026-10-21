@@ -1,0 +1,92 @@
+[
+ {
+  "model": "anima",
+  "name": "shunka_heart_31",
+  "prompt": "masterpiece, best quality, safe, newest, sakura shunka, long hair, brown hair, gradient hair, blue hair, two-tone hair, side braid, braid, hair ribbon, blue ribbon, hair flower, hairclip, blue eyes, ahoge, choker, lace choker, white dress, frills, blush, upper body, looking at viewer, holding heart, large heart, hugging, flat color, limited palette, bold lineart, simple background, beige background. Sakura Shunka, a gentle virtual singer: long light-brown hair that fades into pale blue at the ends, a braid on her right side tied with a large light-blue ribbon and a round white flower ornament, a blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower, and a white summer dress with light-blue trims. She hugs a big flat heart to her chest. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 31
+ },
+ {
+  "model": "anima",
+  "name": "shunka_heart_37",
+  "prompt": "masterpiece, best quality, safe, newest, sakura shunka, long hair, brown hair, gradient hair, blue hair, two-tone hair, side braid, braid, hair ribbon, blue ribbon, hair flower, hairclip, blue eyes, ahoge, choker, lace choker, white dress, frills, blush, upper body, looking at viewer, holding heart, large heart, hugging, flat color, limited palette, bold lineart, simple background, beige background. Sakura Shunka, a gentle virtual singer: long light-brown hair that fades into pale blue at the ends, a braid on her right side tied with a large light-blue ribbon and a round white flower ornament, a blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower, and a white summer dress with light-blue trims. She hugs a big flat heart to her chest. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 37
+ },
+ {
+  "model": "anima",
+  "name": "shunka_mic_31",
+  "prompt": "masterpiece, best quality, safe, newest, sakura shunka, long hair, brown hair, gradient hair, blue hair, two-tone hair, side braid, braid, hair ribbon, blue ribbon, hair flower, hairclip, blue eyes, ahoge, choker, lace choker, white dress, frills, blush, upper body, singing, holding microphone, closed eyes, open mouth, flat color, limited palette, bold lineart, simple background, beige background. Sakura Shunka, a gentle virtual singer: long light-brown hair that fades into pale blue at the ends, a braid on her right side tied with a large light-blue ribbon and a round white flower ornament, a blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower, and a white summer dress with light-blue trims. She sings into a microphone with her eyes closed. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 31
+ },
+ {
+  "model": "anima",
+  "name": "shunka_back_31",
+  "prompt": "masterpiece, best quality, safe, newest, sakura shunka, long hair, brown hair, gradient hair, blue hair, two-tone hair, side braid, braid, hair ribbon, blue ribbon, hair flower, hairclip, blue eyes, ahoge, choker, lace choker, white dress, frills, blush, upper body, looking back, from behind, looking at viewer, flat color, limited palette, bold lineart, simple background, beige background. Sakura Shunka, a gentle virtual singer: long light-brown hair that fades into pale blue at the ends, a braid on her right side tied with a large light-blue ribbon and a round white flower ornament, a blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower, and a white summer dress with light-blue trims. She looks back over her shoulder. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 31
+ },
+ {
+  "model": "anima",
+  "name": "shunka_peace_31",
+  "prompt": "masterpiece, best quality, safe, newest, sakura shunka, long hair, brown hair, gradient hair, blue hair, two-tone hair, side braid, braid, hair ribbon, blue ribbon, hair flower, hairclip, blue eyes, ahoge, choker, lace choker, white dress, frills, blush, upper body, head tilt, peace sign, smile, looking at viewer, flat color, limited palette, bold lineart, simple background, beige background. Sakura Shunka, a gentle virtual singer: long light-brown hair that fades into pale blue at the ends, a braid on her right side tied with a large light-blue ribbon and a round white flower ornament, a blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower, and a white summer dress with light-blue trims. She tilts her head and makes a peace sign. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 31
+ },
+ {
+  "model": "anima",
+  "name": "shunka_portrait_31",
+  "prompt": "masterpiece, best quality, safe, newest, sakura shunka, long hair, brown hair, gradient hair, blue hair, two-tone hair, side braid, braid, hair ribbon, blue ribbon, hair flower, hairclip, blue eyes, ahoge, choker, lace choker, white dress, frills, blush, upper body, smile, looking at viewer, detailed, soft lighting, pastel colors, white background. Sakura Shunka, a gentle virtual singer: long light-brown hair that fades into pale blue at the ends, a braid on her right side tied with a large light-blue ribbon and a round white flower ornament, a blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower, and a white summer dress with light-blue trims. She smiles at the viewer. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 31
+ },
+ {
+  "model": "anima",
+  "name": "shunka_portrait_37",
+  "prompt": "masterpiece, best quality, safe, newest, sakura shunka, long hair, brown hair, gradient hair, blue hair, two-tone hair, side braid, braid, hair ribbon, blue ribbon, hair flower, hairclip, blue eyes, ahoge, choker, lace choker, white dress, frills, blush, upper body, smile, looking at viewer, detailed, soft lighting, pastel colors, white background. Sakura Shunka, a gentle virtual singer: long light-brown hair that fades into pale blue at the ends, a braid on her right side tied with a large light-blue ribbon and a round white flower ornament, a blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower, and a white summer dress with light-blue trims. She smiles at the viewer. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 37
+ },
+ {
+  "model": "anima",
+  "name": "shunka_stand_31",
+  "prompt": "masterpiece, best quality, safe, newest, sakura shunka, long hair, brown hair, gradient hair, blue hair, two-tone hair, side braid, braid, hair ribbon, blue ribbon, hair flower, hairclip, blue eyes, ahoge, choker, lace choker, white dress, frills, blush, full body, standing, looking at viewer, detailed, soft lighting, pastel colors, white background. Sakura Shunka, a gentle virtual singer: long light-brown hair that fades into pale blue at the ends, a braid on her right side tied with a large light-blue ribbon and a round white flower ornament, a blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower, and a white summer dress with light-blue trims. She stands facing the viewer, full body. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 31
+ },
+ {
+  "model": "anima",
+  "name": "shunka_stand_37",
+  "prompt": "masterpiece, best quality, safe, newest, sakura shunka, long hair, brown hair, gradient hair, blue hair, two-tone hair, side braid, braid, hair ribbon, blue ribbon, hair flower, hairclip, blue eyes, ahoge, choker, lace choker, white dress, frills, blush, full body, standing, looking at viewer, detailed, soft lighting, pastel colors, white background. Sakura Shunka, a gentle virtual singer: long light-brown hair that fades into pale blue at the ends, a braid on her right side tied with a large light-blue ribbon and a round white flower ornament, a blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower, and a white summer dress with light-blue trims. She stands facing the viewer, full body. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 37
+ },
+ {
+  "model": "anima",
+  "name": "shunka_stage_31",
+  "prompt": "masterpiece, best quality, safe, newest, sakura shunka, long hair, brown hair, gradient hair, blue hair, two-tone hair, side braid, braid, hair ribbon, blue ribbon, hair flower, hairclip, blue eyes, ahoge, choker, lace choker, white dress, frills, blush, upper body, singing, holding microphone, stage lights, sparkle, detailed, soft lighting, pastel colors, white background. Sakura Shunka, a gentle virtual singer: long light-brown hair that fades into pale blue at the ends, a braid on her right side tied with a large light-blue ribbon and a round white flower ornament, a blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower, and a white summer dress with light-blue trims. She sings on a stage under coloured lights. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 31
+ }
+]

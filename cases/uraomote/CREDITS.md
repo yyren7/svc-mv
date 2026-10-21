@@ -1,7 +1,7 @@
 # Credits
 
 The sets are built by the scripts in `scripts/`. Where they use other people's work, it is listed here.
-`scripts/fetch_assets.py` downloads all of it; none of it is stored in this repository.
+The pipeline's `scripts/fetch_assets.py` downloads all of it; none of it is stored in this repository.
 
 ## CC BY 4.0 (attribution required)
 

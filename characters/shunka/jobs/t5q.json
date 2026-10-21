@@ -1,0 +1,38 @@
+[
+ {
+  "model": "qwen",
+  "name": "s3_qref_flat",
+  "ref": [
+   "ref_shunka.png",
+   "ref_shunka_face.png"
+  ],
+  "w": 896,
+  "h": 1152,
+  "seed": 61,
+  "prompt": "Draw the character from the reference pictures as a clean flat-color anime illustration with bold black lineart and a limited palette, upper body, hugging a large flat vermilion heart to her chest, plain cream paper background. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "s3_qref_sing",
+  "ref": [
+   "ref_shunka.png",
+   "ref_shunka_face.png"
+  ],
+  "w": 896,
+  "h": 1152,
+  "seed": 61,
+  "prompt": "Draw the character from the reference pictures singing into a microphone on a small stage with warm lights, upper body, full-color anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "s3_qref_stand",
+  "ref": [
+   "ref_shunka.png",
+   "ref_shunka_face.png"
+  ],
+  "w": 832,
+  "h": 1216,
+  "seed": 61,
+  "prompt": "Draw the character from the reference pictures standing in a three-quarter view, full body, plain white background, full-color anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ }
+]

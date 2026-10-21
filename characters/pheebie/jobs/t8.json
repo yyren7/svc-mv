@@ -1,0 +1,458 @@
+[
+ {
+  "model": "qwen",
+  "name": "p8_q_tilt",
+  "ref": [
+   "ref_pheebie_up_clean.png",
+   "ref_pheebie_full.png"
+  ],
+  "w": 1152,
+  "h": 896,
+  "seed": 91,
+  "negative": "text, letters, name tag, label, watermark, signature, logo",
+  "prompt": "Draw the character from the reference pictures in a close-up of her face and shoulders seen from slightly above: she tilts her head to one side and smiles softly at the viewer, touching the rim of her round glasses with one finger, warm soft afternoon light, pale cream background, delicate anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "p8_q_watch",
+  "ref": [
+   "ref_pheebie_up_clean.png",
+   "ref_pheebie_full.png"
+  ],
+  "w": 1152,
+  "h": 896,
+  "seed": 91,
+  "negative": "text, letters, name tag, label, watermark, signature, logo",
+  "prompt": "Draw the character from the reference pictures in a close-up of her face and shoulders: she holds her open pocket watch up beside her cheek toward the viewer and smiles, soft light, pale cream background, delicate anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "p8_q_cup",
+  "ref": [
+   "ref_pheebie_up_clean.png",
+   "ref_pheebie_full.png"
+  ],
+  "w": 1152,
+  "h": 896,
+  "seed": 91,
+  "negative": "text, letters, name tag, label, watermark, signature, logo",
+  "prompt": "Draw the character from the reference pictures in a close-up of her face: she peeks over the rim of a white coffee cup held in both hands so only her eyes and glasses show above it, her eyes smiling, a wisp of steam, warm cafe light, delicate anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "p8_q_sing",
+  "ref": [
+   "ref_pheebie_up_clean.png",
+   "ref_pheebie_full.png"
+  ],
+  "w": 1152,
+  "h": 896,
+  "seed": 91,
+  "negative": "text, letters, name tag, label, watermark, signature, logo",
+  "prompt": "Draw the character from the reference pictures in a close-up of her face and shoulders: eyes closed, singing softly into an old silver microphone, a soft warm spotlight from above, a dark warm background with floating specks of dust, delicate anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "p8_q_shh",
+  "ref": [
+   "ref_pheebie_up_clean.png",
+   "ref_pheebie_full.png"
+  ],
+  "w": 1152,
+  "h": 896,
+  "seed": 91,
+  "negative": "text, letters, name tag, label, watermark, signature, logo",
+  "prompt": "Draw the character from the reference pictures in a close-up of her face: she winks and holds one finger to her lips, playful, soft light, pale cream background, delicate anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "p8_q_table",
+  "ref": [
+   "ref_pheebie_up_clean.png",
+   "ref_pheebie_full.png"
+  ],
+  "w": 1152,
+  "h": 896,
+  "seed": 91,
+  "negative": "text, letters, name tag, label, watermark, signature, logo",
+  "prompt": "Draw the character from the reference pictures in a close-up: she rests her cheek on her folded arms on a wooden cafe table and looks up at the viewer with a sleepy smile, soft morning light through a window, delicate anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "p8_q_rain",
+  "ref": [
+   "ref_pheebie_up_clean.png",
+   "ref_pheebie_full.png"
+  ],
+  "w": 1152,
+  "h": 896,
+  "seed": 91,
+  "negative": "text, letters, name tag, label, watermark, signature, logo",
+  "prompt": "Draw the character from the reference pictures in a close-up of her face and shoulders under a clear plastic umbrella in the rain, raindrops on the umbrella, she looks up at the viewer with a small smile, soft grey light, delicate anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "p8_q_ura",
+  "ref": [
+   "ref_pheebie_up_clean.png",
+   "ref_pheebie_full.png"
+  ],
+  "w": 1152,
+  "h": 896,
+  "seed": 91,
+  "negative": "text, letters, name tag, label, watermark, signature, logo",
+  "prompt": "Draw the character from the reference pictures in a close-up of her face at night, lit from one side by pink neon light and from the other by cyan, the neon reflected in her round glasses, a small mysterious smile, dark background, delicate anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_cup_50",
+  "init": "p7_q_cup_00001_.png",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, upper body, holding cup, coffee cup, latte art, cafe, indoors, warm lighting, blurry background, smile, looking at viewer, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she sits in a warm cafe holding a cup of latte in both hands. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_cup_65",
+  "init": "p7_q_cup_00001_.png",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, upper body, holding cup, coffee cup, latte art, cafe, indoors, warm lighting, blurry background, smile, looking at viewer, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she sits in a warm cafe holding a cup of latte in both hands. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_glasses_50",
+  "init": "p7_q_glasses_00001_.png",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, upper body, adjusting eyewear, finger on eyewear, smile, looking at viewer, simple background, white background, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she pushes up her glasses with one finger. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_glasses_65",
+  "init": "p7_q_glasses_00001_.png",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, upper body, adjusting eyewear, finger on eyewear, smile, looking at viewer, simple background, white background, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she pushes up her glasses with one finger. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_paw_50",
+  "init": "p7_q_paw_00001_.png",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, upper body, paw pose, paw gloves, open mouth, fang, :d, looking at viewer, simple background, white background, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she makes cat paws with fluffy paw gloves and laughs. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_paw_65",
+  "init": "p7_q_paw_00001_.png",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, upper body, paw pose, paw gloves, open mouth, fang, :d, looking at viewer, simple background, white background, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she makes cat paws with fluffy paw gloves and laughs. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_lookback_50",
+  "init": "p7_q_lookback_clean.png",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, upper body, from behind, looking back, looking at viewer, smile, simple background, yellow background, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she looks back over her shoulder at the viewer. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_lookback_65",
+  "init": "p7_q_lookback_clean.png",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, upper body, from behind, looking back, looking at viewer, smile, simple background, yellow background, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she looks back over her shoulder at the viewer. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_bedroom_50",
+  "init": "p6_bedroom_00001_.png",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, sitting, on bed, holding clock, alarm clock, bedroom, indoors, window, morning, sunlight, smile, looking at viewer, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she sits on her bed in soft morning light holding an old red alarm clock. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_bedroom_65",
+  "init": "p6_bedroom_00001_.png",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, sitting, on bed, holding clock, alarm clock, bedroom, indoors, window, morning, sunlight, smile, looking at viewer, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she sits on her bed in soft morning light holding an old red alarm clock. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_booth_50",
+  "init": "p6_booth_00001_.png",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, cowboy shot, phone booth, holding phone, telephone, night, rain, neon lights, smile, looking at viewer, soft shading, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she stands in a rainy phone booth at night holding the green payphone receiver to her ear. Soft and delicate, in the gentle style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_booth_65",
+  "init": "p6_booth_00001_.png",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, cowboy shot, phone booth, holding phone, telephone, night, rain, neon lights, smile, looking at viewer, soft shading, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she stands in a rainy phone booth at night holding the green payphone receiver to her ear. Soft and delicate, in the gentle style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_platform_50",
+  "init": "p6_platform_00001_.png",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, full body, standing, train station, railway platform, train, sunset, backlighting, power lines, looking at viewer, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she stands on a small rural train platform at sunset, a cream and vermilion train behind her. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_platform_65",
+  "init": "p6_platform_00001_.png",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, full body, standing, train station, railway platform, train, sunset, backlighting, power lines, looking at viewer, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she stands on a small rural train platform at sunset, a cream and vermilion train behind her. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_ura_50",
+  "init": "p6_ura_00001_.png",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, upper body, holding heart, glowing heart, neon lights, pink light, cyan light, rim lighting, black background, floating hair, soft shading, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she holds a glowing pink heart in the dark, lit by pink and cyan neon. Soft and delicate, in the gentle style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_i2i_ura_65",
+  "init": "p6_ura_00001_.png",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, upper body, holding heart, glowing heart, neon lights, pink light, cyan light, rim lighting, black background, floating hair, soft shading, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she holds a glowing pink heart in the dark, lit by pink and cyan neon. Soft and delicate, in the gentle style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_tilt_50",
+  "init": "@p8_q_tilt",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, portrait, close-up, from above, head tilt, finger on eyewear, smile, looking at viewer, simple background, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she tilts her head and touches the rim of her glasses. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_tilt_65",
+  "init": "@p8_q_tilt",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, portrait, close-up, from above, head tilt, finger on eyewear, smile, looking at viewer, simple background, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she tilts her head and touches the rim of her glasses. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_watch_50",
+  "init": "@p8_q_watch",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, portrait, close-up, holding pocket watch, smile, looking at viewer, simple background, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she holds her open pocket watch up beside her cheek. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_watch_65",
+  "init": "@p8_q_watch",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, portrait, close-up, holding pocket watch, smile, looking at viewer, simple background, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she holds her open pocket watch up beside her cheek. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_cup_50",
+  "init": "@p8_q_cup",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, portrait, close-up, holding cup, covered mouth, peeking, steam, cafe, warm lighting, looking at viewer, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she peeks over the rim of a coffee cup held in both hands. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_cup_65",
+  "init": "@p8_q_cup",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, portrait, close-up, holding cup, covered mouth, peeking, steam, cafe, warm lighting, looking at viewer, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she peeks over the rim of a coffee cup held in both hands. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_sing_50",
+  "init": "@p8_q_sing",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, portrait, close-up, closed eyes, singing, open mouth, holding microphone, spotlight, dark background, dust particles, soft shading, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she sings with her eyes closed into an old microphone under a warm spotlight. Soft and delicate, in the gentle style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_sing_65",
+  "init": "@p8_q_sing",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, portrait, close-up, closed eyes, singing, open mouth, holding microphone, spotlight, dark background, dust particles, soft shading, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she sings with her eyes closed into an old microphone under a warm spotlight. Soft and delicate, in the gentle style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_shh_50",
+  "init": "@p8_q_shh",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, portrait, close-up, one eye closed, finger to mouth, shushing, smile, looking at viewer, simple background, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she winks and holds a finger to her lips. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_shh_65",
+  "init": "@p8_q_shh",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, portrait, close-up, one eye closed, finger to mouth, shushing, smile, looking at viewer, simple background, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she winks and holds a finger to her lips. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_table_50",
+  "init": "@p8_q_table",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, close-up, head on arms, head rest, table, cafe, looking up, looking at viewer, sleepy, smile, morning, sunlight, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she rests her cheek on her folded arms on a cafe table and looks up with a sleepy smile. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_table_65",
+  "init": "@p8_q_table",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, close-up, head on arms, head rest, table, cafe, looking up, looking at viewer, sleepy, smile, morning, sunlight, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she rests her cheek on her folded arms on a cafe table and looks up with a sleepy smile. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_rain_50",
+  "init": "@p8_q_rain",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, portrait, close-up, umbrella, transparent umbrella, rain, water drop, looking up, looking at viewer, smile, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she stands under a clear umbrella in the rain. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_rain_65",
+  "init": "@p8_q_rain",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, portrait, close-up, umbrella, transparent umbrella, rain, water drop, looking up, looking at viewer, smile, soft shading, pastel colors, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she stands under a clear umbrella in the rain. Soft, delicate and cute, in the gentle pastel style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_ura_50",
+  "init": "@p8_q_ura",
+  "denoise": 0.5,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, portrait, close-up, night, neon lights, pink light, cyan light, rim lighting, reflection, dark background, smile, looking at viewer, soft shading, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she is lit by pink and cyan neon at night, the light in her glasses. Soft and delicate, in the gentle style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ },
+ {
+  "model": "anima",
+  "name": "p8_new_ura_65",
+  "init": "@p8_q_ura",
+  "denoise": 0.65,
+  "seed": 81,
+  "w": 1024,
+  "h": 1024,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, pheebie, cute, petite, pale skin, blush, short hair, bob cut, ash blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, siamese cat, brown ear tips, glasses, round eyewear, blue eyes, ear piercing, black choker, black bowtie, white bolero, cropped jacket, short puffy sleeves, black cuffs, frilled collar, black shirt, cross-laced clothes, black corset, underbust, brooch, key, pocket watch, portrait, close-up, night, neon lights, pink light, cyan light, rim lighting, reflection, dark background, smile, looking at viewer, soft shading, delicate lineart. Pheebie, a cute and petite Siamese-cat girl with pale skin who works in a cafe tea room: a short ash-blonde bob with a black streak through her bangs, Siamese cat ears that are cream with dark brown tips, round thin-rimmed glasses over blue eyes and a gentle smile. She wears a white cropped bolero with short puffy sleeves and black cuffs over a black shirt laced crosswise at the chest, a black bowtie and choker, a black underbust corset, a blue shield badge with a golden key and a pocket watch pinned on the bolero. Here she is lit by pink and cyan neon at night, the light in her glasses. Soft and delicate, in the gentle style of her official art.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, dark-skinned female, tan, mature female, lipstick, makeup, thick lips, large breasts"
+ }
+]

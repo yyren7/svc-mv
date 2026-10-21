@@ -1,6 +1,6 @@
 """~15 s chorus sample: seven shots cut on downbeats, everything driven by the beat grid.
 
-    blender -b -P scripts/sample.py -- assets/audio/urao_timing.json renders/sample/ [bars [first last [step]]]
+    blender -b -P cases/uraomote/scripts/sample.py -- cases/uraomote/audio/urao_timing.json cases/uraomote/renders/sample/ [bars [first last [step]]]
 
 Writes PNG frames f_0001.png ... and window.json (start / end seconds in the song) into the output folder.
 
@@ -20,6 +20,7 @@ import sys
 import bpy
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import case  # noqa: E402,F401  (puts the pipeline's scripts/ on sys.path)
 import mvlib as m  # noqa: E402
 
 PAPER, INK, RED = "#EEEAE0", "#141414", "#E1251B"

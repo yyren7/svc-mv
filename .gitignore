@@ -3,20 +3,21 @@ __pycache__/
 tmp/
 models/
 ref/
-assets/audio/
 assets/models/
 *.blend
 *.blend1
 *.mp4
-# renders are rebuilt by the scripts; only the style frames and S3 stills are kept
-renders/*
-!renders/frame_A.png
-!renders/frame_A_post.png
-!renders/frame_B.png
-!renders/frame_B_post.png
-!renders/s[0-9]/
-renders/s[0-9]/*
-!renders/s[0-9]/*.png
 fonts/
 assets/polyhaven/
 assets/thirdparty/
+# pictures: official references and generated drafts stay on the local disk; their READMEs and jobs files are kept
+characters/*/ref/
+characters/*/art/
+cases/*/art/
+# per case: the audio is not published; renders are rebuilt by the scripts, only the style frames and set stills are kept
+cases/*/audio/
+cases/*/renders/*
+!cases/*/renders/frame_*.png
+!cases/*/renders/s[0-9]/
+cases/*/renders/s[0-9]/*
+!cases/*/renders/s[0-9]/*.png

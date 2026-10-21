@@ -2,7 +2,7 @@
 milk, the phone and the polaroids have left their places and are falling towards the ceiling, and some two
 thousand infected heart bulbs rise through the room like snow, the only light there is. Cycles stills.
 
-    blender -b -P scripts/s6_inverted.py -- [renders/s6] [fall macro]
+    blender -b -P cases/uraomote/scripts/s6_inverted.py -- [out_dir] [fall macro]
 
 The room itself is built upright (S1's builder with palette "ura" and a ceiling); the camera is rolled 180
 degrees, so the picture shows an upright room whose furniture falls up, exactly as the script describes.
@@ -17,13 +17,14 @@ import bpy
 from mathutils import Euler, Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import case as C  # noqa: E402
 import assets as A  # noqa: E402
 import cyc  # noqa: E402
 import mvlib as m  # noqa: E402
 import props as P  # noqa: E402
 import s1_bedroom as S1  # noqa: E402
 
-OUT, SHOTS = cyc.args("s6", ["fall", "hang", "macro"])
+OUT, SHOTS = cyc.args(os.path.join(C.RENDERS, "s6"), ["fall", "hang", "macro"])
 W, D, H = S1.W, S1.D, S1.H
 
 

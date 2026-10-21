@@ -1,0 +1,92 @@
+[
+ {
+  "model": "anima",
+  "name": "pheebie_heart_31",
+  "prompt": "masterpiece, best quality, safe, newest, pheebie, medium hair, blonde hair, platinum blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, maid headdress, glasses, round eyewear, blue eyes, earrings, black choker, white shirt, frilled collar, puffy sleeves, black bow, brooch, white gloves, upper body, looking at viewer, holding heart, large heart, hugging, flat color, limited palette, bold lineart, simple background, beige background. Pheebie, a playful virtual singer: shoulder-length platinum-blonde hair with a black streak through her bangs, cat ears, a white frilled maid headdress with a black ribbon, round thin-rimmed glasses over blue eyes, several earrings, a black choker, a white frilled blouse with puffy sleeves, a black bow, a small key-shaped brooch and white gloves. She hugs a big flat heart to her chest. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 31
+ },
+ {
+  "model": "anima",
+  "name": "pheebie_heart_37",
+  "prompt": "masterpiece, best quality, safe, newest, pheebie, medium hair, blonde hair, platinum blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, maid headdress, glasses, round eyewear, blue eyes, earrings, black choker, white shirt, frilled collar, puffy sleeves, black bow, brooch, white gloves, upper body, looking at viewer, holding heart, large heart, hugging, flat color, limited palette, bold lineart, simple background, beige background. Pheebie, a playful virtual singer: shoulder-length platinum-blonde hair with a black streak through her bangs, cat ears, a white frilled maid headdress with a black ribbon, round thin-rimmed glasses over blue eyes, several earrings, a black choker, a white frilled blouse with puffy sleeves, a black bow, a small key-shaped brooch and white gloves. She hugs a big flat heart to her chest. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 37
+ },
+ {
+  "model": "anima",
+  "name": "pheebie_mic_31",
+  "prompt": "masterpiece, best quality, safe, newest, pheebie, medium hair, blonde hair, platinum blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, maid headdress, glasses, round eyewear, blue eyes, earrings, black choker, white shirt, frilled collar, puffy sleeves, black bow, brooch, white gloves, upper body, singing, holding microphone, closed eyes, open mouth, flat color, limited palette, bold lineart, simple background, beige background. Pheebie, a playful virtual singer: shoulder-length platinum-blonde hair with a black streak through her bangs, cat ears, a white frilled maid headdress with a black ribbon, round thin-rimmed glasses over blue eyes, several earrings, a black choker, a white frilled blouse with puffy sleeves, a black bow, a small key-shaped brooch and white gloves. She sings into a microphone with her eyes closed. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 31
+ },
+ {
+  "model": "anima",
+  "name": "pheebie_back_31",
+  "prompt": "masterpiece, best quality, safe, newest, pheebie, medium hair, blonde hair, platinum blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, maid headdress, glasses, round eyewear, blue eyes, earrings, black choker, white shirt, frilled collar, puffy sleeves, black bow, brooch, white gloves, upper body, looking back, from behind, looking at viewer, flat color, limited palette, bold lineart, simple background, beige background. Pheebie, a playful virtual singer: shoulder-length platinum-blonde hair with a black streak through her bangs, cat ears, a white frilled maid headdress with a black ribbon, round thin-rimmed glasses over blue eyes, several earrings, a black choker, a white frilled blouse with puffy sleeves, a black bow, a small key-shaped brooch and white gloves. She looks back over her shoulder. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 31
+ },
+ {
+  "model": "anima",
+  "name": "pheebie_peace_31",
+  "prompt": "masterpiece, best quality, safe, newest, pheebie, medium hair, blonde hair, platinum blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, maid headdress, glasses, round eyewear, blue eyes, earrings, black choker, white shirt, frilled collar, puffy sleeves, black bow, brooch, white gloves, upper body, head tilt, peace sign, smile, looking at viewer, flat color, limited palette, bold lineart, simple background, beige background. Pheebie, a playful virtual singer: shoulder-length platinum-blonde hair with a black streak through her bangs, cat ears, a white frilled maid headdress with a black ribbon, round thin-rimmed glasses over blue eyes, several earrings, a black choker, a white frilled blouse with puffy sleeves, a black bow, a small key-shaped brooch and white gloves. She tilts her head and makes a peace sign. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 31
+ },
+ {
+  "model": "anima",
+  "name": "pheebie_portrait_31",
+  "prompt": "masterpiece, best quality, safe, newest, pheebie, medium hair, blonde hair, platinum blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, maid headdress, glasses, round eyewear, blue eyes, earrings, black choker, white shirt, frilled collar, puffy sleeves, black bow, brooch, white gloves, upper body, smile, looking at viewer, detailed, soft lighting, pastel colors, white background. Pheebie, a playful virtual singer: shoulder-length platinum-blonde hair with a black streak through her bangs, cat ears, a white frilled maid headdress with a black ribbon, round thin-rimmed glasses over blue eyes, several earrings, a black choker, a white frilled blouse with puffy sleeves, a black bow, a small key-shaped brooch and white gloves. She smiles at the viewer. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 31
+ },
+ {
+  "model": "anima",
+  "name": "pheebie_portrait_37",
+  "prompt": "masterpiece, best quality, safe, newest, pheebie, medium hair, blonde hair, platinum blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, maid headdress, glasses, round eyewear, blue eyes, earrings, black choker, white shirt, frilled collar, puffy sleeves, black bow, brooch, white gloves, upper body, smile, looking at viewer, detailed, soft lighting, pastel colors, white background. Pheebie, a playful virtual singer: shoulder-length platinum-blonde hair with a black streak through her bangs, cat ears, a white frilled maid headdress with a black ribbon, round thin-rimmed glasses over blue eyes, several earrings, a black choker, a white frilled blouse with puffy sleeves, a black bow, a small key-shaped brooch and white gloves. She smiles at the viewer. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 37
+ },
+ {
+  "model": "anima",
+  "name": "pheebie_stand_31",
+  "prompt": "masterpiece, best quality, safe, newest, pheebie, medium hair, blonde hair, platinum blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, maid headdress, glasses, round eyewear, blue eyes, earrings, black choker, white shirt, frilled collar, puffy sleeves, black bow, brooch, white gloves, full body, standing, looking at viewer, detailed, soft lighting, pastel colors, white background. Pheebie, a playful virtual singer: shoulder-length platinum-blonde hair with a black streak through her bangs, cat ears, a white frilled maid headdress with a black ribbon, round thin-rimmed glasses over blue eyes, several earrings, a black choker, a white frilled blouse with puffy sleeves, a black bow, a small key-shaped brooch and white gloves. She stands facing the viewer, full body. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 31
+ },
+ {
+  "model": "anima",
+  "name": "pheebie_stand_37",
+  "prompt": "masterpiece, best quality, safe, newest, pheebie, medium hair, blonde hair, platinum blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, maid headdress, glasses, round eyewear, blue eyes, earrings, black choker, white shirt, frilled collar, puffy sleeves, black bow, brooch, white gloves, full body, standing, looking at viewer, detailed, soft lighting, pastel colors, white background. Pheebie, a playful virtual singer: shoulder-length platinum-blonde hair with a black streak through her bangs, cat ears, a white frilled maid headdress with a black ribbon, round thin-rimmed glasses over blue eyes, several earrings, a black choker, a white frilled blouse with puffy sleeves, a black bow, a small key-shaped brooch and white gloves. She stands facing the viewer, full body. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 37
+ },
+ {
+  "model": "anima",
+  "name": "pheebie_stage_31",
+  "prompt": "masterpiece, best quality, safe, newest, pheebie, medium hair, blonde hair, platinum blonde hair, streaked hair, black hair, two-tone hair, cat ears, animal ears, maid headdress, glasses, round eyewear, blue eyes, earrings, black choker, white shirt, frilled collar, puffy sleeves, black bow, brooch, white gloves, upper body, singing, holding microphone, stage lights, sparkle, detailed, soft lighting, pastel colors, white background. Pheebie, a playful virtual singer: shoulder-length platinum-blonde hair with a black streak through her bangs, cat ears, a white frilled maid headdress with a black ribbon, round thin-rimmed glasses over blue eyes, several earrings, a black choker, a white frilled blouse with puffy sleeves, a black bow, a small key-shaped brooch and white gloves. She sings on a stage under coloured lights. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 31
+ }
+]

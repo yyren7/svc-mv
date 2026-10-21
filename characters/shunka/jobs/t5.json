@@ -1,0 +1,92 @@
+[
+ {
+  "model": "anima",
+  "name": "s3_hearthands_71",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, sakura shunka, medium hair, brown hair, gradient hair, light blue hair, ahoge, side braid, braid, blue ribbon, hair bow, round hair ornament, hair flower, hairclip, blue eyes, black choker, lace choker, white ribbon, off-shoulder, see-through, white jacket, wide sleeves, frilled sleeves, white dress, upper body, heart hands, smile, open mouth, looking at viewer, detailed, soft lighting, simple background, white background. Sakura Shunka: shoulder-length chestnut-brown hair with an ahoge that fades into light blue at the ends, a small braid on her right side tied with a light-blue ribbon bow and a round brown button ornament with a white flower, a light-blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower and a white ribbon, an off-shoulder sheer white jacket with wide frilled sleeves and a white dress. She makes a heart with her hands and smiles brightly. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1024,
+  "h": 1024,
+  "seed": 71
+ },
+ {
+  "model": "anima",
+  "name": "s3_hearthands_73",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, sakura shunka, medium hair, brown hair, gradient hair, light blue hair, ahoge, side braid, braid, blue ribbon, hair bow, round hair ornament, hair flower, hairclip, blue eyes, black choker, lace choker, white ribbon, off-shoulder, see-through, white jacket, wide sleeves, frilled sleeves, white dress, upper body, heart hands, smile, open mouth, looking at viewer, detailed, soft lighting, simple background, white background. Sakura Shunka: shoulder-length chestnut-brown hair with an ahoge that fades into light blue at the ends, a small braid on her right side tied with a light-blue ribbon bow and a round brown button ornament with a white flower, a light-blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower and a white ribbon, an off-shoulder sheer white jacket with wide frilled sleeves and a white dress. She makes a heart with her hands and smiles brightly. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1024,
+  "h": 1024,
+  "seed": 73
+ },
+ {
+  "model": "anima",
+  "name": "s3_sing_71",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, sakura shunka, medium hair, brown hair, gradient hair, light blue hair, ahoge, side braid, braid, blue ribbon, hair bow, round hair ornament, hair flower, hairclip, blue eyes, black choker, lace choker, white ribbon, off-shoulder, see-through, white jacket, wide sleeves, frilled sleeves, white dress, upper body, singing, holding microphone, closed eyes, open mouth, detailed, soft lighting, simple background, white background. Sakura Shunka: shoulder-length chestnut-brown hair with an ahoge that fades into light blue at the ends, a small braid on her right side tied with a light-blue ribbon bow and a round brown button ornament with a white flower, a light-blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower and a white ribbon, an off-shoulder sheer white jacket with wide frilled sleeves and a white dress. She sings softly into a microphone with her eyes closed. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1024,
+  "h": 1024,
+  "seed": 71
+ },
+ {
+  "model": "anima",
+  "name": "s3_sing_73",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, sakura shunka, medium hair, brown hair, gradient hair, light blue hair, ahoge, side braid, braid, blue ribbon, hair bow, round hair ornament, hair flower, hairclip, blue eyes, black choker, lace choker, white ribbon, off-shoulder, see-through, white jacket, wide sleeves, frilled sleeves, white dress, upper body, singing, holding microphone, closed eyes, open mouth, detailed, soft lighting, simple background, white background. Sakura Shunka: shoulder-length chestnut-brown hair with an ahoge that fades into light blue at the ends, a small braid on her right side tied with a light-blue ribbon bow and a round brown button ornament with a white flower, a light-blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower and a white ribbon, an off-shoulder sheer white jacket with wide frilled sleeves and a white dress. She sings softly into a microphone with her eyes closed. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1024,
+  "h": 1024,
+  "seed": 73
+ },
+ {
+  "model": "anima",
+  "name": "s3_lookback_71",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, sakura shunka, medium hair, brown hair, gradient hair, light blue hair, ahoge, side braid, braid, blue ribbon, hair bow, round hair ornament, hair flower, hairclip, blue eyes, black choker, lace choker, white ribbon, off-shoulder, see-through, white jacket, wide sleeves, frilled sleeves, white dress, upper body, looking back, from behind, looking at viewer, smile, detailed, soft lighting, simple background, white background. Sakura Shunka: shoulder-length chestnut-brown hair with an ahoge that fades into light blue at the ends, a small braid on her right side tied with a light-blue ribbon bow and a round brown button ornament with a white flower, a light-blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower and a white ribbon, an off-shoulder sheer white jacket with wide frilled sleeves and a white dress. She looks back over her shoulder with a gentle smile. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1024,
+  "h": 1024,
+  "seed": 71
+ },
+ {
+  "model": "anima",
+  "name": "s3_lookback_73",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, sakura shunka, medium hair, brown hair, gradient hair, light blue hair, ahoge, side braid, braid, blue ribbon, hair bow, round hair ornament, hair flower, hairclip, blue eyes, black choker, lace choker, white ribbon, off-shoulder, see-through, white jacket, wide sleeves, frilled sleeves, white dress, upper body, looking back, from behind, looking at viewer, smile, detailed, soft lighting, simple background, white background. Sakura Shunka: shoulder-length chestnut-brown hair with an ahoge that fades into light blue at the ends, a small braid on her right side tied with a light-blue ribbon bow and a round brown button ornament with a white flower, a light-blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower and a white ribbon, an off-shoulder sheer white jacket with wide frilled sleeves and a white dress. She looks back over her shoulder with a gentle smile. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1024,
+  "h": 1024,
+  "seed": 73
+ },
+ {
+  "model": "anima",
+  "name": "s3_heart_71",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, sakura shunka, medium hair, brown hair, gradient hair, light blue hair, ahoge, side braid, braid, blue ribbon, hair bow, round hair ornament, hair flower, hairclip, blue eyes, black choker, lace choker, white ribbon, off-shoulder, see-through, white jacket, wide sleeves, frilled sleeves, white dress, upper body, holding heart, large heart, hugging, looking at viewer, flat color, limited palette, bold lineart, simple background, beige background. Sakura Shunka: shoulder-length chestnut-brown hair with an ahoge that fades into light blue at the ends, a small braid on her right side tied with a light-blue ribbon bow and a round brown button ornament with a white flower, a light-blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower and a white ribbon, an off-shoulder sheer white jacket with wide frilled sleeves and a white dress. She hugs a big flat heart to her chest. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1024,
+  "h": 1024,
+  "seed": 71
+ },
+ {
+  "model": "anima",
+  "name": "s3_heart_73",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, sakura shunka, medium hair, brown hair, gradient hair, light blue hair, ahoge, side braid, braid, blue ribbon, hair bow, round hair ornament, hair flower, hairclip, blue eyes, black choker, lace choker, white ribbon, off-shoulder, see-through, white jacket, wide sleeves, frilled sleeves, white dress, upper body, holding heart, large heart, hugging, looking at viewer, flat color, limited palette, bold lineart, simple background, beige background. Sakura Shunka: shoulder-length chestnut-brown hair with an ahoge that fades into light blue at the ends, a small braid on her right side tied with a light-blue ribbon bow and a round brown button ornament with a white flower, a light-blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower and a white ribbon, an off-shoulder sheer white jacket with wide frilled sleeves and a white dress. She hugs a big flat heart to her chest. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1024,
+  "h": 1024,
+  "seed": 73
+ },
+ {
+  "model": "anima",
+  "name": "s3_wave_71",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, sakura shunka, medium hair, brown hair, gradient hair, light blue hair, ahoge, side braid, braid, blue ribbon, hair bow, round hair ornament, hair flower, hairclip, blue eyes, black choker, lace choker, white ribbon, off-shoulder, see-through, white jacket, wide sleeves, frilled sleeves, white dress, upper body, waving, gentle smile, looking at viewer, wind, detailed, soft lighting, simple background, white background. Sakura Shunka: shoulder-length chestnut-brown hair with an ahoge that fades into light blue at the ends, a small braid on her right side tied with a light-blue ribbon bow and a round brown button ornament with a white flower, a light-blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower and a white ribbon, an off-shoulder sheer white jacket with wide frilled sleeves and a white dress. She waves at the viewer with a gentle smile, her hair moving in the wind. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1024,
+  "h": 1024,
+  "seed": 71
+ },
+ {
+  "model": "anima",
+  "name": "s3_wave_73",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, sakura shunka, medium hair, brown hair, gradient hair, light blue hair, ahoge, side braid, braid, blue ribbon, hair bow, round hair ornament, hair flower, hairclip, blue eyes, black choker, lace choker, white ribbon, off-shoulder, see-through, white jacket, wide sleeves, frilled sleeves, white dress, upper body, waving, gentle smile, looking at viewer, wind, detailed, soft lighting, simple background, white background. Sakura Shunka: shoulder-length chestnut-brown hair with an ahoge that fades into light blue at the ends, a small braid on her right side tied with a light-blue ribbon bow and a round brown button ornament with a white flower, a light-blue and white hairclip in her bangs, blue eyes, a black lace choker with a small white flower and a white ribbon, an off-shoulder sheer white jacket with wide frilled sleeves and a white dress. She waves at the viewer with a gentle smile, her hair moving in the wind. A polished full-color character illustration.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1024,
+  "h": 1024,
+  "seed": 73
+ }
+]

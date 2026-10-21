@@ -1,7 +1,7 @@
 """S1「醒來の卧室」: a three-walled 1:12 set, 30 x 25 x 22 cm, the morning after. One low shaft of 6:59 light
 through the window; the iron bed, the twin-bell clock, the lit phone and the half-drunk milk. Cycles stills.
 
-    blender -b -P scripts/s1_bedroom.py -- [renders/s1] [clock wide pov]
+    blender -b -P cases/uraomote/scripts/s1_bedroom.py -- [out_dir] [clock wide pov]
 
 The same builder makes S6 (the inverted bedroom) with palette="ura". Metres, Z up, the open side faces -Y.
 """
@@ -14,13 +14,14 @@ import bpy
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import case as C  # noqa: E402
 import assets as A  # noqa: E402
 import cyc  # noqa: E402
 import mvlib as m  # noqa: E402
 import props as P  # noqa: E402
 import texlib as T  # noqa: E402
 
-OUT, SHOTS = cyc.args("s1", ["clock", "wide", "pov"])
+OUT, SHOTS = cyc.args(os.path.join(C.RENDERS, "s1"), ["clock", "wide", "pov"])
 W, D, H = 0.30, 0.25, 0.22
 
 PALETTES = {
@@ -161,13 +162,13 @@ def build(palette="omote", ceiling=False):
     T.place(frame01, (0.070, -0.034, desk_top), yaw_deg=-15)
     P.phone((0.086, -0.056, desk_top), yaw_deg=18)
     P.milk_glass((0.110, -0.052, desk_top))
-    P.print_stack((0.097, -0.036, desk_top), os.path.join(cyc.ROOT, "renders", "frame_A.png"))
+    P.print_stack((0.097, -0.036, desk_top), os.path.join(C.RENDERS, "frame_A.png"))
 
     # the walls: polaroids of the heart from different angles, the peeled corner that shows the other paper
     yb = D / 2
     for i, (x, z, tilt, img) in enumerate([(-0.095, 0.16, 3, "s3_three.png"), (-0.065, 0.165, -5, "s3_macro.png"),
                                            (-0.035, 0.155, 2, "s3_wide.png"), (0.035, 0.175, -3, "s3_macro.png")]):
-        P.polaroid((x, yb, z), os.path.join(cyc.ROOT, "renders", "s3", img), tilt_deg=tilt)
+        P.polaroid((x, yb, z), os.path.join(C.RENDERS, "s3", img), tilt_deg=tilt)
     P.wallpaper_peel((0.125, yb, 0.035), reveal=pal["reveal"], wall_hex=pal["wall"])
     poster = T.model("hanging_picture_frame_01", name="poster_frame")
     T.place(poster, (0.050, yb - 0.0015, 0.105), align="centre")

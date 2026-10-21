@@ -1,7 +1,7 @@
 """S3「表裏心臓の祭壇」: a corner of a risograph workshop at 1:12, split down the middle into day (表, left)
 and night (裏, right), with the front/back heart on a brass stand at the seam. Cycles stills.
 
-    blender -b -P scripts/s3_workshop.py -- renders/s3 [shot ...]     shots: wide macro three
+    blender -b -P cases/uraomote/scripts/s3_workshop.py -- [cases/uraomote/renders/s3] [shot ...]     shots: wide macro three
 
 Real size in metres, Z up, the camera looks along +Y.
 """
@@ -14,13 +14,13 @@ import bpy
 from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import case as C  # noqa: E402
 import assets as A  # noqa: E402
 import mvlib as m  # noqa: E402
 from cyc import area_light, camera, cycles  # noqa: E402
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-OUT = argv[0] if argv else os.path.join(ROOT, "renders", "s3")
+OUT = argv[0] if argv else os.path.join(C.RENDERS, "s3")
 SHOTS = argv[1:] or ["wide", "macro", "three"]
 BENCH_TOP = 0.072
 BASE_SAMPLES = int(os.environ.get('SAMPLES', 256))
@@ -91,7 +91,7 @@ def build():
 
     # drying lines with prints: day prints on the left, night prints on the right
     wire_mat = A.metal("#9A9A9A", 0.4, "wire")
-    imgs = [os.path.join(ROOT, "renders", "frame_A.png"), os.path.join(ROOT, "renders", "frame_B.png")]
+    imgs = [os.path.join(C.RENDERS, "frame_A.png"), os.path.join(C.RENDERS, "frame_B.png")]
     for wy, wz in ((0.07, 0.215), (0.14, 0.235)):
         A.tube_along("wire", [(-0.34, wy, wz), (0.0, wy, wz - 0.006), (0.34, wy, wz)], 0.0004, [wire_mat])
         for i in range(9):

@@ -1,4 +1,4 @@
-"""Smoke test for kit.py: one scene with every piece, frames 1-24 rendered to renders/kit_test/.
+"""Smoke test for kit.py: one scene with every piece, frames 1-24 rendered to tmp/kit_test/.
 
     blender -b -P scripts/test_kit.py
 """
@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kit  # noqa: E402
 import mvlib as m  # noqa: E402
 
-OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "renders", "kit_test")
+OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tmp", "kit_test")
 
 scene = m.reset(samples=8)
 kit.install_hooks()

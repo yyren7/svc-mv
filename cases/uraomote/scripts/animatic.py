@@ -1,13 +1,13 @@
 """A rough cut of the whole PV (an animatic): the script's 3D shots moving to the song, at low resolution and
 frame rate, to judge the pacing and the camera before the pages and the paper cutouts exist.
 
-    blender -b --factory-startup -P scripts/animatic.py -- <part> <frames_dir>
+    blender -b --factory-startup -P cases/uraomote/scripts/animatic.py -- <part> <frames_dir>
     part: title | s1 | s2 | s3 | s4 | s5_omote | s5_ura | s6          env: FPS=12 SAMPLES=24 WIDTH=640 LIMIT=0
 
 Frames are numbered on the song's clock (f_00000.png is t = 0), so every part drops its shots into the same
-folder and the parts can run side by side; frames already there are skipped. scripts/animatic_cut.py joins
-the folder with the song. The cut follows section 5 of docs/script_uraomote_v2.md on the downbeats of
-assets/audio/urao_timing.json. The pages (P0-P8) and her paper cutouts do not exist yet: the two style frames
+folder and the parts can run side by side; frames already there are skipped. animatic_cut.py joins
+the folder with the song. The cut follows section 5 of script_v2.md on the downbeats of
+audio/urao_timing.json. The pages (P0-P8) and her paper cutouts do not exist yet: the two style frames
 stand in for the covers, and every other shot is a set full frame.
 """
 import bisect
@@ -21,8 +21,8 @@ import bpy
 from mathutils import Euler, Matrix, Quaternion, Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
+import case as C  # noqa: E402
 argv = sys.argv[sys.argv.index("--") + 1:]
 PART, FRAMES = argv[0], os.path.abspath(argv[1])
 sys.argv = [sys.argv[0], "--", os.path.join(FRAMES, "_unused")]   # the set scripts read their own arguments
@@ -35,7 +35,7 @@ WIDTH = int(os.environ.get("WIDTH", 640))
 LIMIT = int(os.environ.get("LIMIT", 0))          # LIMIT=1: only the first frame of every shot, to check the cameras
 AT = [float(a) for a in os.environ.get("AT", "").split(",") if a]     # AT=0,0.5,1: those points of every shot
 ONLY = [s for s in os.environ.get("ONLY", "").split(",") if s]       # ONLY=macro,three: only those shots
-TIMING = json.load(open(os.path.join(ROOT, "assets", "audio", "urao_timing.json"), encoding="utf-8"))
+TIMING = json.load(open(os.path.join(C.AUDIO, "urao_timing.json"), encoding="utf-8"))
 DOWN, BEATS, DURATION = TIMING["downbeats"], TIMING["beats"], TIMING["duration"]
 RAIN_SPEED = 0.75       # m/s: 9 m/s of real rain at 1:12
 BULB_RISE = 0.004       # m/s: the bulbs drift up through the inverted room
@@ -148,7 +148,7 @@ def setup_title():
             if n.type != "OUTPUT_MATERIAL":
                 nt.nodes.remove(n)
         tex = nt.nodes.new("ShaderNodeTexImage")
-        tex.image = bpy.data.images.load(os.path.join(ROOT, "renders", f"{name}.png"))
+        tex.image = bpy.data.images.load(os.path.join(C.RENDERS, f"{name}.png"))
         emit = nt.nodes.new("ShaderNodeEmission")
         nt.links.new(tex.outputs["Color"], emit.inputs["Color"])
         nt.links.new(emit.outputs[0], next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL").inputs["Surface"])

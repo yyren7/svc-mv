@@ -5,7 +5,7 @@ bulbs in its windows, a painted wooden bench with her bag, and her white sneaker
 tiles where she jumped. Surfaces and the big props are CC0 Poly Haven assets (scripts/fetch_assets.py); the
 sneakers are the Khronos glTF sample shoe (Shopify, CC BY 4.0) recoloured white.
 
-    blender -b -P scripts/s5_platform.py -- [renders/s5] [wide_omote edge_omote shoes_omote edge_ura ...]
+    blender -b -P cases/uraomote/scripts/s5_platform.py -- [out_dir] [wide_omote edge_omote shoes_omote edge_ura ...]
 
 Metres, Z up; the platform runs along X, the tracks are on its -Y side. The camera looks down the platform
 towards -X, where the sun sets.
@@ -19,13 +19,14 @@ import bpy
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import case as C  # noqa: E402
 import assets as A  # noqa: E402
 import cyc  # noqa: E402
 import mvlib as m  # noqa: E402
 import props as P  # noqa: E402
 import texlib as T  # noqa: E402
 
-OUT, SHOTS = cyc.args("s5", ["wide_omote", "edge_omote", "shoes_omote", "edge_ura"])
+OUT, SHOTS = cyc.args(os.path.join(C.RENDERS, "s5"), ["wide_omote", "edge_omote", "shoes_omote", "edge_ura"])
 KIHA_S = 1.1 / 12                         # the KiHa 32 model is a little under real size; 1.1 fits the platform
 CAR_LEN, CAR_W = 13.519 * KIHA_S, 2.549 * KIHA_S
 RAIL_TOP = 0.030
@@ -602,7 +603,7 @@ def build(palette="omote"):
     platform(M)
     station_sign(M, -0.30, 0.03)
     arrows = direction_box(M, -0.20, 0.0, PH + 0.155)
-    img = os.path.join(cyc.ROOT, "renders", "frame_A.png")
+    img = os.path.join(C.RENDERS, "frame_A.png")
     bench(-0.12, 0.078, img)
     tubes = canopy(M)
     fence_and_poles()

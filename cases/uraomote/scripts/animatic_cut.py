@@ -1,7 +1,7 @@
 """Join the animatic's frames with the song into an MP4 (H.264 + AAC). A frame that is missing (a part that has
 not run yet) is filled with the frame before it, and the count of those is printed.
 
-    python scripts/animatic_cut.py <frames_dir> <song> <out.mp4> [fps]
+    python cases/uraomote/scripts/animatic_cut.py <frames_dir> <song> <out.mp4> [fps]
 """
 import json
 import os

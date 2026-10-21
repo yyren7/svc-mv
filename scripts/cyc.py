@@ -18,9 +18,10 @@ BASE_SAMPLES = int(os.environ.get("SAMPLES", 256))
 
 
 def args(default_out, default_shots):
-    """`blender -b -P scene.py -- [out_dir] [shot ...]` -> (out_dir, shots)."""
+    """`blender -b -P scene.py -- [out_dir] [shot ...]` -> (out_dir, shots). default_out is a path: each case
+    keeps its renders in its own folder."""
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-    out = argv[0] if argv else os.path.join(ROOT, "renders", default_out)
+    out = argv[0] if argv else default_out
     return out, (argv[1:] or list(default_shots))
 
 

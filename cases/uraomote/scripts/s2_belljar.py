@@ -2,7 +2,7 @@
 a petri dish of amber agar with the first, still clean, heart bulb, and strips of risograph paper curled into
 brain folds against the glass. Cycles stills.
 
-    blender -b -P scripts/s2_belljar.py -- [renders/s2] [macro orbit]
+    blender -b -P cases/uraomote/scripts/s2_belljar.py -- [out_dir] [macro orbit]
 
 infection (0..1) later drives the colony and the pink glow; the stills use 0. Metres, Z up.
 """
@@ -16,12 +16,13 @@ import bpy
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import case as C  # noqa: E402
 import assets as A  # noqa: E402
 import cyc  # noqa: E402
 import mvlib as m  # noqa: E402
 import props as P  # noqa: E402
 
-OUT, SHOTS = cyc.args("s2", ["macro", "orbit"])
+OUT, SHOTS = cyc.args(os.path.join(C.RENDERS, "s2"), ["macro", "orbit"])
 JAR_R, JAR_H, WALL, CYL = 0.055, 0.18, 0.004, 0.115
 PLINTH_H = 0.018
 JAR = Vector((0.0, 0.02, 0.0))        # centre of the plinth's base on the bench
@@ -191,7 +192,7 @@ def build(infection=0.0):
     inner.parent = root
     inner.location = (0, 0, PLINTH_H)
     jar = bell_jar(inner)
-    gyri(inner, [os.path.join(cyc.ROOT, "renders", "frame_A.png"), os.path.join(cyc.ROOT, "renders", "frame_B.png")])
+    gyri(inner, [os.path.join(C.RENDERS, "frame_A.png"), os.path.join(C.RENDERS, "frame_B.png")])
     agar, bulb = petri(inner, infection)
     bench_props()
     # light: one hard round lab lamp overhead, a big soft panel behind the jar, thin haze for the beams

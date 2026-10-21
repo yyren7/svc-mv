@@ -57,7 +57,7 @@ MANIFEST = {
 }
 
 # CC BY models from Sketchfab, fetched from the Objaverse copy on Hugging Face (no Sketchfab login needed).
-# Each keeps its creator's licence: attribution is in docs/CREDITS.md, and recolours count as changes.
+# Each keeps its creator's licence: a case that uses one credits it in its CREDITS.md; recolours count as changes.
 OBJAVERSE = {
     "kiha32": dict(uid="95c5d6515ff04092987d698ab2c8442a", title="国鉄キハ32形気動車 KIHA 32 Diesel", author="own.guest"),
     "nazo_no_eki": dict(uid="6cbd6ce6354f44a4b6517e8176d8741b", title="Nazo no eki (Mystery Station)", author="Thomas Nguyen"),

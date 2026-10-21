@@ -1,0 +1,98 @@
+[
+ {
+  "model": "qwen",
+  "name": "s6_flat2",
+  "ref": [
+   "ref_shunka.png",
+   "ref_shunka_face.png"
+  ],
+  "w": 896,
+  "h": 1152,
+  "seed": 73,
+  "prompt": "Draw the character from the reference pictures a clean flat-color anime illustration with bold black lineart and a limited palette of navy, vermilion, pink and cream, upper body, hugging a large flat vermilion heart, looking straight at the viewer, plain cream paper background. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "s6_stage2",
+  "ref": [
+   "ref_shunka.png",
+   "ref_shunka_face.png"
+  ],
+  "w": 896,
+  "h": 1152,
+  "seed": 73,
+  "prompt": "Draw the character from the reference pictures singing with her eyes closed into a microphone, upper body, under blue and pink stage spotlights with sparkles, full-color anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "s6_platform",
+  "ref": [
+   "ref_shunka.png",
+   "ref_shunka_face.png"
+  ],
+  "w": 1152,
+  "h": 896,
+  "seed": 61,
+  "prompt": "Draw the character from the reference pictures standing on a small rural Japanese train platform at sunset, golden backlight, long shadows, a cream and vermilion local train behind her, cowboy shot, full-color anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "s6_booth",
+  "ref": [
+   "ref_shunka.png",
+   "ref_shunka_face.png"
+  ],
+  "w": 896,
+  "h": 1152,
+  "seed": 61,
+  "prompt": "Draw the character from the reference pictures inside a rainy night phone booth holding the green payphone receiver to her ear, raindrops on the glass, neon reflections, cowboy shot, full-color anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "s6_bedroom",
+  "ref": [
+   "ref_shunka.png",
+   "ref_shunka_face.png"
+  ],
+  "w": 1152,
+  "h": 896,
+  "seed": 61,
+  "prompt": "Draw the character from the reference pictures sitting on her bed in a small bedroom in soft morning light from the window, holding an old red alarm clock, full-color anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "s6_ura",
+  "ref": [
+   "ref_shunka.png",
+   "ref_shunka_face.png"
+  ],
+  "w": 896,
+  "h": 1152,
+  "seed": 61,
+  "prompt": "Draw the character from the reference pictures on a pure black background, lit only by neon pink and cyan rim lights, her hair blown by the wind, an intense flushed expression, upper body, holding a glowing pink heart, anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "s6_chibi",
+  "ref": [
+   "ref_shunka.png",
+   "ref_shunka_face.png"
+  ],
+  "w": 896,
+  "h": 896,
+  "seed": 61,
+  "prompt": "Draw the character from the reference pictures as a cute chibi super-deformed figure, full body, waving happily, plain white background. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ },
+ {
+  "model": "qwen",
+  "name": "s6_face",
+  "ref": [
+   "ref_shunka.png",
+   "ref_shunka_face.png"
+  ],
+  "w": 1152,
+  "h": 896,
+  "seed": 61,
+  "prompt": "Draw the character from the reference pictures an extreme close-up of her face, looking straight at the viewer, soft light, anime illustration. Keep her face, hairstyle, hair colours, accessories and outfit exactly as in the reference pictures."
+ }
+]

@@ -1,0 +1,110 @@
+[
+ {
+  "model": "anima",
+  "name": "back2_41",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, white socks, from behind, back view, cowboy shot, standing, holding phone, telephone receiver, phone to ear, facing away, flat color, limited palette, bold lineart, simple background, beige background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Seen from behind at eye level, she stands holding a telephone receiver to her ear; her face is turned away. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 41
+ },
+ {
+  "model": "anima",
+  "name": "back2_43",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, white socks, from behind, back view, cowboy shot, standing, holding phone, telephone receiver, phone to ear, facing away, flat color, limited palette, bold lineart, simple background, beige background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Seen from behind at eye level, she stands holding a telephone receiver to her ear; her face is turned away. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 43
+ },
+ {
+  "model": "anima",
+  "name": "back2_47",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, white socks, from behind, back view, cowboy shot, standing, holding phone, telephone receiver, phone to ear, facing away, flat color, limited palette, bold lineart, simple background, beige background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Seen from behind at eye level, she stands holding a telephone receiver to her ear; her face is turned away. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 47
+ },
+ {
+  "model": "anima",
+  "name": "legs_41",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, white socks, lower body, legs, running, from side, white socks, no shoes, motion lines, skirt flutter, flat color, limited palette, bold lineart, simple background, beige background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Only her running legs in white socks without shoes and the fluttering hem of her skirt, seen from the side. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1152,
+  "h": 896,
+  "seed": 41
+ },
+ {
+  "model": "anima",
+  "name": "legs_43",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, white socks, lower body, legs, running, from side, white socks, no shoes, motion lines, skirt flutter, flat color, limited palette, bold lineart, simple background, beige background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Only her running legs in white socks without shoes and the fluttering hem of her skirt, seen from the side. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1152,
+  "h": 896,
+  "seed": 43
+ },
+ {
+  "model": "anima",
+  "name": "legs_47",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, white socks, lower body, legs, running, from side, white socks, no shoes, motion lines, skirt flutter, flat color, limited palette, bold lineart, simple background, beige background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Only her running legs in white socks without shoes and the fluttering hem of her skirt, seen from the side. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1152,
+  "h": 896,
+  "seed": 47
+ },
+ {
+  "model": "anima",
+  "name": "hand2_41",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, white socks, hands focus, close-up, out of frame, reaching towards viewer, sleeves past wrists, paint on fingers, flat color, limited palette, bold lineart, simple background, beige background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Only her hand reaching towards the viewer out of a long cream cardigan sleeve, red ink on the fingertips; the rest of her is out of frame. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1152,
+  "h": 896,
+  "seed": 41
+ },
+ {
+  "model": "anima",
+  "name": "hand2_43",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, white socks, hands focus, close-up, out of frame, reaching towards viewer, sleeves past wrists, paint on fingers, flat color, limited palette, bold lineart, simple background, beige background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Only her hand reaching towards the viewer out of a long cream cardigan sleeve, red ink on the fingertips; the rest of her is out of frame. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1152,
+  "h": 896,
+  "seed": 43
+ },
+ {
+  "model": "anima",
+  "name": "eye2_41",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, white socks, eye focus, extreme close-up, cropped face, one eye, bangs, looking at viewer, flat color, limited palette, bold lineart, simple background, beige background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. An extreme close-up cropped to one of her eyes under black bangs, a fluorescent pink strand of hair crossing it. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1152,
+  "h": 896,
+  "seed": 41
+ },
+ {
+  "model": "anima",
+  "name": "eye2_43",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, white socks, eye focus, extreme close-up, cropped face, one eye, bangs, looking at viewer, flat color, limited palette, bold lineart, simple background, beige background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. An extreme close-up cropped to one of her eyes under black bangs, a fluorescent pink strand of hair crossing it. Clean bold lineart and flat colors, like a risograph poster.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 1152,
+  "h": 896,
+  "seed": 43
+ },
+ {
+  "model": "anima",
+  "name": "ura_47",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, white socks, holding heart, glowing heart, hair blowing, wind, wide-eyed, blush, sweat, looking at viewer, upper body, flat color, limited palette, bold lineart, black background, simple background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Her hair is blown up by the wind and the fluorescent pink inner layer shows; wide-eyed and flushed, she clutches a glowing pink heart. Neon pink and cyan lines and flat colors on black paper, like a fluorescent risograph print.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 47
+ },
+ {
+  "model": "anima",
+  "name": "ura_53",
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, white socks, holding heart, glowing heart, hair blowing, wind, wide-eyed, blush, sweat, looking at viewer, upper body, flat color, limited palette, bold lineart, black background, simple background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Her hair is blown up by the wind and the fluorescent pink inner layer shows; wide-eyed and flushed, she clutches a glowing pink heart. Neon pink and cyan lines and flat colors on black paper, like a fluorescent risograph print.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature",
+  "w": 896,
+  "h": 1152,
+  "seed": 53
+ }
+]

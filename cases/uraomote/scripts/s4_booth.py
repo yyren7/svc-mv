@@ -4,9 +4,9 @@ Japanese public phone booth lit from inside with the green payphone (its handset
 slack coiled cord), a clear vinyl umbrella upside down with rain pooled in it, crates and a rubbish bag by the
 wall, two lit signs and a red lantern, a vending machine at the far end, infected heart bulbs glowing pink in
 the puddles. Surfaces and most props are CC0 Poly Haven assets, the payphone, vending machine and lantern are
-CC BY (docs/CREDITS.md; scripts/fetch_assets.py fetches them). Cycles stills.
+CC BY (CREDITS.md; the pipeline's scripts/fetch_assets.py fetches them). Cycles stills.
 
-    blender -b -P scripts/s4_booth.py -- [renders/s4] [long handset umbrella]
+    blender -b -P cases/uraomote/scripts/s4_booth.py -- [out_dir] [long handset umbrella]
 
 Metres, Z up. The alley runs along +Y; the camera sits at its mouth (negative y) 3 cm above the ground.
 """
@@ -20,13 +20,14 @@ import bpy
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import case as C  # noqa: E402
 import assets as A  # noqa: E402
 import cyc  # noqa: E402
 import mvlib as m  # noqa: E402
 import props as P  # noqa: E402
 import texlib as T  # noqa: E402
 
-OUT, SHOTS = cyc.args("s4", ["long", "handset", "umbrella"])
+OUT, SHOTS = cyc.args(os.path.join(C.RENDERS, "s4"), ["long", "handset", "umbrella"])
 BOOTH = Vector((0.0, 0.18, 0.0))     # centre of the booth's footprint
 BW, BH, BT = 0.085, 0.19, 0.006      # booth width, height, frame thickness
 PHONE = BOOTH + Vector((0.006, BW / 2 - BT - 0.0115, 0.0733))  # the payphone's base centre, back to the rear panel
@@ -126,7 +127,7 @@ def alley(M):
     # posters on the left wall, rain-soaked, corners lifting
     for k, (y, z, img, tilt) in enumerate([(0.02, 0.10, "frame_A.png", 2), (0.09, 0.095, "frame_B.png", -3),
                                            (0.30, 0.11, "frame_A.png", 4)]):
-        po = A.rounded_box("poster", (0.0006, 0.055, 0.034), 0.0, [A.printed(os.path.join(cyc.ROOT, "renders", img), rough=0.35)])
+        po = A.rounded_box("poster", (0.0006, 0.055, 0.034), 0.0, [A.printed(os.path.join(C.RENDERS, img), rough=0.35)])
         P.map_uv(po, ("y", "z"), (0.055, 0.034))
         po.location = (-0.2495, y, z)
         po.rotation_euler = (math.radians(tilt), 0, 0)
@@ -270,7 +271,7 @@ def booth():
     shelf.location = (PHONE.x - BOOTH.x, w / 2 - t - 0.015, 0.072)
     coin = A.lathe("coin", [(0.0001, 0), (0.0022, 0), (0.0022, 0.0004), (0.0001, 0.0004)], 24, [A.brass()], root)
     coin.location = (PHONE.x - BOOTH.x + 0.016, w / 2 - t - 0.026, 0.0733)
-    note = A.rounded_box("note", (0.012, 0.009, 0.0008), 0.0002, [A.printed(os.path.join(cyc.ROOT, "renders", "frame_A.png"))], root)
+    note = A.rounded_box("note", (0.012, 0.009, 0.0008), 0.0002, [A.printed(os.path.join(C.RENDERS, "frame_A.png"))], root)
     P.map_uv(note, ("x", "y"), (0.012, 0.009))
     note.location = (PHONE.x - BOOTH.x - 0.013, w / 2 - t - 0.025, 0.0735)
     note.rotation_euler.z = math.radians(18)

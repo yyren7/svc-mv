@@ -1,7 +1,7 @@
 """Two style frames for the PV, to pick a direction before animating.
 
-    blender -b -P scripts/styleframes.py -- A renders/frame_A.png
-    blender -b -P scripts/styleframes.py -- B renders/frame_B.png
+    blender -b -P cases/uraomote/scripts/styleframes.py -- A cases/uraomote/renders/frame_A.png
+    blender -b -P cases/uraomote/scripts/styleframes.py -- B cases/uraomote/renders/frame_B.png
 
 A: paper / ink / signal red, print layout.  B: black / neon pink, HUD and glitch.
 The heart stands in for the Tripo models.
@@ -10,6 +10,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import case  # noqa: E402,F401  (puts the pipeline's scripts/ on sys.path)
 import mvlib as m  # noqa: E402
 
 PAPER, INK, RED = "#EEEAE0", "#141414", "#E1251B"
