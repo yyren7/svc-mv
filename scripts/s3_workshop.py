@@ -23,7 +23,8 @@ OUT = argv[0] if argv else os.path.join(ROOT, "renders", "s3")
 SHOTS = argv[1:] or ["wide", "macro", "three"]
 BENCH_TOP = 0.072
 BASE_SAMPLES = int(os.environ.get('SAMPLES', 256))
-SHOT_SAMPLES = {"three": BASE_SAMPLES * 2}   # its out-of-focus haze is the noisiest
+SHOT_SAMPLES = {}
+NO_HAZE = {"three"}
 
 
 def cycles(samples=int(os.environ.get('SAMPLES', 256))):
@@ -154,24 +155,31 @@ def build():
             clip = A.rounded_box("clip", (0.004, 0.003, 0.009), 0.0005, [A.plastic("#C9A97A", 0.6, "clip")])
             clip.location = (x, wy, wz - 0.004)
 
-    # night side: a hand-bent neon 「裏」 on the back wall, the only light on that side
-    neon = m.text("裏", "mincho", 0.09, 0.2, 0.249, "#FF3D8B", z=0)
+    # night side: a hand-bent neon 「裏」 on a black acrylic board, hung between the heart and the machine so it
+    # sits near the focus plane of the wide shot instead of melting into bokeh on the back wall
+    NEON = (0.115, 0.1, 0.138)
+    board = A.rounded_box("neon_board", (0.085, 0.003, 0.085), 0.001, [A.plastic("#0B0B0D", 0.25, "acrylic")])
+    board.location = (NEON[0], NEON[1] + 0.006, NEON[2])
+    for dx in (-0.03, 0.03):
+        A.tube_along("neon_hanger", [(NEON[0] + dx, NEON[1] + 0.006, NEON[2] + 0.042), (NEON[0] + dx, 0.14, 0.235)],
+                     0.0003, [wire_mat])
+    neon = m.text("裏", "mincho", 0.07, 0.2, 0.249, "#FF3D8B", z=0)
     neon.data.align_x, neon.data.align_y = "CENTER", "CENTER"
     neon.data.body = "裏"
     neon.data.fill_mode = "NONE"
-    neon.data.bevel_depth = 0.0012
+    neon.data.bevel_depth = 0.0016
     neon.data.offset = -0.0
     neon.data.materials.clear()
     neon.data.materials.append(A.emissive("#FF3D8B", 3.0))
     neon.rotation_euler = (math.radians(90), 0, 0)
-    neon.location = (0.17, 0.248, 0.165)
+    neon.location = NEON
 
     # lights. Day: a large north-window softbox from the left. Night: neon + pink bounce + cyan from the heart.
     area_light("north_window", (-0.32, -0.08, 0.32), (-0.04, 0.05, BENCH_TOP), 0.35, 6000, 22.0)
     area_light("paper_bounce", (-0.1, -0.35, 0.1), (0.0, 0.0, BENCH_TOP + 0.02), 0.2, 4800, 1.2)
-    area_light("neon_spill", (0.17, 0.23, 0.165), (0.1, 0.0, BENCH_TOP), 0.09, 6500, 0.03, size_y=0.06).data.color = \
+    area_light("neon_spill", (NEON[0], NEON[1] - 0.004, NEON[2]), (0.1, -0.05, BENCH_TOP), 0.09, 6500, 0.03, size_y=0.06).data.color = \
         tuple(c for c in m.srgb("#FF3D8B")[:3])
-    rim = area_light("rim_pink", (0.18, 0.22, 0.16), (0.0, 0.0, BENCH_TOP + 0.03), 0.03, 6500, 0.1)
+    rim = area_light("rim_pink", (NEON[0] + 0.01, NEON[1] - 0.004, NEON[2]), (0.0, 0.0, BENCH_TOP + 0.03), 0.03, 6500, 0.1)
     rim.data.color = tuple(c for c in m.srgb("#FF3D8B")[:3])
 
     # the day/night split: an invisible flag on x = 0 stops the window light from reaching the right half
@@ -197,7 +205,7 @@ def build():
     nt.links.new(vol.outputs[0], out.inputs["Volume"])
     haze = A.rounded_box("haze", (0.78, 0.6, 0.44), 0.0, [haze_mat])
     haze.location = (0, 0.06, 0.22)
-    return heart
+    return heart, haze
 
 
 def camera(name, eye, target, lens, fstop, focus_obj=None, focus_dist=None):
@@ -220,7 +228,7 @@ def camera(name, eye, target, lens, fstop, focus_obj=None, focus_dist=None):
 
 
 def main():
-    heart = build()
+    heart, haze = build()
     scene = bpy.context.scene
     hc = Vector((0, 0.0, BENCH_TOP + 0.033))
     seam = Vector((0.0, -0.011, hc.z + 0.002))   # the resin seam where it crosses the front face
@@ -228,7 +236,7 @@ def main():
     m._link(focus)
     focus.location = (0.0, -0.012, hc.z + 0.004)
     cams = {
-        "wide": camera("wide", (0.0, -0.36, BENCH_TOP + 0.07), (0.0, 0.08, BENCH_TOP + 0.05), 50, 4.0, focus),
+        "wide": camera("wide", (0.0, -0.36, BENCH_TOP + 0.07), (0.0, 0.08, BENCH_TOP + 0.05), 50, 5.6, focus),
         "macro": camera("macro", (0.03, -0.17, seam.z + 0.014), tuple(seam), 100, 8.0, focus),
         "three": camera("three", (-0.16, -0.2, BENCH_TOP + 0.11), (0.0, 0.02, BENCH_TOP + 0.03), 85, 2.0, focus),
     }
@@ -256,6 +264,8 @@ def main():
     for name in SHOTS:
         scene.camera = cams[name]
         scene.cycles.samples = SHOT_SAMPLES.get(name, BASE_SAMPLES)
+        # the haze behind the three-quarter shot is all out of focus and only adds volume noise there
+        haze.hide_render = name in NO_HAZE
         scene.render.filepath = os.path.join(os.path.abspath(OUT), f"s3_{name}.png")
         bpy.ops.render.render(write_still=True)
     _ = heart

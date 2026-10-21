@@ -338,8 +338,10 @@ def uraomote_heart(width=0.045, seed=3):
         if len(loop) < 8:
             continue
         pts = [tuple(c) for c in loop[::2]]
-        radii = [rnd.uniform(0.75, 1.3) for _ in pts]
-        tube_along("heart_seam", pts, s * 0.075, [seam_mat], root, resolution=4, cyclic=True, radii=radii)
+        # thinner towards the apex, where the cross-section is narrow and a full-width bead reads as a blob
+        y0, y1 = min(p[1] for p in pts), max(p[1] for p in pts)
+        radii = [rnd.uniform(0.85, 1.15) * (0.45 + 0.55 * min(1.0, (p[1] - y0) / (0.35 * (y1 - y0)))) for p in pts]
+        tube_along("heart_seam", pts, s * 0.06, [seam_mat], root, resolution=4, cyclic=True, radii=radii)
     bm.free()
 
     # glaze vessels on the porcelain face (front, +Z) and back: meander down from the top cleft
