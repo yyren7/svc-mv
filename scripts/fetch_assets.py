@@ -2,7 +2,7 @@
 assets/polyhaven/. The manifest below is the only list; running the script again downloads only what is
 missing, so a fresh clone gets the same files.
 
-    .venv/Scripts/python scripts/fetch_assets.py [--res 2k] [--only textures|hdris|models] [ids ...]
+    .venv/Scripts/python scripts/fetch_assets.py [--res 2k] [--only textures|hdris|models|objaverse|thirdparty] [ids ...]
 
 Files are pulled in parallel range requests: a single connection to dl.polyhaven.org runs at ~100 kB/s
 from here, eight of them at close to 1 MB/s. All Poly Haven assets are CC0 (https://polyhaven.com/license).
@@ -56,8 +56,53 @@ MANIFEST = {
     ],
 }
 
+# CC BY models from Sketchfab, fetched from the Objaverse copy on Hugging Face (no Sketchfab login needed).
+# Each keeps its creator's licence: attribution is in docs/CREDITS.md, and recolours count as changes.
+OBJAVERSE = {
+    "kiha32": dict(uid="95c5d6515ff04092987d698ab2c8442a", title="国鉄キハ32形気動車 KIHA 32 Diesel", author="own.guest"),
+    "nazo_no_eki": dict(uid="6cbd6ce6354f44a4b6517e8176d8741b", title="Nazo no eki (Mystery Station)", author="Thomas Nguyen"),
+    "jp_payphone86": dict(uid="50f9b9982885403396f46d5f46c7b4be", title="Japanese Payphone 86'", author="Yevhen Avramenko"),
+    "old_green_payphone": dict(uid="ad06f3ec91a24943ad4a38dd70413cda", title="Old Green Payphone", author="Yevhen Avramenko"),
+}
+# other files with their own licences
+THIRDPARTY = {
+    "khronos_shoe": dict(url="https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/"
+                             "MaterialsVariantsShoe/glTF-Binary/MaterialsVariantsShoe.glb",
+                         path="khronos_shoe/MaterialsVariantsShoe.glb",
+                         title="MaterialsVariantsShoe (glTF sample)", author="Shopify", license="CC BY 4.0"),
+}
+HF = os.environ.get("HF_ENDPOINT", "https://hf-mirror.com")
+THIRD = os.path.join(ROOT, "assets", "thirdparty")
+
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))   # the Windows proxy here is dead
 opener.addheaders = [("User-Agent", "svc-mv-fetch/1.0")]
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+_no_redirect = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)
+
+
+def resolve(url, hops=8):
+    """Follow redirects by hand (this Python's urllib gives up on 308, which the HF mirror sends) and
+    return (final url, size, accepts ranges)."""
+    import urllib.error
+    import urllib.parse
+    for _ in range(hops):
+        req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "svc-mv-fetch/1.0"})
+        try:
+            with _no_redirect.open(req, timeout=60) as r:
+                return url, int(r.headers.get("Content-Length", "0")), r.headers.get("Accept-Ranges", "") == "bytes"
+        except urllib.error.HTTPError as e:
+            loc = e.headers.get("Location")
+            if e.code in (301, 302, 303, 307, 308) and loc:
+                url = urllib.parse.urljoin(url, loc)
+                continue
+            raise
+    raise RuntimeError(f"too many redirects for {url}")
 
 
 def get_json(url, tries=4):
@@ -146,14 +191,40 @@ def plan_model(aid, res):
     return out
 
 
+def plan_objaverse(ids):
+    """GLBs by Sketchfab uid from the Objaverse index (cached next to the files)."""
+    import gzip
+    index = os.path.join(THIRD, "objaverse", "object-paths.json.gz")
+    if not os.path.exists(index):
+        final, size, _ = resolve(f"{HF}/datasets/allenai/objaverse/resolve/main/object-paths.json.gz")
+        download(final, index, size)
+    paths = json.load(gzip.open(index, "rt", encoding="utf-8"))
+    out = []
+    for key, info in OBJAVERSE.items():
+        if ids and key not in ids:
+            continue
+        rel = paths.get(info["uid"])
+        if rel is None:
+            print(f"!! objaverse/{key}: {info['uid']} is not in Objaverse 1.0", file=sys.stderr)
+            continue
+        out.append((f"{HF}/datasets/allenai/objaverse/resolve/main/{rel}", os.path.join(THIRD, "objaverse", f"{key}.glb"), None))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--res", default="2k")
     ap.add_argument("--model-res", default="1k")
-    ap.add_argument("--only", choices=("textures", "hdris", "models"))
+    ap.add_argument("--only", choices=("textures", "hdris", "models", "objaverse", "thirdparty"))
     ap.add_argument("ids", nargs="*")
     a = ap.parse_args()
     jobs = []
+    if not a.only or a.only == "objaverse":
+        jobs.extend(plan_objaverse(a.ids))
+    if not a.only or a.only == "thirdparty":
+        for key, info in THIRDPARTY.items():
+            if not a.ids or key in a.ids:
+                jobs.append((info["url"], os.path.join(THIRD, info["path"]), None))
     for kind, plan in (("textures", plan_texture), ("hdris", plan_hdri), ("models", plan_model)):
         if a.only and a.only != kind:
             continue
@@ -167,6 +238,16 @@ def main():
                 print(f"!! {kind}/{aid}: {e}", file=sys.stderr)
                 continue
             jobs.extend(items)
+    sized = []
+    for url, path, size in jobs:
+        if size is None:
+            try:
+                url, size, _ = resolve(url)
+            except Exception as e:   # noqa: BLE001
+                print(f"!! HEAD {url}: {e}", file=sys.stderr)
+                continue
+        sized.append((url, path, size))
+    jobs = sized
     total = sum(s for _, _, s in jobs)
     print(f"{len(jobs)} files, {total / 1e6:.0f} MB")
     done = 0

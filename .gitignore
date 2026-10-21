@@ -19,3 +19,4 @@ renders/s[0-9]/*
 !renders/s[0-9]/*.png
 fonts/
 assets/polyhaven/
+assets/thirdparty/

@@ -28,7 +28,7 @@ import texlib as T  # noqa: E402
 OUT, SHOTS = cyc.args("s4", ["long", "handset", "umbrella"])
 BOOTH = Vector((0.0, 0.18, 0.0))     # centre of the booth's footprint
 BW, BH, BT = 0.085, 0.19, 0.006      # booth width, height, frame thickness
-PHONE = BOOTH + Vector((0.009, BW / 2 - BT - 0.0125, 0.075))   # the payphone's base centre, back to the rear panel
+PHONE = BOOTH + Vector((0.006, BW / 2 - BT - 0.0115, 0.0733))  # the payphone's base centre, back to the rear panel
 HOOK = PHONE + Vector((-0.0205, -0.0025, 0.041))             # where the model's cradle hook is after the cut
 HANDSET = HOOK + Vector((-0.004, -0.008, -0.034))             # the hanging handset's centre
 UMBRELLA = Vector((-0.105, -0.06, 0.0))
@@ -174,6 +174,8 @@ def booth():
             rail = A.rounded_box("booth_rail", (t, w - 2 * t, t), 0.0008, [paint], root)
             rail.location = (sx * (w / 2 - t / 2), 0, z)
         for sy in (-1, 1):
+            if sy < 0 and 0.01 < z < h - 0.01:
+                continue   # the front is the full-height folding door: no crossbar through the doorway
             rail = A.rounded_box("booth_rail", (w - 2 * t, t, t), 0.0008, [paint], root)
             rail.location = (0, sy * (w / 2 - t / 2), z)
     for sx in (-1, 1):
@@ -211,32 +213,70 @@ def booth():
                    [A.emissive("#DCEAF0", 1.4)], root)
     tube.rotation_euler = (0, math.radians(90), 0)
     tube.location = (0, 0.01, h - 0.012)
-    # the payphone on the back wall, handset and cord cut off the model; a shelf with a coin and a folded note
-    phone = T.model("korean_public_payphone_01", name="payphone")
-    T.place(phone, tuple(PHONE))
-    # the model's own handset and cord come off the side hook and hang lower, swinging a little
-    handset = None
-    plo, phi = T.model_bounds(phone)
-    # the handset and its cord are the pieces that reach the leftmost 5 mm (the body starts ~7 mm in)
-    for ob in phone.children_recursive:
-        if ob.type == "MESH":
-            handset = T.split_islands(ob, lambda lo, hi: lo.x < plo.x + 0.005 and hi.y < phi.y - 0.0075, "handset")
+    # the green NTT payphone (CC BY, Yevhen Avramenko) on the shelf, keypad to the door. Its handset comes off
+    # the side hook and hangs below the shelf on a new coiled cord; the model's own cord is taken out.
+    phone, pmeshes = T.glb("old_green_payphone", name="payphone", scale=1.0 / 12)
+    phone.location = PHONE
+    phone.rotation_euler.z = math.pi
+    bpy.context.view_layer.update()
+    body = pmeshes[0]
+    # in the model's own centimetres (x right of the keypad, z up): handset x 9-13, the hooks are the thin
+    # pieces at z 31-34, the cord runs from z 28 down to its exit at the bottom
+    lo0, hi0 = T.model_bounds(phone)
+    to_model = phone.matrix_world.inverted()
+
+    def model_box(lo, hi):
+        a, b = to_model @ lo, to_model @ hi
+        return (Vector(map(min, a, b)) * 100, Vector(map(max, a, b)) * 100)   # the pivot's space is the model's metres; cm
+
+    def is_handset(lo, hi):
+        a, b = model_box(lo, hi)
+        return a.x > 8.85 and b.x < 13.05 and b.z > 19.0 and not (b.x - a.x < 1.2 and a.z > 30.0)
+
+    def is_cord(lo, hi):
+        a, b = model_box(lo, hi)
+        return 7.0 < a.x < 8.0 and a.z < 6.0 and b.z > 27.0
+
+    anchor = None
+    bm_cord = T.split_islands(body, is_cord, "phone_cord_old")
+    if bm_cord is not None:
+        cw = [bm_cord.matrix_world @ v.co for v in bm_cord.data.vertices]
+        anchor = min(cw, key=lambda c: c.z)     # where the cord leaves the phone body
+        bpy.data.objects.remove(bm_cord)
+    handset = T.split_islands(body, is_handset, "handset")
     if handset is not None:
         bpy.context.view_layer.update()
-        hlo, hhi = T.model_bounds(phone)   # body only now
-        pivot = Vector((hlo.x - 0.002, (hlo.y + hhi.y) / 2 - 0.004, hlo.z + 0.045))
+        hw = [handset.matrix_world @ Vector(c) for c in handset.bound_box]
+        hc = sum(hw, Vector()) / 8
+        top = max(c.z for c in hw)
+        shelf_front = BOOTH.y + w / 2 - t - 0.030
+        target = Vector((hc.x + 0.004, shelf_front - 0.006, 0.072 - 0.004 - (top - hc.z) - 0.006 + BOOTH.z))
+        swing = Matrix.Translation(target) @ Matrix.Rotation(math.radians(9), 4, "X") \
+            @ Matrix.Rotation(math.radians(-6), 4, "Y") @ Matrix.Translation(-hc)
         mw = handset.matrix_world.copy()
-        drop = Matrix.Translation(pivot + Vector((-0.002, -0.004, -0.022))) @ Matrix.Rotation(math.radians(14), 4, "Y")             @ Matrix.Rotation(math.radians(-10), 4, "X") @ Matrix.Translation(-pivot)
         handset.parent = None
-        handset.matrix_world = drop @ mw
+        handset.matrix_world = swing @ mw
+        bpy.context.view_layer.update()
+        hw = [handset.matrix_world @ Vector(c) for c in handset.bound_box]
+        bottom = Vector((sum(c.x for c in hw) / 8, sum(c.y for c in hw) / 8, min(c.z for c in hw) + 0.0012))
+        if anchor is None:
+            anchor = Vector((PHONE.x + 0.009, PHONE.y - 0.008, PHONE.z + 0.005))
+        # a coiled cord gone slack between the phone and the hanging handset
+        cord = []
+        for k in range(160):
+            u = k / 159
+            c = anchor.lerp(bottom, u) + Vector((0.0, -0.004 * math.sin(math.pi * u), -0.010 * math.sin(math.pi * u)))
+            a = u * 2 * math.pi * 22
+            cord.append((c.x + 0.0011 * math.cos(a), c.y + 0.0011 * math.sin(a), c.z + 0.0004 * math.sin(a)))
+        A.tube_along("phone_cord", cord, 0.00028, [A.plastic("#2C2C2E", 0.45, "cord_black")], resolution=3)
     green = A.plastic("#2E6F4F", 0.35, "phone_green")
-    shelf = A.rounded_box("shelf", (0.040, 0.022, 0.0025), 0.0005, [booth_paint()], root)
-    shelf.location = (PHONE.x - BOOTH.x, w / 2 - t - 0.016, 0.072)
+    shelf = A.rounded_box("shelf", (0.044, 0.030, 0.0025), 0.0005, [booth_paint()], root)
+    shelf.location = (PHONE.x - BOOTH.x, w / 2 - t - 0.015, 0.072)
     coin = A.lathe("coin", [(0.0001, 0), (0.0022, 0), (0.0022, 0.0004), (0.0001, 0.0004)], 24, [A.brass()], root)
-    coin.location = (PHONE.x - BOOTH.x + 0.012, w / 2 - t - 0.014, 0.0733)
+    coin.location = (PHONE.x - BOOTH.x + 0.016, w / 2 - t - 0.026, 0.0733)
     note = A.rounded_box("note", (0.012, 0.009, 0.0008), 0.0002, [A.printed(os.path.join(cyc.ROOT, "renders", "frame_A.png"))], root)
     P.map_uv(note, ("x", "y"), (0.012, 0.009))
-    note.location = (PHONE.x - BOOTH.x - 0.006, w / 2 - t - 0.013, 0.0735)
+    note.location = (PHONE.x - BOOTH.x - 0.013, w / 2 - t - 0.025, 0.0735)
     note.rotation_euler.z = math.radians(18)
     return root
 
@@ -340,7 +380,7 @@ def main():
         print("handset at mm", tuple(round(v * 1000, 1) for v in HANDSET))
     cams = {
         "long": cyc.camera("cam_long", (-0.075, -0.23, 0.03), tuple(HANDSET + Vector((0, 0, -0.02))), 35, 5.6),
-        "handset": cyc.camera("cam_handset", tuple(HANDSET + Vector((-0.006, -0.20, 0.022))), tuple(HANDSET + Vector((0.002, 0, 0.008))), 100, 8.0),
+        "handset": cyc.camera("cam_handset", tuple(HANDSET + Vector((-0.03, -0.19, 0.012))), tuple(HANDSET + Vector((0.0, 0, 0.004))), 100, 8.0),
         "umbrella": cyc.camera("cam_umbrella", tuple(UMBRELLA + Vector((0.05, -0.19, 0.035))), tuple(UMBRELLA + Vector((0, 0, 0.012))), 50, 8.0),
     }
     cams = {k: v for k, v in cams.items() if k in SHOTS}

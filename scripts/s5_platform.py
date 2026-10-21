@@ -26,14 +26,19 @@ import props as P  # noqa: E402
 import texlib as T  # noqa: E402
 
 OUT, SHOTS = cyc.args("s5", ["wide_omote", "edge_omote", "shoes_omote", "edge_ura"])
-PL, PW, PH = 1.20, 0.25, 0.09            # platform length, width, height above the rail bed
+KIHA_S = 1.1 / 12                         # the KiHa 32 model is a little under real size; 1.1 fits the platform
+CAR_LEN, CAR_W = 13.519 * KIHA_S, 2.549 * KIHA_S
+RAIL_TOP = 0.030
+PL, PW = 1.20, 0.25                       # platform length and width
+PH = RAIL_TOP + 1.0 * KIHA_S - 0.005      # platform top a little under the car floor
 EDGE = -PW / 2                            # the platform edge (tracks beyond it, at smaller y)
 BACK = PW / 2 + 0.20                      # the back apron ends here; the fence stands on it
-RAIL_Y = (-0.19, -0.25)
+TRACK_Y = EDGE - 0.008 - CAR_W / 2        # the car side stands 8 mm (10 cm real) off the platform edge
+RAIL_Y = (TRACK_Y + 0.566 * KIHA_S, TRACK_Y - 0.566 * KIHA_S)   # rail centres under the model's wheel treads
 SHOES = Vector((0.03, EDGE + 0.030, PH))  # where the shoes stand on the tactile strip
 SHOE_GLB = os.path.join(cyc.ROOT, "assets", "thirdparty", "khronos_shoe", "MaterialsVariantsShoe.glb")
 SUN_DIR = Vector((-0.92, 0.34, 0.11)).normalized()   # towards the setting sun: down the rails, over the fence side
-TRAIN_X0 = -0.52
+TRAIN_NEAR_X = 0.33                       # the near end of the nearer car
 
 
 # ---------------------------------------------------------------- materials
@@ -125,15 +130,16 @@ def platform(M):
     groove = A.rounded_box("groove", (PL, 0.004, 0.0015), 0.0, [A.plaster("#4A463F")])
     groove.location = (0, PW / 2 - 0.01, PH - 0.0005)
     # ballast: a dense sheet so the gravel map can displace real stones; it slopes off on both sides
-    L = PL + 1.8
+    L = 6.0
+    y0, y1 = TRACK_Y - 0.17, EDGE + 0.02
 
     def bed_pt(i, j):
-        u, v = i / 600, j / 44
-        y = -0.33 + 0.24 * v
+        u, v = i / 1200, j / 64
+        y = y0 + (y1 - y0) * v
         edge = min(v, 1 - v) / 0.2
         return (-L / 2 + L * u, y, 0.004 + 0.010 * min(1.0, edge))
 
-    bed = P.grid_mesh("ballast", 600, 44, bed_pt, [M["gravel"]])
+    bed = P.grid_mesh("ballast", 1200, 64, bed_pt, [M["gravel"]])
     sub = bed.modifiers.new("sub", "SUBSURF")
     sub.subdivision_type = "SIMPLE"
     sub.levels, sub.render_levels = 0, 1
@@ -144,9 +150,9 @@ def platform(M):
     steel = A.metal("#C4C4BE", 0.22, "rail_head")
     x = -L / 2
     while x < L / 2:
-        t = A.rounded_box("tie", (0.02, 0.11, 0.012), 0.001, [M["tie"]])
-        t.location = (x, -0.22, 0.016)
-        x += 0.05
+        t = A.rounded_box("tie", (0.2 * KIHA_S, 2.1 * KIHA_S, 0.012), 0.001, [M["tie"]])
+        t.location = (x, TRACK_Y, 0.016)
+        x += 0.6 * KIHA_S
     for ry in RAIL_Y:
         head = A.rounded_box("rail", (L, 0.005, 0.004), 0.0008, [steel])
         head.location = (0, ry, 0.028)
@@ -253,10 +259,18 @@ def bench(x, y, image):
 
 
 def canopy(M):
-    z_roof = PH + 0.20
+    z_roof = PH + 0.23
     for x in (-0.40, -0.22, -0.04, 0.14, 0.32):
-        post = A.rounded_box("canopy_post", (0.009, 0.009, 0.20), 0.001, [M["steel"]])
-        post.location = (x, 0.09, PH + 0.10)
+        post = A.rounded_box("canopy_post", (0.009, 0.009, 0.23), 0.001, [M["steel"]])
+        post.location = (x, 0.09, PH + 0.115)
+    x = -0.62
+    while x < 0.55:   # rafters across the canopy, purlins along it
+        r = A.rounded_box("canopy_rafter", (0.006, 0.21, 0.010), 0.0008, [M["steel"]])
+        r.location = (x, 0.03, z_roof - 0.007)
+        x += 0.09
+    for y in (-0.06, 0.0, 0.06, 0.12):
+        pu = A.rounded_box("canopy_purlin", (PL - 0.2, 0.005, 0.005), 0.0006, [M["steel"]])
+        pu.location = (-0.04, y, z_roof - 0.0045)
         brace = A.rounded_box("canopy_brace", (0.005, 0.11, 0.005), 0.0006, [M["steel"]])
         brace.location = (x, 0.035, z_roof - 0.055)
         brace.rotation_euler.x = math.radians(40)
@@ -314,64 +328,143 @@ def fence_and_poles():
 
 # ---------------------------------------------------------------- the train
 
-def train(x0, M, bulbs=True):
-    cream = M["carpaint"]
-    red = T.pbr("rusty_painted_metal", flat=("#C4301E", 0.8), rough=0.4, scale=1 / 6, bump=0.25, ao=0.2, name="train_red")
-    stainless = A.metal("#B9BBC0", 0.32, "stainless")
-    glass = A.clear_glass(0.0)
-    warm = A.emissive("#FFD8A6", 1.6)
-    L, Wd, Hb = 0.45, 0.08, 0.10
-    yc, z0 = -0.22, 0.032
-    for car in range(2):
-        xc = x0 + car * (L + 0.012)
-        body = A.rounded_box("car_body", (L, Wd, Hb), 0.006, [cream])
-        body.location = (xc, yc, z0 + Hb / 2)
-        band = A.rounded_box("car_band", (L + 0.0005, Wd + 0.001, 0.026), 0.002, [red])
-        band.location = (xc, yc, z0 + 0.022)
-        skirt = A.rounded_box("car_skirt", (L - 0.02, Wd - 0.01, 0.03), 0.002, [A.plastic("#2A2A2C", 0.6, "skirt")])
-        skirt.location = (xc, yc, z0 - 0.01)
-        roof = A.rounded_box("car_roof", (L - 0.01, Wd - 0.012, 0.012), 0.005, [A.plastic("#C9C2B2", 0.5, "car_roof")])
-        roof.location = (xc, yc, z0 + Hb + 0.004)
-        ac = A.rounded_box("car_ac", (0.06, 0.04, 0.012), 0.003, [A.plastic("#B9B3A4", 0.5, "car_ac")])
-        ac.location = (xc, yc, z0 + Hb + 0.014)
-        for wx in (-0.14, 0.14):
-            for sy in (-1, 1):
-                wheel = A.lathe("wheel", [(0.0001, -0.004), (0.012, -0.004), (0.012, 0.004), (0.0001, 0.004)], 24,
-                                [A.metal("#3A3A3C", 0.5, "wheel")])
-                wheel.rotation_euler = (math.radians(90), 0, 0)
-                wheel.location = (xc + wx, RAIL_Y[0] if sy < 0 else RAIL_Y[1], 0.026)
-        y_face = yc + Wd / 2
-        for sx in (-0.19, -0.13, -0.07, 0.07, 0.13, 0.19):
-            for side in (1, -1):
-                yf = yc + side * Wd / 2
-                rim = A.rounded_box("window_rim", (0.05, 0.004, 0.039), 0.0008, [A.plastic("#4A4A4C", 0.5, "window_rim")])
-                rim.location = (xc + sx, yf + side * 0.0012, z0 + 0.064)
-                panel = A.rounded_box("window_light", (0.046, 0.0006, 0.035), 0.0, [warm])
-                panel.location = (xc + sx, yf + side * 0.0016, z0 + 0.064)
-                pane = A.rounded_box("window_glass", (0.046, 0.0004, 0.035), 0.0, [glass])
-                pane.location = (xc + sx, yf + side * 0.0036, z0 + 0.064)
-                if bulbs and side == 1:
-                    rnd = random.Random(int(sx * 1000) + car)
-                    for k in range(3):
-                        b = A.heart_bulb("infected" if rnd.random() < 0.7 else "clean", 0.0045, seed=k + car)
-                        b.location = (xc + sx - 0.014 + 0.014 * k, yf + 0.0026, z0 + 0.074 - 0.004 * (k % 2))
-                        b.rotation_euler = (math.radians(rnd.uniform(70, 110)), 0, math.radians(rnd.uniform(0, 360)))
-                        A.tube_along("bulb_string", [(xc + sx - 0.014 + 0.014 * k, yf + 0.0026, z0 + 0.082),
-                                                     (xc + sx - 0.014 + 0.014 * k, yf + 0.0026, z0 + 0.077)], 0.0002,
-                                     [A.plastic("#E0301E", 0.7, "cord")])
-        door = A.rounded_box("door", (0.052, 0.004, 0.088), 0.001, [stainless])
-        door.location = (xc, y_face + 0.0014, z0 + 0.046)
-        seam = A.rounded_box("door_seam", (0.0012, 0.0006, 0.086), 0.0, [A.plastic("#1A1A1C", 0.6, "seam")])
-        seam.location = (xc, y_face + 0.0036, z0 + 0.046)
-        for sx in (-1, 1):
-            dw = A.rounded_box("door_window", (0.018, 0.0006, 0.03), 0.0, [warm])
-            dw.location = (xc + sx * 0.013, y_face + 0.0036, z0 + 0.066)
-        if car == 0:
-            for sy in (-1, 1):
-                hl = A.lathe("headlight", [(0.0001, 0), (0.006, 0), (0.006, 0.003), (0.0001, 0.003)], 24,
-                             [A.emissive("#FFF2D0", 8.0)])
-                hl.rotation_euler = (0, math.radians(-90), 0)
-                hl.location = (xc - L / 2 - 0.001, yc + sy * 0.025, z0 + 0.03)
+def _glossy(nt):
+    for idname in ("ShaderNodeBsdfGlossy", "ShaderNodeBsdfAnisotropic"):
+        try:
+            return nt.nodes.new(idname)
+        except RuntimeError:
+            continue
+    raise RuntimeError("no glossy BSDF node")
+
+
+def livery(mat, cream="#EADFC6"):
+    """KiHa 32 texture to the JNR cream + vermilion livery, and its painted windows to real glass.
+    Image_0 is the colour, Image_1 the glTF metal/roughness map: its green (roughness) is 0 on the glass."""
+    nt = mat.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
+    texs = [n for n in nt.nodes if n.type == "TEX_IMAGE"]
+    base = next(n for n in texs if n.image.name.startswith("Image_0"))
+    mr = next(n for n in texs if n.image.name.startswith("Image_1"))
+    sep = nt.nodes.new("ShaderNodeSeparateColor")
+    nt.links.new(mr.outputs["Color"], sep.inputs["Color"])
+    body = sep.outputs["Green"]
+    bs = nt.nodes.new("ShaderNodeSeparateColor")
+    nt.links.new(base.outputs["Color"], bs.inputs["Color"])
+    blue = nt.nodes.new("ShaderNodeMath")          # how blue: (B - R) * 3, clamped
+    blue.operation = "SUBTRACT"
+    nt.links.new(bs.outputs["Blue"], blue.inputs[0])
+    nt.links.new(bs.outputs["Red"], blue.inputs[1])
+    gain = nt.nodes.new("ShaderNodeMath")
+    gain.operation = "MULTIPLY"
+    gain.use_clamp = True
+    gain.inputs[1].default_value = 3.0
+    nt.links.new(blue.outputs[0], gain.inputs[0])
+    only_body = nt.nodes.new("ShaderNodeMath")
+    only_body.operation = "MULTIPLY"
+    nt.links.new(gain.outputs[0], only_body.inputs[0])
+    nt.links.new(body, only_body.inputs[1])
+    hs = nt.nodes.new("ShaderNodeHueSaturation")   # JR Shikoku blue (199 deg) round to vermilion (6 deg)
+    hs.inputs["Hue"].default_value = 0.964
+    hs.inputs["Saturation"].default_value = 1.08
+    nt.links.new(base.outputs["Color"], hs.inputs["Color"])
+    m1 = nt.nodes.new("ShaderNodeMix")
+    m1.data_type = "RGBA"
+    nt.links.new(only_body.outputs[0], m1.inputs["Factor"])
+    nt.links.new(base.outputs["Color"], m1.inputs["A"])
+    nt.links.new(hs.outputs["Color"], m1.inputs["B"])
+    m2 = nt.nodes.new("ShaderNodeMix")              # white paint to cream, the glass untouched
+    m2.data_type = "RGBA"
+    m2.blend_type = "MULTIPLY"
+    nt.links.new(body, m2.inputs["Factor"])
+    nt.links.new(m1.outputs["Result"], m2.inputs["A"])
+    m2.inputs["B"].default_value = m.srgb(cream)
+    nt.links.new(m2.outputs["Result"], bsdf.inputs["Base Color"])
+    # glass: see-through with a Fresnel reflection, where the map says glass
+    glass_mask = nt.nodes.new("ShaderNodeMath")
+    glass_mask.operation = "SUBTRACT"
+    glass_mask.inputs[0].default_value = 1.0
+    nt.links.new(body, glass_mask.inputs[1])
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    gl = _glossy(nt)
+    gl.inputs["Roughness"].default_value = 0.03
+    fr = nt.nodes.new("ShaderNodeFresnel")
+    fr.inputs["IOR"].default_value = 1.5
+    glass = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(fr.outputs[0], glass.inputs[0])
+    nt.links.new(tr.outputs[0], glass.inputs[1])
+    nt.links.new(gl.outputs[0], glass.inputs[2])
+    final = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(glass_mask.outputs[0], final.inputs[0])
+    nt.links.new(bsdf.outputs[0], final.inputs[1])
+    nt.links.new(glass.outputs[0], final.inputs[2])
+    nt.links.new(final.outputs[0], out.inputs["Surface"])
+    mat["livery"] = True
+
+
+def interior(pivot, near, night, seed=0):
+    """What is seen through the windows, in the model's own metres (the pivot scales it): floor, ceiling with
+    two light strips, the far wall, long seats, hand straps, and the heart bulbs hanging between the straps.
+    near = +1 when the platform is on the car's local +y side."""
+    rnd = random.Random(seed)
+    floor = A.rounded_box("car_floor", (12.4, 2.2, 0.05), 0.0, [A.plastic("#5D665A", 0.6, "car_floor")], pivot)
+    floor.location = (0, 0, 1.02)
+    ceil = A.rounded_box("car_ceiling", (12.4, 2.2, 0.05), 0.0, [A.plastic("#D8D5CB", 0.7, "car_ceiling")], pivot)
+    ceil.location = (0, 0, 2.66)
+    for y in (-0.45, 0.45):
+        strip = A.rounded_box("car_light", (11.6, 0.1, 0.03), 0.0, [A.emissive("#FFF1DC", 5.0 if night else 1.2)], pivot)
+        strip.location = (0, y, 2.62)
+    wall = A.rounded_box("car_wall", (12.4, 0.05, 1.62), 0.0, [A.plastic("#CFC8B8", 0.7, "car_wall")], pivot)
+    wall.location = (0, -near * 1.06, 1.85)
+    moquette = P.fabric("#2C3C73", rough=0.95, name="moquette")
+    for sy in (-1, 1):
+        seat = A.rounded_box("car_seat", (8.6, 0.48, 0.16), 0.04, [moquette], pivot)
+        seat.location = (0, sy * 0.86, 1.47)
+        back = A.rounded_box("car_seatback", (8.6, 0.10, 0.42), 0.04, [moquette], pivot)
+        back.location = (0, sy * 1.02, 1.72)
+    white = A.plastic("#F1EFE8", 0.4, "strap")
+    rod = A.metal("#C8C9CC", 0.25, "rail_steel_in")
+    for sy in (-0.62, 0.62):
+        A.tube_along("strap_rail", [(-5.8, sy, 2.5), (5.8, sy, 2.5)], 0.016, [rod], pivot, resolution=3)
+        x = -5.4
+        while x <= 5.4:
+            A.tube_along("strap", [(x, sy, 2.5), (x, sy, 2.26)], 0.012, [white], pivot, resolution=2)
+            ring = [(x + 0.055 * math.cos(a), sy, 2.20 + 0.055 * math.sin(a)) for a in [2 * math.pi * k / 12 for k in range(12)]]
+            A.tube_along("strap_ring", ring, 0.009, [white], pivot, cyclic=True, resolution=2)
+            x += 0.45
+    cord = A.plastic("#E0301E", 0.7, "cord")
+    x = -4.4
+    while x <= 4.4:
+        for _k in range(rnd.choice((1, 2))):
+            bx = x + rnd.uniform(-0.12, 0.12)
+            bz = rnd.uniform(2.02, 2.32)
+            by = near * rnd.uniform(0.75, 0.95)
+            b = A.heart_bulb("infected" if rnd.random() < 0.75 else "clean", 0.06, seed=rnd.randrange(1000))
+            b.parent = pivot
+            b.location = (bx, by, bz)
+            b.rotation_euler = (math.radians(rnd.uniform(80, 100)), 0, math.radians(rnd.uniform(0, 360)))
+            A.tube_along("bulb_string", [(bx, by, 2.63), (bx, by, bz + 0.035)], 0.004, [cord], pivot, resolution=2)
+        x += 0.63
+
+
+def kiha_car(xc, night, flip=False, seed=0):
+    pivot, meshes = T.glb("kiha32", name="kiha32", scale=KIHA_S)
+    pivot.location = (xc, TRACK_Y, RAIL_TOP)
+    if flip:
+        pivot.rotation_euler.z = math.pi
+    for ob in meshes:
+        for ms in ob.material_slots:
+            if ms.material and ms.material.name.startswith("1591184735691") and not ms.material.get("livery"):
+                livery(ms.material)
+    interior(pivot, near=-1 if flip else 1, night=night, seed=seed)
+    return pivot
+
+
+def train(night):
+    """Two KiHa 32 railcars coupled, the nearer one's end at TRAIN_NEAR_X."""
+    xa = TRAIN_NEAR_X - CAR_LEN / 2
+    kiha_car(xa, night, seed=1)
+    kiha_car(xa - CAR_LEN - 0.012, night, flip=True, seed=2)
 
 
 # ---------------------------------------------------------------- her sneakers
@@ -460,7 +553,7 @@ def pen_heart(point_above, meshes, full=True, size=0.00011):
         return A.tube_along(name, pts, radius, [ink], cyclic=cyclic, resolution=3)
 
     S = size * 16
-    stroke("pen_heart", [(x * S, y * S) for x, y in m.heart_outline(64)], 0.00011, cyclic=True)
+    stroke("pen_heart", [(x * S, y * S) for x, y in m.heart_outline(64)], 0.00007, cyclic=True)
     if full:
         # ballpoint hatching inside the outline, at a slant, like a quick colour-in
         for k in range(9):
@@ -470,7 +563,7 @@ def pen_heart(point_above, meshes, full=True, size=0.00011):
                 continue
             steps = 6
             pts = [(-half + 2 * half * t / steps, y0 + 0.08 * S * t / steps) for t in range(steps + 1)]
-            stroke("pen_fill", pts, 0.00008)
+            stroke("pen_fill", pts, 0.00005)
     else:
         for sx in (-1, 1):
             for sy in (-1, 1):
@@ -500,7 +593,7 @@ def build(palette="omote"):
     bench(-0.12, 0.078, img)
     tubes = canopy(M)
     fence_and_poles()
-    train(TRAIN_X0, M)
+    train(palette == "ura")
     toe_l, toe_r = shoes()
     rnd = random.Random(3)
     for k in range(6):
@@ -521,8 +614,7 @@ def build(palette="omote"):
         cyc.world((0.00015, 0.00025, 0.0006))
         for i, t in enumerate(tubes):
             t.data.materials[0] = A.emissive("#EEF0E8", 0.9 if i != 3 else 0.12)   # the fourth tube is dying
-        cyc.area_light("tube_glow", (-0.1, -0.02, PH + 0.17), (-0.1, -0.02, PH), 0.9, 4000, 0.6, size_y=0.08)
-        cyc.area_light("train_glow", (-0.3, -0.17, 0.09), (-0.3, -0.08, PH + 0.02), 0.7, 2900, 0.6, size_y=0.04)
+        cyc.area_light("tube_glow", (-0.1, -0.02, PH + 0.20), (-0.1, -0.02, PH), 0.9, 4000, 0.3, size_y=0.08)
         cyc.haze("haze", (PL + 2.8, 2.5, 0.6), (0, 0.1, 0.3), 0.0015)
     cyc.glass_lets_light_through()
     return dict(arrows=arrows, toe=toe_l)
@@ -539,7 +631,7 @@ def main():
         cams = {
             f"wide_{pal}": cyc.camera("cam_wide", (0.72, -0.09, PH + 0.075), (-0.15, 0.03, PH + 0.075), 35, 8.0),
             f"edge_{pal}": cyc.camera("cam_edge", (0.115, EDGE + 0.048, PH + 0.016), tuple(SHOES + Vector((0.008, 0, 0.005))), 24, 8.0),
-            f"shoes_{pal}": cyc.camera("cam_shoes", tuple(toe + Vector((0.085, -0.06, 0.03))), tuple(toe + Vector((0.006, 0.004, 0.0))), 100, 11.0),
+            f"shoes_{pal}": cyc.camera("cam_shoes", tuple(toe + Vector((0.09, -0.004, 0.04))), tuple(toe + Vector((0.006, 0.004, 0.0))), 100, 11.0),
         }
         cams = {k: v for k, v in cams.items() if k in want}
         focus = {f"wide_{pal}": (-0.12, 0.06, PH + 0.04), f"edge_{pal}": SHOES + Vector((0, 0, 0.004)), f"shoes_{pal}": toe}

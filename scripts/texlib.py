@@ -14,7 +14,7 @@ import math
 import os
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 import mvlib as m
 
@@ -386,3 +386,110 @@ def split_islands(ob, take, name="split"):
         bpy.data.objects.remove(dup)
         return None
     return dup
+
+
+THIRD = os.path.join(ROOT, "assets", "thirdparty")
+
+
+def glb(path, name="glb", length=None, scale=None):
+    """Import a glTF binary (a path, or an Objaverse key from fetch_assets.py) under a new empty.
+    The empty sits at the model's footprint centre on its base; length scales the longest side to that many
+    metres, scale is a plain factor (1/12 for a model built in real metres). Returns (pivot, meshes)."""
+    if not os.path.isabs(path) and not path.endswith(".glb"):
+        path = os.path.join(THIRD, "objaverse", f"{path}.glb")
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=path)
+    new = [o for o in bpy.data.objects if o not in before]
+    tops = [o for o in new if o.parent is None]
+    meshes = [o for o in new if o.type == "MESH"]
+    pivot = bpy.data.objects.new(name, None)
+    m._link(pivot)
+    for t in tops:
+        t.parent = pivot
+    bpy.context.view_layer.update()
+    lo = Vector((1e9, 1e9, 1e9))
+    hi = Vector((-1e9, -1e9, -1e9))
+    for ob in meshes:
+        for c in ob.bound_box:
+            w = ob.matrix_world @ Vector(c)
+            lo = Vector(map(min, lo, w))
+            hi = Vector(map(max, hi, w))
+    centre = Vector(((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, lo.z))
+    for t in tops:
+        t.matrix_world = Matrix.Translation(-centre) @ t.matrix_world
+    s = scale if scale is not None else (length / max(hi - lo) if length else 1.0)
+    pivot.scale = (s, s, s)
+    bpy.context.view_layer.update()
+    print(f"glb {os.path.basename(path)}: {len(meshes)} meshes, native size {tuple(round(v, 3) for v in (hi - lo))}, scale {s:.4f}")
+    return pivot, meshes
+
+
+def mask_rects(img, test, step=2, min_px=40):
+    """Connected regions of an image where test(r, g, b) is true, as pixel boxes (x0, y0, x1, y1), origin at
+    the bottom left like UVs. Sampled every `step` pixels."""
+    w, h = img.size
+    px = img.pixels[:]
+    gw, gh = w // step, h // step
+    on = bytearray(gw * gh)
+    for gy in range(gh):
+        row = gy * step * w
+        for gx in range(gw):
+            i = (row + gx * step) * 4
+            if test(px[i], px[i + 1], px[i + 2]):
+                on[gy * gw + gx] = 1
+    seen = bytearray(gw * gh)
+    rects = []
+    for start in range(gw * gh):
+        if not on[start] or seen[start]:
+            continue
+        stack = [start]
+        seen[start] = 1
+        x0 = y0 = 10 ** 9
+        x1 = y1 = -1
+        n = 0
+        while stack:
+            k = stack.pop()
+            x, y = k % gw, k // gw
+            n += 1
+            x0, x1, y0, y1 = min(x0, x), max(x1, x), min(y0, y), max(y1, y)
+            for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                if 0 <= nx < gw and 0 <= ny < gh:
+                    kk = ny * gw + nx
+                    if on[kk] and not seen[kk]:
+                        seen[kk] = 1
+                        stack.append(kk)
+        if n * step * step >= min_px:
+            rects.append((x0 * step, y0 * step, (x1 + 1) * step, (y1 + 1) * step))
+    return rects
+
+
+def uv_to_world(meshes, uv):
+    """Every place on the meshes whose UV is `uv`: a list of (world point, world normal). A texture used on
+    mirrored faces (both sides of a train) gives one hit per side."""
+    from mathutils.geometry import barycentric_transform, intersect_point_tri_2d
+    p = Vector((uv[0], uv[1], 0.0))
+    hits = []
+    for ob in meshes:
+        me = ob.data
+        if not me.uv_layers:
+            continue
+        me.calc_loop_triangles()
+        uvd = me.uv_layers.active.data
+        mw = ob.matrix_world
+        nm = mw.to_3x3().inverted().transposed()
+        for tri in me.loop_triangles:
+            a, b, c = (uvd[li].uv for li in tri.loops)
+            if abs((b - a).cross(c - a)) < 1e-12:   # collapsed UVs (unmapped faces)
+                continue
+            # textures repeat: try the query point in every UV tile the triangle touches
+            for du in range(math.floor(min(a.x, b.x, c.x)), math.floor(max(a.x, b.x, c.x)) + 1):
+                for dv in range(math.floor(min(a.y, b.y, c.y)), math.floor(max(a.y, b.y, c.y)) + 1):
+                    pt = Vector((p.x + du, p.y + dv, 0.0))
+                    if not intersect_point_tri_2d(pt.xy, a, b, c):
+                        continue
+                    va, vb, vc = (me.vertices[vi].co for vi in tri.vertices)
+                    q = barycentric_transform(pt, a.to_3d(), b.to_3d(), c.to_3d(), va, vb, vc)
+                    if q.x != q.x:   # NaN
+                        continue
+                    hits.append((mw @ q, (nm @ tri.normal).normalized()))
+    return hits
