@@ -9,7 +9,11 @@ import os
 
 import bpy
 
-FONT_DIR = r"C:\Windows\Fonts"
+# Fonts: MV_FONT_DIR, else a fonts/ folder next to scripts/, else the Windows font folder.
+# The faces are proprietary (Yu Mincho / Yu Gothic / DIN Next / Consolas), so fonts/ is not in git.
+FONT_DIR = os.environ.get("MV_FONT_DIR") or next(
+    (d for d in (os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fonts"),
+                 r"C:\Windows\Fonts") if os.path.isdir(d)), r"C:\Windows\Fonts")
 FONT_FILES = {
     "mincho": "yumindb.ttf",          # Yu Mincho Demibold
     "gothic": "YuGothB.ttc",          # Yu Gothic Bold

@@ -17,3 +17,4 @@ renders/*
 !renders/s3/
 renders/s3/*
 !renders/s3/*.png
+fonts/
