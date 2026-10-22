@@ -440,6 +440,8 @@ def sky_extra(pic, audio, stars="stars.png", star_gain=1.4, star_color=(0.75, 0.
             near = g.m("EXPONENT", g.m("DIVIDE", d, -0.6 * mr))
             far = g.m("EXPONENT", g.m("DIVIDE", d, -2.5 * mr))
             h = g.m("MULTIPLY", g.m("MULTIPLY_ADD", near, 0.75, g.m("MULTIPLY", far, 0.25)), audio.at(g, "halo"))
+            # 月亮本体不加：圆盘外 0.1 个半径以内从 0 升到 1，月亮自己的亮度一直是贴图的，不跟着低音闪
+            h = g.m("MULTIPLY", h, g.m("DIVIDE", d, 0.1 * mr, clamp=True))
             col = g.v("MULTIPLY_ADD", halo_color, g.xyz(h, h, h), col)
         return col
     return f
@@ -1152,8 +1154,10 @@ class Camera:
 
 def compositor(bloom=0.2, threshold=0.8, size=0.6, beam_size=0.3, beam_threshold=0.8, streak=False):
     """辉光（Bloom）-> 月光光束 -> 一点色散。光束只从月亮那一块发出：画面乘一个跟着月亮走的椭圆遮罩再做 Sun Beams，
-    只把光束加回去，白裙子、亮的花不会拉出光束，强度可以开大。返回 (tree, 光束节点, 遮罩节点, 光条)：
+    只把光束加回去，白裙子、亮的花不会拉出光束，强度可以开大。返回 (tree, 光束节点, 遮罩节点, 光条, 月亮遮罩)：
     光束的 Sun Position、Strength 和遮罩的 Position（0..1，左下为原点）、Size（直径，按画面宽算）逐帧写入。
+    月亮遮罩是贴着月亮圆盘的椭圆（Position、Size 同样逐帧写入），模糊后反过来乘在光束和光条上：月亮本体的
+    亮度只由贴图决定，不跟着心跳闪。
     streak：月亮再拉一条水平的光条（变形镜头拍强光那样），用第二个只包住月亮本体的遮罩做 Streaks，频谱盘的柱子
     不会各自拉出一条；光条是 (Streaks 节点, 它的遮罩)，Strength、Position、Size 同样逐帧写入；不开时是 None。"""
     s = bpy.context.scene
@@ -1186,7 +1190,21 @@ def compositor(bloom=0.2, threshold=0.8, size=0.6, beam_size=0.3, beam_threshold
     setup(beams, (("Type", "Sun Beams"), ("Threshold", beam_threshold), ("Strength", 0.0), ("Size", beam_size),
                   ("Jitter", 0.2), ("Quality", "High")))
     g.link(mix("MULTIPLY", glare.outputs[0], mask.outputs[0]), kit.sock(beams.inputs, "Image"))
-    lit = mix("ADD", glare.outputs[0], kit.sock(beams.outputs, "Glare"))
+    moon = g.node("CompositorNodeEllipseMask")
+    m_in = kit.sock(moon.inputs, "Size")
+    for i in range(len(m_in.default_value)):
+        m_in.default_value[i] = 0.0
+    blur = g.node("CompositorNodeBlur")
+    bsz = kit.sock(blur.inputs, "Size")
+    for i in range(len(bsz.default_value)):
+        bsz.default_value[i] = 12.0
+    g.link(moon.outputs[0], kit.sock(blur.inputs, "Image"))
+    keep = g.node("ShaderNodeMath")
+    keep.operation = "SUBTRACT"
+    keep.inputs[0].default_value = 1.0
+    g.link(blur.outputs[0], keep.inputs[1])
+    keep = keep.outputs[0]
+    lit = mix("ADD", glare.outputs[0], mix("MULTIPLY", kit.sock(beams.outputs, "Glare"), keep))
     streaks = None
     if streak:
         smask = g.node("CompositorNodeEllipseMask")
@@ -1197,14 +1215,14 @@ def compositor(bloom=0.2, threshold=0.8, size=0.6, beam_size=0.3, beam_threshold
         setup(st, (("Type", "Streaks"), ("Threshold", 0.6), ("Strength", 0.0), ("Streaks", 2), ("Streaks Angle", 0.0),
                    ("Iterations", 4), ("Fade", 0.9), ("Color Modulation", 0.15), ("Quality", "High")))
         g.link(mix("MULTIPLY", glare.outputs[0], smask.outputs[0]), kit.sock(st.inputs, "Image"))
-        lit = mix("ADD", lit, kit.sock(st.outputs, "Glare"))
+        lit = mix("ADD", lit, mix("MULTIPLY", kit.sock(st.outputs, "Glare"), keep))
         streaks = (st, smask)
     lens = g.node("CompositorNodeLensdist")
     kit.sock(lens.inputs, "Dispersion").default_value = 0.004
     g.link(lit, kit.sock(lens.inputs, "Image"))
     g.link(lens.outputs[0], g.node("NodeGroupOutput").inputs[0])
     s.render.use_compositing = True
-    return tree, beams, mask, streaks
+    return tree, beams, mask, streaks, moon
 
 
 def video_output(path, crf="PERC_LOSSLESS"):

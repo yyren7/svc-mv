@@ -414,11 +414,11 @@ def build():
     op.meteors(pic, pick_meteors(pic, cam, sky), FPS)
 
     # 月光光束：只从月亮和外圈的频谱发出（遮罩跟着月亮走），跟低音的心跳一起亮；开了 streak 还有月亮的水平光条
-    tree, beam, bmask, streak = op.compositor(streak="streak" in FX)
+    tree, beam, bmask, streak, moonmask = op.compositor(streak="streak" in FX)
     mu, mv, mr = pic.meta["moon"]
     moon = pic.point(mu, mv, pic.y_sky)
     edge = moon + op.Vector((mr * pic.sx * pic.y_sky, 0, 0))
-    pos, strength, size, ssize, sstr = [], [], [], [], []
+    pos, strength, size, ssize, sstr, msize = [], [], [], [], [], []
     for f in range(n):
         q, e = cam.project(f, moon), cam.project(f, edge)
         inside = q is not None and -0.1 < q[0] < 1.1 and -0.1 < q[1] < 1.1
@@ -427,6 +427,7 @@ def build():
         size.append(2 * BEAM_MASK * r)
         strength.append(BEAM_GAIN * beams[f] * (0.6 + 0.8 * float(cols["heart"][f])) if inside else 0.0)
         ssize.append(2 * 1.25 * r)
+        msize.append(2 * 1.08 * r)
         sstr.append(STREAK_GAIN * (0.3 + 0.7 * float(cols["energy"][f])) * (0.6 + 0.8 * float(cols["heart"][f]))
                     if inside else 0.0)
     fr = list(range(n))
@@ -438,6 +439,8 @@ def build():
     key2(kit.sock(bmask.inputs, "Position"), pos)
     key2(kit.sock(bmask.inputs, "Size"), [(x, x) for x in size])
     kit.fcurve(tree, kit.sock(beam.inputs, "Strength").path_from_id("default_value"), 0, fr, strength)
+    key2(kit.sock(moonmask.inputs, "Position"), pos)
+    key2(kit.sock(moonmask.inputs, "Size"), [(x, x) for x in msize])
     if streak:
         st, smask = streak
         key2(kit.sock(smask.inputs, "Position"), pos)

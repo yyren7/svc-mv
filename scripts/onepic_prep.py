@@ -308,7 +308,8 @@ def import_layers(src, out, up_model=None):
 def rig(char_path, spec_path, out):
     """人物会动的部位 -> 工作分辨率的权重图 rig.npz（0..1），加 rig_check.png 检查图。部位的大致位置在 case 的 rig.json：
     hair          头发和丝带：按颜色（紫红、粉、浅蓝）取，离头中心越远权重越大（hair_reach 两个距离之间从 0 到 1）
-    ear_l, ear_r  两只耳朵：框里的人物像素，从耳根（框底）到耳尖从 0 到 1
+    ear_l, ear_r  两只耳朵：框里的人物像素，从耳根（框底）到耳尖从 0 到 1；ears_still 的框里白的、浅蓝的像素
+                  （头顶的蝴蝶结，两边的翼伸进耳朵的框）不动
     tail, tail_s  尾巴：框里的紫色像素；tail_s 是沿尾巴从根（0）到尖（1）的位置，按绕拱心的角度算
     dress         裙摆：白色、在 dress 的 v 范围里，越往下越大
     mouth         嘴：以嘴为中心的圆形衰减（嘴的位置按颜色在给定位置附近修正）
@@ -377,6 +378,9 @@ def rig(char_path, spec_path, out):
     for b in spec["ears"]:
         ears.append(smooth(box(b) & solid, 2) * ramp((b[3] - Y) / (b[3] - b[1]), 0, 1))
         away *= 1 - smooth(box(b), 4)
+    for b in spec.get("ears_still", []):
+        bow = smooth(box(b) & ((S < 0.28) | ((H > 180) & (H < 240))), 2)
+        ears = [e * (1 - bow) for e in ears]
     # 裙子正中那一竖条的下半部只算裙摆：长发垂在两侧，裙子上偏粉的反光不能当成头发
     d0, d1 = spec["dress"]
     c0, c1 = spec["dress_u"]
