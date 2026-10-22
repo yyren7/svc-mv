@@ -174,12 +174,13 @@ def main():
     ap.add_argument("--x", type=float, default=36, help="区域左上角，1080p 下的像素")
     ap.add_argument("--y", type=float, help="默认贴底，离下边 26")
     ap.add_argument("--procs", type=int, default=64)
+    ap.add_argument("--seconds", type=float, help="只画前这么多秒（预览用）；进度条和时间仍按整首算")
     a = ap.parse_args()
     if a.y is None:
         a.y = 1080 - (H0 if a.art else H1) - 26
     os.makedirs(a.out, exist_ok=True)
     setup(a)
-    n = int(G["dur"] * a.fps)
+    n = int(min(G["dur"], a.seconds or G["dur"]) * a.fps)
     with Pool(a.procs, initializer=setup, initargs=(a,)) as pool:
         for _ in pool.imap_unordered(frame, range(n), chunksize=16):
             pass

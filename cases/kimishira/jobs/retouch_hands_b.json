@@ -1,0 +1,13 @@
+{
+ "_doc": "scripts/retouch.py, round 2 B: the box's content turned 9 degrees about the hands first (the microphone leant 8.9 degrees), then redrawn at 0.75 / 0.9 so the seams and the fingers are repainted.",
+ "picture": "/root/autodl-tmp/svc-mv/cases/kimishira/art/prep/color.png",
+ "dir": "/root/autodl-tmp/svc-mv/cases/kimishira/art/retouch_hands_b",
+ "box": [0.53, 0.405, 0.615, 0.84],
+ "crop": [1008, 1792],
+ "rotate": [0.576, 0.579, 9],
+ "prompt": "Picture 1 with her hands and the microphone redrawn: a straight cordless handheld microphone with a round black mesh head, standing perfectly vertical just below her chin, held in both hands, the right hand above the left hand, each hand with exactly four fingers and a thumb wrapped cleanly around the grip, the thin microphone cable hanging straight down from the bottom of the grip over her dress. Exactly the same anime drawing style, clean line quality, colours and lighting as the rest of the picture; everything else unchanged.",
+ "negative": "tilted microphone, microphone stand, pole, extra fingers, missing fingers, fused fingers, deformed hands, extra hands, extra arms, blurry, low quality, text, watermark",
+ "denoise": [0.75, 0.9],
+ "seeds": [1, 2, 3],
+ "steps": 30
+}

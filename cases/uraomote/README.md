@@ -64,6 +64,12 @@ The animatic's parts are `title s1 s2 s3 s4 s5_omote s5_ura s6`. They can run si
 ## Illustrations
 
 Her illustrations (script v3, section 2.3) are drawn on ComfyUI as in [docs/comfyui.md](../../docs/comfyui.md).
-`jobs/t1.json` compares Anima and Qwen on one prompt. `jobs/t2.json` and `t3.json` draw the key visual, its 裏
-version, her back, the running legs, the hand and the eye, in several seeds each. The pictures are in `art/`,
-on the local disk only.
+The pictures are in `art/`, on the local disk only, with contact sheets `art/_sheet_*.png`.
+
+| Jobs | Pictures | |
+|---|---|---|
+| `jobs/t1.json` | `t_anima_*`, `t_qwen_*` | Anima and Qwen on one prompt. Anima's flat print look won; every later round is Anima |
+| `jobs/t2.json`, `t3.json` | `kv_*`, `ura_*`, `back*`, `legs_*`, `hand*`, `eye*` | The key visual, its 裏 version, her back, the running legs, the hand and the eye, several seeds each. The kv drafts are all front views in the middle of a portrait frame; no ura draft shares a kv draft's composition |
+| `jobs/t4.json` (from `t4.py`) | `kvu_*` | KV' in a KV candidate's own composition: kv_43, kv_47 and kv_53 with the cream ground flooded black, redrawn at 0.6 (only the face changes) and 0.75 (the hair lifts, the heart turns fluorescent) |
+
+Every kv draft has the patch on her right elbow; the design says left.

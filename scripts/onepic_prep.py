@@ -308,10 +308,14 @@ def import_layers(src, out, up_model=None):
 def rig(char_path, spec_path, out):
     """人物会动的部位 -> 工作分辨率的权重图 rig.npz（0..1），加 rig_check.png 检查图。部位的大致位置在 case 的 rig.json：
     hair          头发和丝带：按颜色（紫红、粉、浅蓝）取，离头中心越远权重越大（hair_reach 两个距离之间从 0 到 1）
-    ear_l, ear_r  两只耳朵：框里的人物像素，从耳根（框底）到耳尖从 0 到 1
+    ear_l, ear_r  两只耳朵：框里的人物像素，从耳根（框底）到耳尖从 0 到 1；ears_still 的框里白的、浅蓝的像素
+                  （头顶的蝴蝶结，两边的翼伸进耳朵的框）不动
     tail, tail_s  尾巴：框里的紫色像素；tail_s 是沿尾巴从根（0）到尖（1）的位置，按绕拱心的角度算
     dress         裙摆：白色、在 dress 的 v 范围里，越往下越大
     mouth         嘴：以嘴为中心的圆形衰减（嘴的位置按颜色在给定位置附近修正）
+    breath        呼吸（rig.json 有 breath 才有）：v 是下巴、肩线、胸口、腰四条线，肩线到胸口为 1，往上到下巴降到
+                  head（默认 0.15，头几乎不动，脖子吸收这点差），往下到腰降到 0；u 是身体连袖子的左右范围，往外
+                  0.06 内放开到 0；尾巴不动
     皮肤、话筒、话筒线、颈带附近（加上 rigid 折线画的一条带子），头发、裙摆、嘴的权重都压到 0；
     sleeves 的多边形里头发也是 0；距离都以画面高为单位。
     最后 solidify() 把人物内部半透明的地方补满（translucent 的框里不动）。"""
@@ -374,6 +378,9 @@ def rig(char_path, spec_path, out):
     for b in spec["ears"]:
         ears.append(smooth(box(b) & solid, 2) * ramp((b[3] - Y) / (b[3] - b[1]), 0, 1))
         away *= 1 - smooth(box(b), 4)
+    for b in spec.get("ears_still", []):
+        bow = smooth(box(b) & ((S < 0.28) | ((H > 180) & (H < 240))), 2)
+        ears = [e * (1 - bow) for e in ears]
     # 裙子正中那一竖条的下半部只算裙摆：长发垂在两侧，裙子上偏粉的反光不能当成头发
     d0, d1 = spec["dress"]
     c0, c1 = spec["dress_u"]
@@ -390,6 +397,16 @@ def rig(char_path, spec_path, out):
     side_hair = smooth(hairc, 3) * (1 - center)
     # 裙摆：话筒线垂在裙子上，跟着摆会弯，和手一样不动
     dress = smooth(solid, 4) * ramp(Y, d0, d1) * (1 - rigid) * (1 - side_hair) * (1 - smooth(box(T["box"]), 6))
+    # 呼吸：按位置的平滑权重，不按颜色——肩膀抬起时手、话筒、搭在肩上的头发一起走
+    breath = np.zeros((h, w), np.float32)
+    if "breath" in spec:
+        B = spec["breath"]
+        chin, sh, chest, waist = B["v"]
+        k0 = B.get("head", 0.15)
+        prof = np.where(Y < sh, k0 + (1 - k0) * ramp(Y, chin, sh), 1 - ramp(Y, chest, waist))
+        b0, b1 = B["u"]
+        breath = (prof * ramp(U, b0 - 0.06, b0) * (1 - ramp(U, b1, b1 + 0.06))
+                  * (1 - smooth(box(T["box"]), 6))).astype(np.float32)
 
     mu, mv, mr = spec["mouth"]
     inside = ((H < 15) | (H > 330)) & (S > 0.3) & (V > 0.35) & (V < 0.92) & (dist((mu, mv)) < mr * 0.6) & solid
@@ -404,7 +421,7 @@ def rig(char_path, spec_path, out):
         * (1 - hard)
 
     np.savez_compressed(os.path.join(out, "rig.npz"), hair=hair, ear_l=ears[0], ear_r=ears[1], tail=tail,
-                        tail_s=tail_s.astype(np.float32), dress=dress, mouth=mouth.astype(np.float32))
+                        tail_s=tail_s.astype(np.float32), dress=dress, mouth=mouth.astype(np.float32), breath=breath)
     info = {"mouth": [mu, mv], "tail_base": T["base"], "head": spec["head"]}
     json.dump(info, open(os.path.join(out, "rig.json"), "w"), indent=1)
     print("rig", json.dumps(info), flush=True)

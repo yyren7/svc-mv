@@ -385,11 +385,14 @@ class Audio:
 
 # ---------------------------------------------------------------- 插画层的材质
 
-def painted(name, color, alpha=None, extra=None):
+def painted(name, color, alpha=None, extra=None, shift=None):
     """插画层：Emission 原样输出贴图；alpha 是遮罩图（或 "self" 用贴图自带的 alpha），有就混 Transparent。
-    extra(g, uv, color_socket) -> color_socket，往颜色上加东西（星星闪烁、月晕）。"""
+    extra(g, uv, color_socket) -> color_socket，往颜色上加东西（星星闪烁、月晕）。
+    shift = (du, dv)：贴图在网格上挪一下（UV 的单位，v 朝上：整层天空往下挪就是 (0, +s)），露出的边是镜像延伸。"""
     mt, g, out = material(name)
     uv = g.node("ShaderNodeTexCoord").outputs["UV"]
+    if shift:
+        uv = g.v("ADD", uv, (shift[0], shift[1], 0.0))
     # 画外（网格多铺的那一圈）镜像延伸：星空、花田照着镜像出去很自然，EXTEND 会拉出条纹
     t = tex(g, image(color), uv, extension="MIRROR")
     col = t.outputs["Color"]
@@ -411,10 +414,11 @@ def painted(name, color, alpha=None, extra=None):
 
 
 def sky_extra(pic, audio, stars="stars.png", star_gain=1.4, star_color=(0.75, 0.86, 1.0),
-              halo_color=(0.55, 0.72, 1.0)):
+              halo_color=(0.55, 0.72, 1.0), moon=None):
     """天空上加两样：星星按各自的相位、频率闪（stars.png：R 亮度，G 相位，B 频率），乘以 audio 的 "stars" 列；
-    月亮外面一圈光晕，强度是 audio 的 "halo" 列。"""
-    moon = pic.meta.get("moon")
+    月亮外面一圈光晕，强度是 audio 的 "halo" 列。moon 是贴图里月亮的 (u, v, r)，默认 meta 的；贴图挪过
+    （painted 的 shift）而 meta 改成了画面里的位置时，把贴图里的传进来。"""
+    moon = moon or pic.meta.get("moon")
 
     def f(g, uv, col):
         st = tex(g, image(pic.path(stars), "Non-Color"), uv, "Closest")
@@ -436,8 +440,27 @@ def sky_extra(pic, audio, stars="stars.png", star_gain=1.4, star_color=(0.75, 0.
             near = g.m("EXPONENT", g.m("DIVIDE", d, -0.6 * mr))
             far = g.m("EXPONENT", g.m("DIVIDE", d, -2.5 * mr))
             h = g.m("MULTIPLY", g.m("MULTIPLY_ADD", near, 0.75, g.m("MULTIPLY", far, 0.25)), audio.at(g, "halo"))
+            # 月亮本体不加：圆盘外 0.1 个半径以内从 0 升到 1，月亮自己的亮度一直是贴图的，不跟着低音闪
+            h = g.m("MULTIPLY", h, g.m("DIVIDE", d, 0.1 * mr, clamp=True))
             col = g.v("MULTIPLY_ADD", halo_color, g.xyz(h, h, h), col)
         return col
+    return f
+
+
+def rim_extra(path, toward, aspect, width=0.0045, color=(0.6, 0.8, 1.0), strength=0.6, audio=None, gain_col=None):
+    """人物层的轮廓光（painted 的 extra）：沿 toward（画面像素坐标里的单位向量，x 朝右 y 朝上，比如朝月亮）挪
+    width 和 2·width（画面宽的比例）再取一次这张图的 alpha，本来有、挪过去没有的地方就是朝着光的那一侧边缘，
+    往颜色上加 color × strength ×（audio 的 gain_col 列）。"""
+    def f(g, uv, col):
+        img = image(path)
+        a0 = tex(g, img, uv).outputs["Alpha"]
+        edge = 0.0
+        for k, w in ((1.0, 0.55), (2.0, 0.45)):
+            off = g.v("ADD", uv, (toward[0] * width * k, toward[1] * width * k * aspect, 0.0))
+            edge = g.m("MULTIPLY_ADD", g.m("SUBTRACT", 1.0, tex(g, img, off).outputs["Alpha"]), w, edge)
+        k_ = g.m("MULTIPLY", audio.at(g, gain_col), strength) if audio and gain_col else strength
+        rim = g.m("MULTIPLY", g.m("MULTIPLY", a0, edge), k_)
+        return g.v("MULTIPLY_ADD", color, g.xyz(rim, rim, rim), col)
     return f
 
 
@@ -512,6 +535,27 @@ def petal_mat(name="petal", inner=(0.50, 0.80, 1.0), outer=(0.90, 0.97, 1.0), st
     g.link(kit.sock(mix.outputs, "Result", "RGBA"), em.inputs["Color"])
     g.link(k, em.inputs["Strength"])
     g.link(em.outputs[0], out.inputs["Surface"])
+    return mt
+
+
+def bokeh_mat(name="bokeh", color=(0.72, 0.86, 1.0), strength=1.0):
+    """镜头前的虚焦光斑：一个球，正对镜头的中心亮、往轮廓软软地暗下去（Layer Weight 的 Facing），叠加在后面的
+    东西上；亮度乘实例的 flick（慢慢明灭）。"""
+    mt, g, out = material(name, "BLENDED")
+    lw = g.node("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = 0.5
+    soft = g.m("POWER", g.m("SUBTRACT", 1.0, lw.outputs["Facing"]), 2.5)
+    a = g.node("ShaderNodeAttribute")
+    a.attribute_type = "INSTANCER"
+    a.attribute_name = "flick"
+    k = g.m("MULTIPLY", soft, g.m("MULTIPLY", g.m("MULTIPLY_ADD", a.outputs["Fac"], 0.6, 0.4), strength))
+    em = g.node("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (*color, 1)
+    g.link(k, em.inputs["Strength"])
+    add = g.node("ShaderNodeAddShader")
+    g.link(g.node("ShaderNodeBsdfTransparent").outputs[0], add.inputs[0])
+    g.link(em.outputs[0], add.inputs[1])
+    g.link(add.outputs[0], out.inputs["Surface"])
     return mt
 
 
@@ -611,28 +655,30 @@ def drift(name, src, audio, count, box_min, box_size, wind, size, seed=0, size_v
 # ---------------------------------------------------------------- 人物的局部变形
 
 DEFORM = dict(hair=0.007, hair_freq=(0.30, 0.53), ear=0.008, tail=(0.22, 0.08), tail_period=(3.4, 1.9),
-              dress=0.0025, mouth_x=0.35, breath=0.003, breath_period=4.4)
+              dress=0.0025, mouth_x=0.35, breath=0.004)
 
 
 def deform(ob, pic, audio, prep=None, amp=None):
     """人物层的网格按 onepic_prep.py rig 的权重图局部变形（像 Live2D），贴图跟着网格走：
     - 头发、丝带：从发根往下传的波，跟着风时间（audio 的 wind 列）摆，幅度乘 sway 列；
     - 尾巴：绕根部转，越往尖转得越多（tail_s），两个周期叠加；
-    - 耳朵：audio 的 earl / earr 列（抖一下的衰减振荡）；
+    - 耳朵：audio 的 earl / earr 列（-1..1），正值是往外、往上张：左耳尖往左，右耳尖往右；
     - 裙摆：横向的慢波；
     - 嘴：以嘴为中心上下伸缩、嘴角横向跟一点，伸缩量是 audio 的 mouth 列（负的是合一点）；
-    - 呼吸：整个人以底边为轴极轻地上下伸缩。
+    - 呼吸：胸口和肩膀按 rig 的 breath 权重，随 audio 的 breath 列（0..1，1 是吸满，0.5 是插画本来的样子）抬起、
+      落下，头几乎不动。没有这列或这张权重图就不动。整个人一起伸缩会连头一起上下晃，看着假。
     位移在插画坐标里算，再按顶点的距离换成米（u 方向 sx·Y，v 方向 sz·Y）。"""
     prep = prep or pic.dir
     A = dict(DEFORM, **(amp or {}))
     rig = np.load(os.path.join(prep, "rig.npz"))
     info = json.load(open(os.path.join(prep, "rig.json")))
+    breathe = "breath" in rig.files and "breath" in audio.col
     me = ob.data
     pu = np.empty(len(me.vertices), np.float32)
     pv = np.empty(len(me.vertices), np.float32)
     me.attributes["pu"].data.foreach_get("value", pu)
     me.attributes["pv"].data.foreach_get("value", pv)
-    for key in ("hair", "ear_l", "ear_r", "tail", "tail_s", "dress", "mouth"):
+    for key in ("hair", "ear_l", "ear_r", "tail", "tail_s", "dress", "mouth") + (("breath",) if breathe else ()):
         at = me.attributes.new("w_" + key, "FLOAT", "POINT")
         at.data.foreach_set("value", sample(rig[key], np.clip(pu, 0, 1), np.clip(pv, 0, 1)).astype(np.float32))
 
@@ -660,10 +706,10 @@ def deform(ob, pic, audio, prep=None, amp=None):
                                   g.m("MULTIPLY", wave(tau, f2, 11.0, 1.7), 0.35)))
     dv = g.m("MULTIPLY", wh, g.m("MULTIPLY", wave(tau, (f1 + f2) / 1.6, 9.0, 0.6), 0.25))
     # 耳朵
-    ear = g.m("ADD", g.m("MULTIPLY", attr("w_ear_l"), audio.at_gn(g, "earl")),
-              g.m("MULTIPLY", attr("w_ear_r"), audio.at_gn(g, "earr")))
-    du = g.m("MULTIPLY_ADD", ear, A["ear"], du)
-    dv = g.m("MULTIPLY_ADD", ear, -0.3 * A["ear"], dv)
+    el = g.m("MULTIPLY", attr("w_ear_l"), audio.at_gn(g, "earl"))
+    er = g.m("MULTIPLY", attr("w_ear_r"), audio.at_gn(g, "earr"))
+    du = g.m("MULTIPLY_ADD", g.m("SUBTRACT", er, el), A["ear"], du)
+    dv = g.m("MULTIPLY_ADD", g.m("ADD", el, er), -0.3 * A["ear"], dv)
     # 尾巴：绕根部转（在等比的坐标里转，再换回 u）
     bu, bv = info["tail_base"]
     p1, p2 = A["tail_period"]
@@ -687,9 +733,10 @@ def deform(ob, pic, audio, prep=None, amp=None):
     mo = g.m("MULTIPLY", attr("w_mouth"), audio.at_gn(g, "mouth"))
     du = g.m("ADD", du, g.m("MULTIPLY", g.m("MULTIPLY", mo, A["mouth_x"]), g.m("SUBTRACT", u, mu)))
     dv = g.m("ADD", dv, g.m("MULTIPLY", mo, g.m("SUBTRACT", v, mv)))
-    # 呼吸
-    br = g.m("MULTIPLY", g.m("SINE", g.m("MULTIPLY", t, TAU / A["breath_period"])), A["breath"])
-    dv = g.m("ADD", dv, g.m("MULTIPLY", br, g.m("SUBTRACT", v, 1.0)))
+    # 呼吸：吸气时往上（v 变小）
+    if breathe:
+        br = g.m("MULTIPLY", g.m("SUBTRACT", audio.at_gn(g, "breath"), 0.5), A["breath"])
+        dv = g.m("SUBTRACT", dv, g.m("MULTIPLY", attr("w_breath"), br))
     # 插画坐标的位移 -> 米：u 方向 sx·Y，v 方向（向下）-sz·Y
     py = g.sep(g.node("GeometryNodeInputPosition").outputs[0])[1]
     off = g.xyz(g.m("MULTIPLY", du, g.m("MULTIPLY", py, pic.sx)), 0.0,
@@ -706,10 +753,13 @@ def deform(ob, pic, audio, prep=None, amp=None):
 # ---------------------------------------------------------------- 月亮周围的频谱
 
 def spectrum_ring(pic, audio, bands, y=None, inner=1.3, length=(0.04, 0.6), width=0.028, color=(0.72, 0.85, 1.0),
-                  strength=1.3, gain="ring", pulse=None, pulse_amount=0.08):
+                  strength=1.3, gain="ring", pulse=None, pulse_amount=0.08, tilt=None, squeeze=0.0, top=None):
     """2 × bands 根细柱，从月亮下方沿两侧对称长到上方：低频在下，高频在上。长度单位是月亮半径。
     整圈的大小乘 audio 的 gain 列（0 时收起来）；pulse 是 audio 的一列（0..1），整圈的半径跟着它鼓起来，
-    最多大 pulse_amount（低音的心跳）。"""
+    最多大 pulse_amount（低音的心跳）。
+    tilt = (k, 角度°)：朝那个方向的柱子拉长，最多 1 + k 倍（0° 朝右，−90° 朝下）；squeeze 把背面的缩短，
+    最多 1 − squeeze 倍。
+    top：插画的 v，朝上的柱子不伸到这条线以上（月亮贴着画面上边时用）；是软上限，tanh 压缩，不会硬切。"""
     mu, mv, mr = pic.meta["moon"]
     y = y or pic.y_sky * 0.97
     c = pic.point(mu, mv, y)
@@ -732,9 +782,22 @@ def spectrum_ring(pic, audio, bands, y=None, inner=1.3, length=(0.04, 0.6), widt
     v = g.group(audio._gn, Column=g.m("ADD", b, float(audio.col["spec0"])))["Value"]
     gain_v = audio.at_gn(g, gain)
     L = g.m("MULTIPLY", g.m("MULTIPLY_ADD", g.m("POWER", v, 1.3), (length[1] - length[0]) * R, length[0] * R), gain_v)
+    if tilt:
+        k, deg = tilt
+        c_ = g.m("COSINE", g.m("SUBTRACT", th, math.radians(deg)))
+        f = g.m("MULTIPLY_ADD", g.m("MAXIMUM", c_, 0.0), k, 1.0)
+        if squeeze:
+            f = g.m("MULTIPLY_ADD", g.m("MAXIMUM", g.m("MULTIPLY", c_, -1.0), 0.0), -squeeze, f)
+        L = g.m("MULTIPLY", L, f)
     r0 = inner * R
     if pulse:
         r0 = g.m("MULTIPLY", g.m("MULTIPLY_ADD", audio.at_gn(g, pulse), pulse_amount, 1.0), inner * R)
+    if top is not None:
+        # 顶线到环心的高度（米）除以 sin θ 是这根柱子能到的半径；朝下的柱子 sin 压到 1e-3，上限大到等于没有
+        z_top = (mv - top) * pic.sz * y
+        avail = g.m("SUBTRACT", g.m("DIVIDE", z_top, g.m("MAXIMUM", g.m("SINE", th), 1e-3)), r0)
+        Lc = g.m("MAXIMUM", avail, length[0] * R)
+        L = g.m("MULTIPLY", Lc, g.m("TANH", g.m("DIVIDE", L, Lc)))
     rr = g.m("ADD", r0, g.m("MULTIPLY", L, 0.5))
     pos = g.v("ADD", tuple(c), g.xyz(g.m("MULTIPLY", g.m("COSINE", th), rr), 0.0, g.m("MULTIPLY", g.m("SINE", th), rr)))
     sp = g.node("GeometryNodeSetPosition")
@@ -805,6 +868,50 @@ def meteors(pic, events, fps, y=150.0, color=(0.8, 0.9, 1.0), strength=6.0):
         kit.fcurve(ob, "scale", 0, frames, sx)
         kit.fcurve(ob, "scale", 1, frames, [1.0] * len(frames))
         kit.fcurve(ob, "scale", 2, frames, [y / 40 if x > 0 else 0.0 for x in sx])
+        obs.append(ob)
+    return obs
+
+
+# ---------------------------------------------------------------- 饰品上的星光
+
+def glint_mat(name="glint", color=(0.95, 0.98, 1.0), strength=3.0):
+    """四芒星：按物体坐标的 |x|、|z| 算两条互相垂直、往尖端收细的亮线，中心再加一点软光；叠加在后面的东西上，
+    亮度乘 obj["a"]。"""
+    mt, g, out = material(name, "BLENDED")
+    x, _, z = g.sep(g.node("ShaderNodeTexCoord").outputs["Object"])
+    ax = g.m("MAXIMUM", g.m("SUBTRACT", 1.0, g.m("ABSOLUTE", x)), 0.0)
+    az = g.m("MAXIMUM", g.m("SUBTRACT", 1.0, g.m("ABSOLUTE", z)), 0.0)
+    star = g.m("ADD", g.m("MULTIPLY", g.m("POWER", ax, 10.0), g.m("POWER", az, 1.5)),
+               g.m("MULTIPLY", g.m("POWER", az, 10.0), g.m("POWER", ax, 1.5)))
+    star = g.m("MINIMUM", g.m("MULTIPLY_ADD", g.m("POWER", g.m("MULTIPLY", ax, az), 4.0), 0.5, star), 1.0)
+    a = g.node("ShaderNodeAttribute")
+    a.attribute_type = "OBJECT"
+    a.attribute_name = "a"
+    em = g.node("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (*color, 1)
+    g.link(g.m("MULTIPLY", star, g.m("MULTIPLY", a.outputs["Fac"], strength)), em.inputs["Strength"])
+    add = g.node("ShaderNodeAddShader")
+    g.link(g.node("ShaderNodeBsdfTransparent").outputs[0], add.inputs[0])
+    g.link(em.outputs[0], add.inputs[1])
+    g.link(add.outputs[0], out.inputs["Surface"])
+    return mt
+
+
+def glints(pic, points, envs, y=1.25, size=0.011, mat=None):
+    """饰品上的星光：points 是插画坐标，envs 每个点一条逐帧的亮度（0..1）。放在镜头前 y 米、穿过那一点的视线上
+    （人物层的前面；机位只挪一两厘米，错位不到画面宽的 0.1%），半宽是画面宽的 size，亮起来时也放大一点。"""
+    mat = mat or glint_mat()
+    verts = [(-1, 0, -1), (1, 0, -1), (1, 0, 1), (-1, 0, 1)]     # 面朝 -Y，对着镜头
+    half = size * pic.sx * y
+    obs = []
+    for k, ((u, v), env) in enumerate(zip(points, envs)):
+        ob = mesh_obj(f"glint_{k}", verts, [(0, 1, 2, 3)], mat)
+        ob.location = pic.point(u, v, y)
+        fr = list(range(len(env)))
+        key_prop(ob, "a", list(zip(fr, [float(e) for e in env])), "LINEAR")
+        sc = [half * (0.55 + 0.45 * float(e)) for e in env]
+        for i in (0, 2):
+            kit.fcurve(ob, "scale", i, fr, sc)
         obs.append(ob)
     return obs
 
@@ -1045,10 +1152,14 @@ class Camera:
 
 # ---------------------------------------------------------------- 合成
 
-def compositor(bloom=0.2, threshold=0.8, size=0.6, beam_size=0.3, beam_threshold=0.8):
+def compositor(bloom=0.2, threshold=0.8, size=0.6, beam_size=0.3, beam_threshold=0.8, streak=False):
     """辉光（Bloom）-> 月光光束 -> 一点色散。光束只从月亮那一块发出：画面乘一个跟着月亮走的椭圆遮罩再做 Sun Beams，
-    只把光束加回去，白裙子、亮的花不会拉出光束，强度可以开大。返回 (tree, 光束节点, 遮罩节点)：
-    光束的 Sun Position、Strength 和遮罩的 Position（0..1，左下为原点）、Size（直径，按画面宽算）逐帧写入。"""
+    只把光束加回去，白裙子、亮的花不会拉出光束，强度可以开大。返回 (tree, 光束节点, 遮罩节点, 光条, 月亮遮罩)：
+    光束的 Sun Position、Strength 和遮罩的 Position（0..1，左下为原点）、Size（直径，按画面宽算）逐帧写入。
+    月亮遮罩是贴着月亮圆盘的椭圆（Position、Size 同样逐帧写入），模糊后反过来乘在光束和光条上：月亮本体的
+    亮度只由贴图决定，不跟着心跳闪。
+    streak：月亮再拉一条水平的光条（变形镜头拍强光那样），用第二个只包住月亮本体的遮罩做 Streaks，频谱盘的柱子
+    不会各自拉出一条；光条是 (Streaks 节点, 它的遮罩)，Strength、Position、Size 同样逐帧写入；不开时是 None。"""
     s = bpy.context.scene
     tree = bpy.data.node_groups.new("post", "CompositorNodeTree")
     s.compositing_node_group = tree
@@ -1079,13 +1190,39 @@ def compositor(bloom=0.2, threshold=0.8, size=0.6, beam_size=0.3, beam_threshold
     setup(beams, (("Type", "Sun Beams"), ("Threshold", beam_threshold), ("Strength", 0.0), ("Size", beam_size),
                   ("Jitter", 0.2), ("Quality", "High")))
     g.link(mix("MULTIPLY", glare.outputs[0], mask.outputs[0]), kit.sock(beams.inputs, "Image"))
-    lit = mix("ADD", glare.outputs[0], kit.sock(beams.outputs, "Glare"))
+    moon = g.node("CompositorNodeEllipseMask")
+    m_in = kit.sock(moon.inputs, "Size")
+    for i in range(len(m_in.default_value)):
+        m_in.default_value[i] = 0.0
+    blur = g.node("CompositorNodeBlur")
+    bsz = kit.sock(blur.inputs, "Size")
+    for i in range(len(bsz.default_value)):
+        bsz.default_value[i] = 12.0
+    g.link(moon.outputs[0], kit.sock(blur.inputs, "Image"))
+    keep = g.node("ShaderNodeMath")
+    keep.operation = "SUBTRACT"
+    keep.inputs[0].default_value = 1.0
+    g.link(blur.outputs[0], keep.inputs[1])
+    keep = keep.outputs[0]
+    lit = mix("ADD", glare.outputs[0], mix("MULTIPLY", kit.sock(beams.outputs, "Glare"), keep))
+    streaks = None
+    if streak:
+        smask = g.node("CompositorNodeEllipseMask")
+        s_in = kit.sock(smask.inputs, "Size")
+        for i in range(len(s_in.default_value)):
+            s_in.default_value[i] = 0.0
+        st = g.node("CompositorNodeGlare")
+        setup(st, (("Type", "Streaks"), ("Threshold", 0.6), ("Strength", 0.0), ("Streaks", 2), ("Streaks Angle", 0.0),
+                   ("Iterations", 4), ("Fade", 0.9), ("Color Modulation", 0.15), ("Quality", "High")))
+        g.link(mix("MULTIPLY", glare.outputs[0], smask.outputs[0]), kit.sock(st.inputs, "Image"))
+        lit = mix("ADD", lit, mix("MULTIPLY", kit.sock(st.outputs, "Glare"), keep))
+        streaks = (st, smask)
     lens = g.node("CompositorNodeLensdist")
     kit.sock(lens.inputs, "Dispersion").default_value = 0.004
     g.link(lit, kit.sock(lens.inputs, "Image"))
     g.link(lens.outputs[0], g.node("NodeGroupOutput").inputs[0])
     s.render.use_compositing = True
-    return tree, beams, mask
+    return tree, beams, mask, streaks, moon
 
 
 def video_output(path, crf="PERC_LOSSLESS"):

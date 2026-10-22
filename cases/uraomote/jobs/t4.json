@@ -1,0 +1,68 @@
+[
+ {
+  "model": "anima",
+  "name": "kvu_43_60",
+  "init": "urao_kv43_black.png",
+  "denoise": 0.6,
+  "seed": 81,
+  "w": 896,
+  "h": 1152,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, holding heart, large heart, hugging heart, glowing heart, floating hair, hair blowing, wide-eyed, blush, sweat, looking at viewer, upper body, flat color, limited palette, bold lineart, black background, simple background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Her hair lifts and the fluorescent pink inner layer shows; wide-eyed and flushed as if with a fever, she hugs a big flat glowing pink heart to her chest. Neon pink and cyan lines and flat colors on black paper, like a fluorescent risograph print.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature"
+ },
+ {
+  "model": "anima",
+  "name": "kvu_43_75",
+  "init": "urao_kv43_black.png",
+  "denoise": 0.75,
+  "seed": 81,
+  "w": 896,
+  "h": 1152,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, holding heart, large heart, hugging heart, glowing heart, floating hair, hair blowing, wide-eyed, blush, sweat, looking at viewer, upper body, flat color, limited palette, bold lineart, black background, simple background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Her hair lifts and the fluorescent pink inner layer shows; wide-eyed and flushed as if with a fever, she hugs a big flat glowing pink heart to her chest. Neon pink and cyan lines and flat colors on black paper, like a fluorescent risograph print.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature"
+ },
+ {
+  "model": "anima",
+  "name": "kvu_47_60",
+  "init": "urao_kv47_black.png",
+  "denoise": 0.6,
+  "seed": 81,
+  "w": 896,
+  "h": 1152,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, holding heart, large heart, hugging heart, glowing heart, floating hair, hair blowing, wide-eyed, blush, sweat, looking at viewer, upper body, flat color, limited palette, bold lineart, black background, simple background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Her hair lifts and the fluorescent pink inner layer shows; wide-eyed and flushed as if with a fever, she hugs a big flat glowing pink heart to her chest. Neon pink and cyan lines and flat colors on black paper, like a fluorescent risograph print.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature"
+ },
+ {
+  "model": "anima",
+  "name": "kvu_47_75",
+  "init": "urao_kv47_black.png",
+  "denoise": 0.75,
+  "seed": 81,
+  "w": 896,
+  "h": 1152,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, holding heart, large heart, hugging heart, glowing heart, floating hair, hair blowing, wide-eyed, blush, sweat, looking at viewer, upper body, flat color, limited palette, bold lineart, black background, simple background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Her hair lifts and the fluorescent pink inner layer shows; wide-eyed and flushed as if with a fever, she hugs a big flat glowing pink heart to her chest. Neon pink and cyan lines and flat colors on black paper, like a fluorescent risograph print.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature"
+ },
+ {
+  "model": "anima",
+  "name": "kvu_53_60",
+  "init": "urao_kv53_black.png",
+  "denoise": 0.6,
+  "seed": 81,
+  "w": 896,
+  "h": 1152,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, holding heart, large heart, hugging heart, glowing heart, floating hair, hair blowing, wide-eyed, blush, sweat, looking at viewer, upper body, flat color, limited palette, bold lineart, black background, simple background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Her hair lifts and the fluorescent pink inner layer shows; wide-eyed and flushed as if with a fever, she hugs a big flat glowing pink heart to her chest. Neon pink and cyan lines and flat colors on black paper, like a fluorescent risograph print.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature"
+ },
+ {
+  "model": "anima",
+  "name": "kvu_53_75",
+  "init": "urao_kv53_black.png",
+  "denoise": 0.75,
+  "seed": 81,
+  "w": 896,
+  "h": 1152,
+  "prompt": "masterpiece, best quality, safe, newest, 1girl, solo, short hair, bob cut, black hair, two-tone hair, pink inner hair, red heart hair ornament, hairclip, serafuku, navy sailor collar, white stripes, red bowtie, oversized cardigan, cream cardigan, sleeves past fingers, elbow patch, pleated skirt, navy skirt, holding heart, large heart, hugging heart, glowing heart, floating hair, hair blowing, wide-eyed, blush, sweat, looking at viewer, upper body, flat color, limited palette, bold lineart, black background, simple background. A girl with a black bob haircut whose inner layer is dyed fluorescent pink, wearing a navy sailor school uniform under an oversized cream cardigan with a crooked red patch on the left elbow. Her hair lifts and the fluorescent pink inner layer shows; wide-eyed and flushed as if with a fever, she hugs a big flat glowing pink heart to her chest. Neon pink and cyan lines and flat colors on black paper, like a fluorescent risograph print.",
+  "negative": "worst quality, low quality, artist name, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature"
+ }
+]
