@@ -271,7 +271,7 @@ def build():
     audio = op.Audio(FPS, cols, spec=d["spec"].astype(np.float32))
 
     char = layers(pic, audio)
-    op.deform(char, pic, audio)      # 头发、尾巴、耳朵、裙摆、嘴、呼吸
+    op.deform(char, pic, audio)      # 头发、尾巴、耳朵、裙摆、嘴
 
     # 粒子
     petal = op.petal_mesh()

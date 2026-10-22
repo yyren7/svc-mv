@@ -611,7 +611,7 @@ def drift(name, src, audio, count, box_min, box_size, wind, size, seed=0, size_v
 # ---------------------------------------------------------------- 人物的局部变形
 
 DEFORM = dict(hair=0.007, hair_freq=(0.30, 0.53), ear=0.008, tail=(0.22, 0.08), tail_period=(3.4, 1.9),
-              dress=0.0025, mouth_x=0.35, breath=0.003, breath_period=4.4)
+              dress=0.0025, mouth_x=0.35)
 
 
 def deform(ob, pic, audio, prep=None, amp=None):
@@ -620,8 +620,8 @@ def deform(ob, pic, audio, prep=None, amp=None):
     - 尾巴：绕根部转，越往尖转得越多（tail_s），两个周期叠加；
     - 耳朵：audio 的 earl / earr 列（抖一下的衰减振荡）；
     - 裙摆：横向的慢波；
-    - 嘴：以嘴为中心上下伸缩、嘴角横向跟一点，伸缩量是 audio 的 mouth 列（负的是合一点）；
-    - 呼吸：整个人以底边为轴极轻地上下伸缩。
+    - 嘴：以嘴为中心上下伸缩、嘴角横向跟一点，伸缩量是 audio 的 mouth 列（负的是合一点）。
+    不做呼吸：整个人以底边为轴上下伸缩，头跟着上下晃，看着假，不如不动。
     位移在插画坐标里算，再按顶点的距离换成米（u 方向 sx·Y，v 方向 sz·Y）。"""
     prep = prep or pic.dir
     A = dict(DEFORM, **(amp or {}))
@@ -687,9 +687,6 @@ def deform(ob, pic, audio, prep=None, amp=None):
     mo = g.m("MULTIPLY", attr("w_mouth"), audio.at_gn(g, "mouth"))
     du = g.m("ADD", du, g.m("MULTIPLY", g.m("MULTIPLY", mo, A["mouth_x"]), g.m("SUBTRACT", u, mu)))
     dv = g.m("ADD", dv, g.m("MULTIPLY", mo, g.m("SUBTRACT", v, mv)))
-    # 呼吸
-    br = g.m("MULTIPLY", g.m("SINE", g.m("MULTIPLY", t, TAU / A["breath_period"])), A["breath"])
-    dv = g.m("ADD", dv, g.m("MULTIPLY", br, g.m("SUBTRACT", v, 1.0)))
     # 插画坐标的位移 -> 米：u 方向 sx·Y，v 方向（向下）-sz·Y
     py = g.sep(g.node("GeometryNodeInputPosition").outputs[0])[1]
     off = g.xyz(g.m("MULTIPLY", du, g.m("MULTIPLY", py, pic.sx)), 0.0,
