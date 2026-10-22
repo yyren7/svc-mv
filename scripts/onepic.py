@@ -713,7 +713,7 @@ def spectrum_ring(pic, audio, bands, y=None, inner=1.3, length=(0.04, 0.6), widt
     """2 × bands 根细柱，从月亮下方沿两侧对称长到上方：低频在下，高频在上。长度单位是月亮半径。
     整圈的大小乘 audio 的 gain 列（0 时收起来）；pulse 是 audio 的一列（0..1），整圈的半径跟着它鼓起来，
     最多大 pulse_amount（低音的心跳）。
-    tilt = (k, 角度°)：长度乘 1 + k·cos(θ − 角度)，朝那个方向的柱子拉长、背面的缩短（0° 朝右，−90° 朝下）。
+    tilt = (k, 角度°)：朝那个方向的柱子拉长，最多 1 + k 倍，背面的不变（0° 朝右，−90° 朝下）。
     top：插画的 v，朝上的柱子不伸到这条线以上（月亮贴着画面上边时用）；是软上限，tanh 压缩，不会硬切。"""
     mu, mv, mr = pic.meta["moon"]
     y = y or pic.y_sky * 0.97
@@ -739,7 +739,8 @@ def spectrum_ring(pic, audio, bands, y=None, inner=1.3, length=(0.04, 0.6), widt
     L = g.m("MULTIPLY", g.m("MULTIPLY_ADD", g.m("POWER", v, 1.3), (length[1] - length[0]) * R, length[0] * R), gain_v)
     if tilt:
         k, deg = tilt
-        L = g.m("MULTIPLY", L, g.m("MULTIPLY_ADD", g.m("COSINE", g.m("SUBTRACT", th, math.radians(deg))), k, 1.0))
+        toward = g.m("MAXIMUM", g.m("COSINE", g.m("SUBTRACT", th, math.radians(deg))), 0.0)
+        L = g.m("MULTIPLY", L, g.m("MULTIPLY_ADD", toward, k, 1.0))
     r0 = inner * R
     if pulse:
         r0 = g.m("MULTIPLY", g.m("MULTIPLY_ADD", audio.at_gn(g, pulse), pulse_amount, 1.0), inner * R)
