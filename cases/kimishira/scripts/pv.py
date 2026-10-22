@@ -321,8 +321,10 @@ def build():
     # 光点贴着花田：花田往远处降下去（约 -0.12 m / m），盒子跟着倾斜
     op.drift("motes", mote, audio, 320, (-9.0, 2.0, -0.35), (18.0, 22.0, 1.3), (0.02, -0.02, 0.05), 0.006,
              seed=2, size_var=0.5, flutter=0.08, rate=0.5, spin=0.0, density="motes", tilt=-0.12)
-    # 旋律盘就是月亮：外圈的频谱，低音来时整圈像心跳一样鼓起来
-    op.spectrum_ring(pic, audio, d["spec"].shape[1], length=(0.06, 0.85), width=0.04, strength=1.8, pulse="heart")
+    # 旋律盘就是月亮：外圈的频谱，低音来时整圈像心跳一样鼓起来。朝右下（人物那边）拉长 1.6 倍、朝左上缩到 0.4 倍，
+    # 像月光斜着照出来的；月亮贴着画面上边，顶上的柱子压在 v = 0.03 以下，整首不出画框（镜头最高到 v ≈ -0.013）
+    op.spectrum_ring(pic, audio, d["spec"].shape[1], length=(0.06, 0.85), width=0.04, strength=1.8, pulse="heart",
+                     tilt=(0.6, -50), top=0.03)
     title(pic)
 
     cam = op.Camera(pic, FPS, n)

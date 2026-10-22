@@ -709,10 +709,12 @@ def deform(ob, pic, audio, prep=None, amp=None):
 # ---------------------------------------------------------------- 月亮周围的频谱
 
 def spectrum_ring(pic, audio, bands, y=None, inner=1.3, length=(0.04, 0.6), width=0.028, color=(0.72, 0.85, 1.0),
-                  strength=1.3, gain="ring", pulse=None, pulse_amount=0.08):
+                  strength=1.3, gain="ring", pulse=None, pulse_amount=0.08, tilt=None, top=None):
     """2 × bands 根细柱，从月亮下方沿两侧对称长到上方：低频在下，高频在上。长度单位是月亮半径。
     整圈的大小乘 audio 的 gain 列（0 时收起来）；pulse 是 audio 的一列（0..1），整圈的半径跟着它鼓起来，
-    最多大 pulse_amount（低音的心跳）。"""
+    最多大 pulse_amount（低音的心跳）。
+    tilt = (k, 角度°)：长度乘 1 + k·cos(θ − 角度)，朝那个方向的柱子拉长、背面的缩短（0° 朝右，−90° 朝下）。
+    top：插画的 v，朝上的柱子不伸到这条线以上（月亮贴着画面上边时用）；是软上限，tanh 压缩，不会硬切。"""
     mu, mv, mr = pic.meta["moon"]
     y = y or pic.y_sky * 0.97
     c = pic.point(mu, mv, y)
@@ -735,9 +737,18 @@ def spectrum_ring(pic, audio, bands, y=None, inner=1.3, length=(0.04, 0.6), widt
     v = g.group(audio._gn, Column=g.m("ADD", b, float(audio.col["spec0"])))["Value"]
     gain_v = audio.at_gn(g, gain)
     L = g.m("MULTIPLY", g.m("MULTIPLY_ADD", g.m("POWER", v, 1.3), (length[1] - length[0]) * R, length[0] * R), gain_v)
+    if tilt:
+        k, deg = tilt
+        L = g.m("MULTIPLY", L, g.m("MULTIPLY_ADD", g.m("COSINE", g.m("SUBTRACT", th, math.radians(deg))), k, 1.0))
     r0 = inner * R
     if pulse:
         r0 = g.m("MULTIPLY", g.m("MULTIPLY_ADD", audio.at_gn(g, pulse), pulse_amount, 1.0), inner * R)
+    if top is not None:
+        # 顶线到环心的高度（米）除以 sin θ 是这根柱子能到的半径；朝下的柱子 sin 压到 1e-3，上限大到等于没有
+        z_top = (mv - top) * pic.sz * y
+        avail = g.m("SUBTRACT", g.m("DIVIDE", z_top, g.m("MAXIMUM", g.m("SINE", th), 1e-3)), r0)
+        Lc = g.m("MAXIMUM", avail, length[0] * R)
+        L = g.m("MULTIPLY", Lc, g.m("TANH", g.m("DIVIDE", L, Lc)))
     rr = g.m("ADD", r0, g.m("MULTIPLY", L, 0.5))
     pos = g.v("ADD", tuple(c), g.xyz(g.m("MULTIPLY", g.m("COSINE", th), rr), 0.0, g.m("MULTIPLY", g.m("SINE", th), rr)))
     sp = g.node("GeometryNodeSetPosition")
