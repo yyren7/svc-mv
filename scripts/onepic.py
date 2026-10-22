@@ -611,7 +611,7 @@ def drift(name, src, audio, count, box_min, box_size, wind, size, seed=0, size_v
 # ---------------------------------------------------------------- 人物的局部变形
 
 DEFORM = dict(hair=0.007, hair_freq=(0.30, 0.53), ear=0.008, tail=(0.22, 0.08), tail_period=(3.4, 1.9),
-              dress=0.0025, mouth_x=0.35)
+              dress=0.0025, mouth_x=0.35, breath=0.004)
 
 
 def deform(ob, pic, audio, prep=None, amp=None):
@@ -620,19 +620,21 @@ def deform(ob, pic, audio, prep=None, amp=None):
     - 尾巴：绕根部转，越往尖转得越多（tail_s），两个周期叠加；
     - 耳朵：audio 的 earl / earr 列（抖一下的衰减振荡）；
     - 裙摆：横向的慢波；
-    - 嘴：以嘴为中心上下伸缩、嘴角横向跟一点，伸缩量是 audio 的 mouth 列（负的是合一点）。
-    不做呼吸：整个人以底边为轴上下伸缩，头跟着上下晃，看着假，不如不动。
+    - 嘴：以嘴为中心上下伸缩、嘴角横向跟一点，伸缩量是 audio 的 mouth 列（负的是合一点）；
+    - 呼吸：胸口和肩膀按 rig 的 breath 权重，随 audio 的 breath 列（0..1，1 是吸满，0.5 是插画本来的样子）抬起、
+      落下，头几乎不动。没有这列或这张权重图就不动。整个人一起伸缩会连头一起上下晃，看着假。
     位移在插画坐标里算，再按顶点的距离换成米（u 方向 sx·Y，v 方向 sz·Y）。"""
     prep = prep or pic.dir
     A = dict(DEFORM, **(amp or {}))
     rig = np.load(os.path.join(prep, "rig.npz"))
     info = json.load(open(os.path.join(prep, "rig.json")))
+    breathe = "breath" in rig.files and "breath" in audio.col
     me = ob.data
     pu = np.empty(len(me.vertices), np.float32)
     pv = np.empty(len(me.vertices), np.float32)
     me.attributes["pu"].data.foreach_get("value", pu)
     me.attributes["pv"].data.foreach_get("value", pv)
-    for key in ("hair", "ear_l", "ear_r", "tail", "tail_s", "dress", "mouth"):
+    for key in ("hair", "ear_l", "ear_r", "tail", "tail_s", "dress", "mouth") + (("breath",) if breathe else ()):
         at = me.attributes.new("w_" + key, "FLOAT", "POINT")
         at.data.foreach_set("value", sample(rig[key], np.clip(pu, 0, 1), np.clip(pv, 0, 1)).astype(np.float32))
 
@@ -687,6 +689,10 @@ def deform(ob, pic, audio, prep=None, amp=None):
     mo = g.m("MULTIPLY", attr("w_mouth"), audio.at_gn(g, "mouth"))
     du = g.m("ADD", du, g.m("MULTIPLY", g.m("MULTIPLY", mo, A["mouth_x"]), g.m("SUBTRACT", u, mu)))
     dv = g.m("ADD", dv, g.m("MULTIPLY", mo, g.m("SUBTRACT", v, mv)))
+    # 呼吸：吸气时往上（v 变小）
+    if breathe:
+        br = g.m("MULTIPLY", g.m("SUBTRACT", audio.at_gn(g, "breath"), 0.5), A["breath"])
+        dv = g.m("SUBTRACT", dv, g.m("MULTIPLY", attr("w_breath"), br))
     # 插画坐标的位移 -> 米：u 方向 sx·Y，v 方向（向下）-sz·Y
     py = g.sep(g.node("GeometryNodeInputPosition").outputs[0])[1]
     off = g.xyz(g.m("MULTIPLY", du, g.m("MULTIPLY", py, pic.sx)), 0.0,

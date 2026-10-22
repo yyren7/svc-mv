@@ -7,6 +7,7 @@
     bash cases/kimishira/scripts/render.sh                                              # 分段渲染、合成成片
 """
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -69,11 +70,11 @@ def camera_keys():
     """一条从头到尾不断开的镜头：关键帧放在段落交界，中间平滑过渡（Camera.path 的 pchip）。
     始终是整张画：放大只在 1.04~1.10 倍之间，画面中心只在正中附近漂，不推近人物，整首的氛围是稳的。
     动感来自机位的平移（左右、上下最多约 1.2 厘米）带出的前后景视差：副歌升起一点，主歌左右慢慢挪。
-    对焦另走一条：开头歌名浮现时焦点拉到镜头前的标题上，人物和背景一起虚下去；乐队进来、标题淡出时再拉回她脸上。"""
+    对焦另走一条：第一帧起就对在镜头前的标题上，人物和背景都在焦外，歌名在虚的星空里浮现；乐队进来、标题淡出时
+    再拉回她脸上。开头不先清楚再虚下去：那样像对焦失误。"""
     return [
         # 对焦
-        (0.80, F()),
-        (2.60, F(0.014, at=TITLE_Y)),
+        (0.00, F(0.014, at=TITLE_Y)),
         (8.75, F(0.014, at=TITLE_Y)),
         (12.0, F()),
         # 开头：整张画
@@ -135,6 +136,36 @@ def ear_flicks(n, seed):
     return out
 
 
+def breathing(n):
+    """呼吸（0..1，1 是吸满）：每句歌词开唱前 0.5 秒很快吸一口，唱的时候慢慢呼出去；不唱的时候（间奏）按 4.6 秒
+    一次平静地起伏。句子的起止取 lyrics.lrc：一句唱到下一个时间标签（空行标的是间奏开始），最长 6 秒。"""
+    marks = []
+    for line in open(os.path.join(C.AUDIO, "lyrics.lrc"), encoding="utf-8"):
+        m = re.match(r"\[(\d+):(\d+(?:\.\d+)?)\](.*)", line)
+        if m and " : " not in m.group(3):          # 跳过「作词 : ...」
+            marks.append((int(m.group(1)) * 60 + float(m.group(2)), bool(m.group(3).strip())))
+    marks.sort()
+    t = np.arange(n) / FPS
+    inhale, sing = np.zeros(n, bool), np.zeros(n, bool)
+    for (t0, words), (t1, _) in zip(marks, marks[1:] + [(1e9, False)]):
+        if words:
+            inhale |= (t >= t0 - 0.5) & (t < t0)
+            sing |= (t >= t0) & (t < min(t1, t0 + 6.0))
+    idle = 0.5 + 0.3 * np.sin(op.TAU * t / 4.6)
+    out = np.empty(n, np.float32)
+    level, dt = 0.5, 1.0 / FPS
+    for i in range(n):
+        if inhale[i]:
+            level += (1.0 - level) * dt / 0.15
+        elif sing[i]:
+            level -= level * dt / 3.0
+        else:
+            level += (idle[i] - level) * dt / 0.8
+        out[i] = level
+    k = FPS // 5
+    return np.convolve(np.pad(out, (k // 2, k - k // 2 - 1), mode="edge"), np.ones(k) / k, "valid")
+
+
 def section_arrays(n, d):
     """把段落表展开成逐帧的数组，交界处用 1 秒的滑动平均过渡（变化会提前半秒开始，听感上更跟拍）。"""
     t = np.arange(n) / FPS
@@ -159,13 +190,14 @@ def section_arrays(n, d):
         "stars": 0.85 + 0.45 * high,
         # 心跳：低音的平方，旋律盘（月亮外圈的频谱）跟着鼓起来，月晕跟着亮
         "heart": bass ** 2,
-        "halo": 0.07 + 0.07 * cols["energy"] + 0.30 * bass ** 2 * (0.4 + 0.6 * cols["energy"]),
+        "halo": 0.056 + 0.056 * cols["energy"] + 0.24 * bass ** 2 * (0.4 + 0.6 * cols["energy"]),
         "energy_glow": 0.45 + 0.8 * cols["energy"] + 0.35 * bass,
         "sway": 0.6 + 0.6 * cols["energy"],                    # 头发、裙摆、尾巴摆动的幅度
         # 嘴：人声快包络 -> 伸缩量；不唱的时候合一点（-0.28），唱得响时再张开一点（+0.18）
         "mouth": -0.28 + 0.46 * np.clip((d["voice"][:n] - 0.30) / 0.6, 0, 1),
         "earl": ear_flicks(n, 3),
         "earr": ear_flicks(n, 4),
+        "breath": breathing(n),
     }, cols["beams"]
 
 
@@ -231,11 +263,12 @@ def title(pic):
 
 
 # 月光光束：强度 = BEAM_GAIN × 段落表的光束列 × 心跳；光源遮罩是月亮半径的 BEAM_MASK 倍（包住外圈的频谱）
-BEAM_GAIN = 2.5
+BEAM_GAIN = 2.0
 BEAM_MASK = 2.8
 
-# Depth Anything 把左下、右下角的大花估得比人物还远；按画面它们离镜头最近，这层的 1/距离 乘一下
-LAYER_GAIN = {"near": 2.2, "far": 0.8}   # far 往后推一点，免得和中景的花田重叠打架
+# Depth Anything 把左下、右下角的大花估得比人物还远；按画面它们离镜头最近，这层的 1/距离 乘一下。
+# far 整层放平在天空再往后一点（220 / 0.8 = 275 米），在中景花田最远处（220 米）后面，不会重叠打架
+LAYER_GAIN = {"near": 2.2, "far": 0.8}
 
 
 def layers(pic, audio):
@@ -255,7 +288,12 @@ def layers(pic, audio):
         if name == "char":
             char = pic.layer(name, pic.girl_inv(), mat, box=pic.girl_box(), grid=560, margin=0.05)
             continue
-        inv = op.blur(pic.inv(np.load(pic.path(L["disp"]))) * LAYER_GAIN.get(name, 1.0), 2)
+        if name == "far":
+            # 远层只有天空和月亮：Depth Anything 把月亮上方、左上方的天空估到 60~100 米，比 213 米处的频谱环还近，
+            # 环的左上那一段被挡掉了。镜头只平移一两厘米，天空放平看不出差别
+            inv = np.full((2, 2), LAYER_GAIN["far"] / pic.y_sky, np.float32)
+        else:
+            inv = op.blur(pic.inv(np.load(pic.path(L["disp"]))) * LAYER_GAIN.get(name, 1.0), 2)
         box = (0, 0, 1, 1) if i == 0 else (L["box"][0], max(L["box"][1] - 0.02, 0), L["box"][2], L["box"][3])
         pic.layer(name, inv, mat, box=box, grid=720 if i == 0 else 640, margin=0.08)
     return char
