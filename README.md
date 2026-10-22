@@ -43,6 +43,8 @@ jobs files.
 | `scripts/onepic_player.py` | 一图流左下角的歌名、进度条和时间，可选带唱片和一圈频谱的旋律盘，逐帧透明 PNG |
 | `scripts/lrc2ass.py` | LRC 歌词（可带译文）和制作信息 -> ASS 字幕 |
 | `scripts/onepic_finish.py` | 分段视频拼接，一次编码成片：颗粒、暗角、淡入淡出、字幕、音轨 |
+| `scripts/retouch.py` | 用 Qwen 的局部 img2img 重画一张图里的一个框（手、道具），其余像素不动 |
+| `scripts/retouch_apply.py` | 把修好的图放进一图流的 prep：`color.png` 和人物层的实心处 |
 
 Notes that apply to every case:
 
