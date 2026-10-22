@@ -1,0 +1,12 @@
+{
+ "_doc": "scripts/retouch.py: the microphone looked bent and the lower hand's fingers were vague. The box takes the mic from its head to where the cable starts, both hands and the top of the cable.",
+ "picture": "/root/autodl-tmp/svc-mv/cases/kimishira/art/prep/color.png",
+ "dir": "/root/autodl-tmp/svc-mv/cases/kimishira/art/retouch_hands",
+ "box": [0.53, 0.405, 0.615, 0.80],
+ "crop": [1008, 1792],
+ "prompt": "Picture 1 with her hands and the microphone redrawn: a straight cordless handheld microphone with a round mesh head, held just below her chin in both hands, one hand above the other, each hand with four fingers and a thumb wrapped naturally around the grip, the microphone cable hanging down from the bottom of the grip. Exactly the same drawing style, line quality, colours and lighting as the rest of the picture; everything else unchanged.",
+ "negative": "microphone stand, pole, extra fingers, missing fingers, fused fingers, deformed hands, extra hands, extra arms, blurry, low quality, text, watermark",
+ "denoise": [0.65, 0.8],
+ "seeds": [1, 2, 3, 4],
+ "steps": 30
+}
