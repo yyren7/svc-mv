@@ -8,6 +8,9 @@
 可选的特效用环境变量 FX 开，逗号隔开（FX=bokeh,rim,kick,streak,glint）：
     bokeh   镜头前的虚焦光斑        rim     月亮那一侧她的轮廓光，跟着心跳
     kick    重拍上镜头轻推 0.4%     streak  月亮的水平光条          glint   发饰上偶尔闪一下的四芒星
+月亮外圈的频谱环用 RING 选：bars（默认，场景里的细柱）或 none（不放，scripts/ring_lab.py 在画面上另画样式比较时用）。
+BLEND 换场景文件的路径，两份场景可以同时搭、同时渲。几秒的 PNG 小样（30 fps，RES 默认 50 即 1080p）：
+    $B -b $BLEND -P cases/kimishira/scripts/pv.py -s 3960 -e 4320 -j 2 -a -- clip <名字>   # -> renders/ring_lab/<名字>/
 """
 import os
 import re
@@ -26,7 +29,7 @@ FPS = 60
 PREP = os.path.join(C.ART, "prep")
 BANDS = os.path.join(C.AUDIO, "bands.npz")
 FONTS = os.path.join(C.ROOT, "fonts")
-BLEND = os.path.join(C.RENDERS, "scene.blend")
+BLEND = os.environ.get("BLEND", os.path.join(C.RENDERS, "scene.blend"))
 
 # 段落：开始秒都落在重拍上。能量管花瓣的风、频谱环的亮度；其余几列是各特效的开度（0..1）。
 SECTIONS = [
@@ -56,6 +59,7 @@ SECTIONS = [
 ]
 
 FX = {x for x in os.environ.get("FX", "").split(",") if x}
+RING = os.environ.get("RING", "bars")
 
 FACE = (0.620, 0.352)
 MOON = (0.179, 0.142)
@@ -317,7 +321,7 @@ def title(pic):
 # 月光光束：强度 = BEAM_GAIN × 段落表的光束列 × (0.85 + 0.3 × 柔和的心跳)；光源遮罩是月亮半径的 BEAM_MASK 倍（包住外圈的频谱）
 BEAM_GAIN = 2.0
 BEAM_MASK = 2.8
-STREAK_GAIN = 0.8      # 月亮水平光条（FX=streak）的强度：× (0.3 + 0.7 × 能量) × 心跳
+STREAK_GAIN = 0.8      # 月亮水平光条（FX=streak）的强度：× (0.3 + 0.7 × 能量) × (0.85 + 0.3 × 柔和的心跳)，和光束一样不闪
 
 # Depth Anything 把左下、右下角的大花估得比人物还远；按画面它们离镜头最近，这层的 1/距离 乘一下。
 # far 整层放平在天空再往后一点（220 / 0.8 = 275 米），在中景花田最远处（220 米）后面，不会重叠打架
@@ -393,8 +397,9 @@ def build():
     # 旋律盘就是月亮：外圈的频谱，低音来时整圈像心跳一样鼓起来。朝右下（人物那边）的柱子拉长到 1.3 倍，像月光
     # 斜着照出来的；左上只压到 0.85 倍（压到 0.4 太短，不压又显得挤）。正上方的柱子软压在 v = 0.035 以下，
     # 整首不出画框（镜头最高到 v ≈ -0.013），辉光也留得下
-    op.spectrum_ring(pic, audio, d["spec"].shape[1], length=(0.06, 0.85), width=0.04, strength=1.8, pulse="heart",
-                     pulse_amount=0.05, tilt=(0.3, -50), squeeze=0.15, top=0.035)
+    if RING == "bars":
+        op.spectrum_ring(pic, audio, d["spec"].shape[1], length=(0.06, 0.85), width=0.04, strength=1.8, pulse="heart",
+                         pulse_amount=0.05, tilt=(0.3, -50), squeeze=0.15, top=0.035)
     title(pic)
     if "glint" in FX:
         op.glints(pic, GLINTS, [twinkle(n, 20 + i) for i in range(len(GLINTS))])
@@ -418,18 +423,21 @@ def build():
     mu, mv, mr = pic.meta["moon"]
     moon = pic.point(mu, mv, pic.y_sky)
     edge = moon + op.Vector((mr * pic.sx * pic.y_sky, 0, 0))
-    pos, strength, size, ssize, sstr, msize = [], [], [], [], [], []
+    pos, strength, size, ssize, sstr, msize, radius = [], [], [], [], [], [], []
     for f in range(n):
         q, e = cam.project(f, moon), cam.project(f, edge)
         inside = q is not None and -0.1 < q[0] < 1.1 and -0.1 < q[1] < 1.1
         pos.append(q if q else (0.5, 0.5))
         r = (e[0] - q[0]) if inside and e else 0.0
+        radius.append(r)
         size.append(2 * BEAM_MASK * r)
         strength.append(BEAM_GAIN * beams[f] * (0.85 + 0.3 * float(cols["pulse"][f])) if inside else 0.0)
         ssize.append(2 * 1.25 * r)
         msize.append(2 * 1.08 * r)
-        sstr.append(STREAK_GAIN * (0.3 + 0.7 * float(cols["energy"][f])) * (0.6 + 0.8 * float(cols["heart"][f]))
+        sstr.append(STREAK_GAIN * (0.3 + 0.7 * float(cols["energy"][f])) * (0.85 + 0.3 * float(cols["pulse"][f]))
                     if inside else 0.0)
+    # 每帧月亮在画面上的位置（0..1，左下为原点）和半径（画面宽的比例）：ring_lab.py 在画面上画频谱环样式时用
+    np.savez(os.path.splitext(BLEND)[0] + "_moon.npz", pos=np.array(pos, np.float32), r=np.array(radius, np.float32))
     fr = list(range(n))
 
     def key2(sock, vals):
@@ -470,6 +478,19 @@ def stills(seconds):
         print("still", s.render.filepath, flush=True)
 
 
+def clip(name):
+    """几秒的 PNG 小样：RES（默认 50，1080p）、SAMPLES（默认 16）、30 fps（-j 2），到 renders/ring_lab/<name>/。
+    渲染由命令行后面的 -s -e -j 2 -a 来做，帧号是 60 fps 的场景帧号。"""
+    s = bpy.context.scene
+    s.render.resolution_percentage = int(os.environ.get("RES", 50))
+    s.eevee.taa_render_samples = int(os.environ.get("SAMPLES", 16))
+    im = s.render.image_settings
+    im.media_type = "IMAGE"
+    im.file_format = "PNG"
+    im.color_mode = "RGB"
+    s.render.filepath = os.path.join(C.RENDERS, "ring_lab", name, "f_#####")
+
+
 def preview():
     """快速预览：960×540、30 fps（每隔一帧渲一帧）、8 采样。只改设置，渲染由命令行后面的 -s -e -j 2 -a 来做：
         $B -b scene.blend -P pv.py -s 0 -e 5059 -j 2 -a -- preview"""
@@ -487,5 +508,7 @@ if __name__ == "__main__":
         stills(argv[1:])
     elif argv and argv[0] == "preview":
         preview()
+    elif argv and argv[0] == "clip":
+        clip(argv[1])
     else:
         build()
