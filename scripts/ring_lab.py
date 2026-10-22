@@ -789,38 +789,44 @@ def tri_px(moon, f, W, H, stars=None):
 
 
 def stars_cmd(a):
-    """在底图上核对大三角三颗星的位置（帧目录的首、中、尾三帧，或 --at 给的帧号）：按 TRI_STARS 算出的位置，和它
-    4 像素以内最亮的点（亚像素重心）比。偏差超过 1.5 像素的，按测到的位置给出修正后的 off（几帧的平均）。"""
+    """在底图上核对大三角三颗星的位置：帧目录的首、中、尾（或 --at 给的帧号）各取最近的 5 帧，按 TRI_STARS 算出位置，
+    在它 4 像素以内找星：亮度的高斯差（σ 1 和 3 像素，只留下点状的星，压掉旁边大片亮区的边缘，比如织女旁边的银河）
+    最大的那点，再取亚像素重心；5 帧取中位数（星会闪，前面还有光点飘过）。偏差超过 1.5 像素，就按测到的位置给出
+    修正后的 off（所有帧的中位数）。"""
     import cv2
     mo = np.load(a.moon)
     files = sorted(glob.glob(os.path.join(a.frames, "f_*.png")))
-    files = [p for p in files if frame_no(p) in a.at] if a.at else [files[0], files[len(files) // 2], files[-1]]
+    nos = np.array([frame_no(p) for p in files])
     yy, xx = np.mgrid[-6:7, -6:7]
     near = np.hypot(xx, yy) <= 4
     fixed = {k: [] for k in TRI_STARS}
     worst = 0.0
-    for path in files:
-        f = frame_no(path)
-        lum = cv2.GaussianBlur(cv2.imread(path).astype(np.float32).mean(-1), (0, 0), 0.7)
-        H, W = lum.shape
-        cx, cy, R = moon_px(mo, f, W, H)
+    for f0 in a.at or (nos[0], nos[len(nos) // 2], nos[-1]):
+        got = {k: [] for k in TRI_STARS}
+        for i in np.argsort(np.abs(nos - f0), kind="stable")[:5]:
+            f = int(nos[i])
+            lum = cv2.imread(files[i]).astype(np.float32).mean(-1)
+            dog = cv2.GaussianBlur(lum, (0, 0), 1.0) - cv2.GaussianBlur(lum, (0, 0), 3.0)
+            H, W = lum.shape
+            cx, cy, R = moon_px(mo, f, W, H)
+            for k, (x, y) in tri_px(mo, f, W, H).items():
+                X, Y = int(math.floor(x)), int(math.floor(y))     # 预测位置所在的像素
+                w = dog[Y - 6:Y + 7, X - 6:X + 7]
+                j, i2 = np.unravel_index(np.argmax(np.where(near, w, -np.inf)), w.shape)
+                c = np.clip(w[j - 1:j + 2, i2 - 1:i2 + 2], 0, None)
+                mx = X - 6 + i2 + 0.5 + float(c.sum(0) @ np.arange(-1, 2)) / max(float(c.sum()), 1e-6)
+                my = Y - 6 + j + 0.5 + float(c.sum(1) @ np.arange(-1, 2)) / max(float(c.sum()), 1e-6)
+                got[k].append((mx - x, my - y, float(w[j, i2])))
+                fixed[k].append(((mx - cx) / R, (my - cy) / R))
         out = []
-        for k, (x, y) in tri_px(mo, f, W, H).items():
-            X, Y = int(math.floor(x)), int(math.floor(y))         # 预测位置所在的像素
-            w = lum[Y - 6:Y + 7, X - 6:X + 7]
-            bg = float(np.median(w))
-            j, i = np.unravel_index(np.argmax(np.where(near, w, -1)), w.shape)
-            c = np.clip(w[j - 1:j + 2, i - 1:i + 2] - bg, 0, None)
-            mx = X - 6 + i + 0.5 + float(c.sum(0) @ np.arange(-1, 2)) / max(float(c.sum()), 1e-6)
-            my = Y - 6 + j + 0.5 + float(c.sum(1) @ np.arange(-1, 2)) / max(float(c.sum()), 1e-6)
-            dev = math.hypot(mx - x, my - y)
-            worst = max(worst, dev)
-            fixed[k].append(((mx - cx) / R, (my - cy) / R))
-            out.append(f"{k} 预测 ({x:.1f}, {y:.1f}) 测得 ({mx:.1f}, {my:.1f}) 偏 {dev:.2f} px（亮 {w[j, i]:.0f}，底 {bg:.0f}）")
-        print(f"f_{f:05d}（{f / FPS:.2f} s，R {R:.1f} px）：" + "；".join(out), flush=True)
+        for k, v in got.items():
+            dx, dy, pk = np.median(np.array(v), axis=0)
+            worst = max(worst, math.hypot(dx, dy))
+            out.append(f"{k} 偏 ({dx:+.2f}, {dy:+.2f}) = {math.hypot(dx, dy):.2f} px（星的高斯差 {pk:.0f}）")
+        print(f"f_{int(f0):05d} 附近 5 帧（{f0 / FPS:.2f} s）：" + "；".join(out), flush=True)
     if worst > 1.5:
         print("偏差超过 1.5 像素，修正后的 off（R）：" + "，".join(
-            f'"{k}": ({np.mean([p[0] for p in v]):.3f}, {np.mean([p[1] for p in v]):.3f})' for k, v in fixed.items()))
+            f'"{k}": ({np.median([p[0] for p in v]):.3f}, {np.median([p[1] for p in v]):.3f})' for k, v in fixed.items()))
     else:
         print(f"最大偏差 {worst:.2f} px，不用修正", flush=True)
 
@@ -884,7 +890,7 @@ def main():
     p = sub.add_parser("stars")
     p.add_argument("frames")
     p.add_argument("--moon", required=True)
-    p.add_argument("--at", type=int, nargs="+", help="帧号（默认首、中、尾三帧）")
+    p.add_argument("--at", type=int, nargs="+", help="帧号（默认首、中、尾；每处取最近的 5 帧）")
     p = sub.add_parser("draw")
     p.add_argument("frames")
     p.add_argument("out")
