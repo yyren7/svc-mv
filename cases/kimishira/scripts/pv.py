@@ -129,32 +129,28 @@ METEOR_TIMES = [5.0, 17.48, 24.00, 70.20, 81.0, 92.0, 140.37, 150.92, 168.4, 186
 
 
 def ear_moves(n, seed):
-    """两只耳朵的动作 (earl, earr)，-1..1，正值是往外、往上张一点。慢，像在听歌，不抽（7 Hz 的抖动太快太突然）：
-    一直有一点很慢的摆（周期 4~7 秒、幅度 0.12），隔 6~14 秒转一下：0.45 秒转过去、停 0.25~0.6 秒、0.9 秒回来，
-    幅度 ±0.5~1；一半的动作两只耳朵一起（相差不到 0.1 秒），其余各动各的。"""
+    """两只耳朵的动作 (earl, earr)，-1..1，正值是往外、往上张一点。一直有一点很慢的摆（周期 4~7 秒、幅度 0.1）；
+    隔 5~13 秒抽一下：3 Hz 的衰减振荡、0.28 秒衰减、起手 0.08 秒缓冲（原来 7 Hz、0.16 秒、没有缓冲，太快太突然）；
+    一半的抽动两只耳朵一起（相差不到 0.08 秒），其余各动各的。"""
     rng = np.random.default_rng(seed)
     t = np.arange(n) / FPS
-    ears = [0.12 * np.sin(op.TAU * t / rng.uniform(4, 7) + rng.uniform(0, op.TAU)) for _ in range(2)]
+    ears = [0.1 * np.sin(op.TAU * t / rng.uniform(4, 7) + rng.uniform(0, op.TAU)) for _ in range(2)]
 
-    def smooth(x):
-        x = np.clip(x, 0, 1)
-        return x * x * (3 - 2 * x)
-
-    def turn(ear, t0, amp):
-        rise, hold, fall = 0.45, rng.uniform(0.25, 0.6), 0.9
+    def twitch(ear, t0, amp):
         s = t - t0
-        env = np.where(s < rise, smooth(s / rise), np.where(s < rise + hold, 1.0, smooth(1 - (s - rise - hold) / fall)))
-        ears[ear] += amp * np.where((s >= 0) & (s <= rise + hold + fall), env, 0.0)
+        attack = np.clip(s / 0.08, 0, 1)
+        env = np.sin(op.TAU * 3.0 * s) * np.exp(-s / 0.28) * attack * attack * (3 - 2 * attack)
+        ears[ear] += amp * np.where((s >= 0) & (s < 1.2), env, 0.0)
 
     tt = rng.uniform(2, 8)
     while tt < n / FPS:
-        amp = rng.uniform(0.5, 1.0) * rng.choice((-1.0, 1.0))
+        amp = rng.uniform(0.7, 1.0) * rng.choice((-1.0, 1.0))
         if rng.uniform() < 0.5:
-            turn(0, tt, amp)
-            turn(1, tt + rng.uniform(0, 0.1), amp)
+            twitch(0, tt, amp)
+            twitch(1, tt + rng.uniform(0, 0.08), amp)
         else:
-            turn(int(rng.integers(2)), tt, amp)
-        tt += rng.uniform(6, 14)
+            twitch(int(rng.integers(2)), tt, amp)
+        tt += rng.uniform(5, 13)
     return [e.astype(np.float32) for e in ears]
 
 
@@ -232,6 +228,9 @@ def section_arrays(n, d):
     loud, bass, high = d["loud"][:n], d["bass"][:n], d["high"][:n]
     speed = 0.55 + 1.1 * cols["energy"] + 0.35 * loud
     earl, earr = ear_moves(n, 3)
+    # 心跳的柔和版：低音的平方再 0.3 秒滑动平均，月晕和光束跟它，不闪
+    k = int(0.3 * FPS) | 1
+    pulse = np.convolve(np.pad(bass ** 2, (k // 2, k // 2), mode="edge"), np.ones(k) / k, "valid")
     return {
         "energy": cols["energy"],
         "density": cols["petals"],
@@ -239,10 +238,11 @@ def section_arrays(n, d):
         "ring": cols["ring"],
         "wind": np.cumsum(speed) / FPS,                       # 风时间：风大时走得快
         "stars": 0.85 + 0.45 * high,
-        # 心跳：低音的平方，旋律盘（月亮外圈的频谱）跟着鼓起来，月晕跟着亮
+        # 心跳：低音的平方，旋律盘（月亮外圈的频谱）跟着鼓一点；月晕、光束跟柔和版的 pulse，幅度也小，亮度大体一致
         "heart": bass ** 2,
-        "halo": 0.056 + 0.056 * cols["energy"] + 0.24 * bass ** 2 * (0.4 + 0.6 * cols["energy"]),
-        "energy_glow": 0.45 + 0.8 * cols["energy"] + 0.35 * bass,
+        "pulse": pulse,
+        "halo": 0.06 + 0.04 * cols["energy"] + 0.08 * pulse * (0.4 + 0.6 * cols["energy"]),
+        "energy_glow": 0.5 + 0.7 * cols["energy"] + 0.15 * bass,
         "sway": 0.6 + 0.6 * cols["energy"],                    # 头发、裙摆、尾巴摆动的幅度
         # 嘴：人声快包络 -> 伸缩量；不唱的时候合一点（-0.28），唱得响时再张开一点（+0.18）
         "mouth": -0.28 + 0.46 * np.clip((d["voice"][:n] - 0.30) / 0.6, 0, 1),
@@ -314,7 +314,7 @@ def title(pic):
     return obs + [sub]
 
 
-# 月光光束：强度 = BEAM_GAIN × 段落表的光束列 × 心跳；光源遮罩是月亮半径的 BEAM_MASK 倍（包住外圈的频谱）
+# 月光光束：强度 = BEAM_GAIN × 段落表的光束列 × (0.85 + 0.3 × 柔和的心跳)；光源遮罩是月亮半径的 BEAM_MASK 倍（包住外圈的频谱）
 BEAM_GAIN = 2.0
 BEAM_MASK = 2.8
 STREAK_GAIN = 0.8      # 月亮水平光条（FX=streak）的强度：× (0.3 + 0.7 × 能量) × 心跳
@@ -394,7 +394,7 @@ def build():
     # 斜着照出来的；左上只压到 0.85 倍（压到 0.4 太短，不压又显得挤）。正上方的柱子软压在 v = 0.035 以下，
     # 整首不出画框（镜头最高到 v ≈ -0.013），辉光也留得下
     op.spectrum_ring(pic, audio, d["spec"].shape[1], length=(0.06, 0.85), width=0.04, strength=1.8, pulse="heart",
-                     tilt=(0.3, -50), squeeze=0.15, top=0.035)
+                     pulse_amount=0.05, tilt=(0.3, -50), squeeze=0.15, top=0.035)
     title(pic)
     if "glint" in FX:
         op.glints(pic, GLINTS, [twinkle(n, 20 + i) for i in range(len(GLINTS))])
@@ -425,7 +425,7 @@ def build():
         pos.append(q if q else (0.5, 0.5))
         r = (e[0] - q[0]) if inside and e else 0.0
         size.append(2 * BEAM_MASK * r)
-        strength.append(BEAM_GAIN * beams[f] * (0.6 + 0.8 * float(cols["heart"][f])) if inside else 0.0)
+        strength.append(BEAM_GAIN * beams[f] * (0.85 + 0.3 * float(cols["pulse"][f])) if inside else 0.0)
         ssize.append(2 * 1.25 * r)
         msize.append(2 * 1.08 * r)
         sstr.append(STREAK_GAIN * (0.3 + 0.7 * float(cols["energy"][f])) * (0.6 + 0.8 * float(cols["heart"][f]))
