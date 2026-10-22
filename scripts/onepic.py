@@ -385,11 +385,14 @@ class Audio:
 
 # ---------------------------------------------------------------- 插画层的材质
 
-def painted(name, color, alpha=None, extra=None):
+def painted(name, color, alpha=None, extra=None, shift=None):
     """插画层：Emission 原样输出贴图；alpha 是遮罩图（或 "self" 用贴图自带的 alpha），有就混 Transparent。
-    extra(g, uv, color_socket) -> color_socket，往颜色上加东西（星星闪烁、月晕）。"""
+    extra(g, uv, color_socket) -> color_socket，往颜色上加东西（星星闪烁、月晕）。
+    shift = (du, dv)：贴图在网格上挪一下（UV 的单位，v 朝上：整层天空往下挪就是 (0, +s)），露出的边是镜像延伸。"""
     mt, g, out = material(name)
     uv = g.node("ShaderNodeTexCoord").outputs["UV"]
+    if shift:
+        uv = g.v("ADD", uv, (shift[0], shift[1], 0.0))
     # 画外（网格多铺的那一圈）镜像延伸：星空、花田照着镜像出去很自然，EXTEND 会拉出条纹
     t = tex(g, image(color), uv, extension="MIRROR")
     col = t.outputs["Color"]
@@ -411,10 +414,11 @@ def painted(name, color, alpha=None, extra=None):
 
 
 def sky_extra(pic, audio, stars="stars.png", star_gain=1.4, star_color=(0.75, 0.86, 1.0),
-              halo_color=(0.55, 0.72, 1.0)):
+              halo_color=(0.55, 0.72, 1.0), moon=None):
     """天空上加两样：星星按各自的相位、频率闪（stars.png：R 亮度，G 相位，B 频率），乘以 audio 的 "stars" 列；
-    月亮外面一圈光晕，强度是 audio 的 "halo" 列。"""
-    moon = pic.meta.get("moon")
+    月亮外面一圈光晕，强度是 audio 的 "halo" 列。moon 是贴图里月亮的 (u, v, r)，默认 meta 的；贴图挪过
+    （painted 的 shift）而 meta 改成了画面里的位置时，把贴图里的传进来。"""
+    moon = moon or pic.meta.get("moon")
 
     def f(g, uv, col):
         st = tex(g, image(pic.path(stars), "Non-Color"), uv, "Closest")
@@ -438,6 +442,23 @@ def sky_extra(pic, audio, stars="stars.png", star_gain=1.4, star_color=(0.75, 0.
             h = g.m("MULTIPLY", g.m("MULTIPLY_ADD", near, 0.75, g.m("MULTIPLY", far, 0.25)), audio.at(g, "halo"))
             col = g.v("MULTIPLY_ADD", halo_color, g.xyz(h, h, h), col)
         return col
+    return f
+
+
+def rim_extra(path, toward, aspect, width=0.0045, color=(0.6, 0.8, 1.0), strength=0.6, audio=None, gain_col=None):
+    """人物层的轮廓光（painted 的 extra）：沿 toward（画面像素坐标里的单位向量，x 朝右 y 朝上，比如朝月亮）挪
+    width 和 2·width（画面宽的比例）再取一次这张图的 alpha，本来有、挪过去没有的地方就是朝着光的那一侧边缘，
+    往颜色上加 color × strength ×（audio 的 gain_col 列）。"""
+    def f(g, uv, col):
+        img = image(path)
+        a0 = tex(g, img, uv).outputs["Alpha"]
+        edge = 0.0
+        for k, w in ((1.0, 0.55), (2.0, 0.45)):
+            off = g.v("ADD", uv, (toward[0] * width * k, toward[1] * width * k * aspect, 0.0))
+            edge = g.m("MULTIPLY_ADD", g.m("SUBTRACT", 1.0, tex(g, img, off).outputs["Alpha"]), w, edge)
+        k_ = g.m("MULTIPLY", audio.at(g, gain_col), strength) if audio and gain_col else strength
+        rim = g.m("MULTIPLY", g.m("MULTIPLY", a0, edge), k_)
+        return g.v("MULTIPLY_ADD", color, g.xyz(rim, rim, rim), col)
     return f
 
 
@@ -512,6 +533,27 @@ def petal_mat(name="petal", inner=(0.50, 0.80, 1.0), outer=(0.90, 0.97, 1.0), st
     g.link(kit.sock(mix.outputs, "Result", "RGBA"), em.inputs["Color"])
     g.link(k, em.inputs["Strength"])
     g.link(em.outputs[0], out.inputs["Surface"])
+    return mt
+
+
+def bokeh_mat(name="bokeh", color=(0.72, 0.86, 1.0), strength=1.0):
+    """镜头前的虚焦光斑：一个球，正对镜头的中心亮、往轮廓软软地暗下去（Layer Weight 的 Facing），叠加在后面的
+    东西上；亮度乘实例的 flick（慢慢明灭）。"""
+    mt, g, out = material(name, "BLENDED")
+    lw = g.node("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = 0.5
+    soft = g.m("POWER", g.m("SUBTRACT", 1.0, lw.outputs["Facing"]), 2.5)
+    a = g.node("ShaderNodeAttribute")
+    a.attribute_type = "INSTANCER"
+    a.attribute_name = "flick"
+    k = g.m("MULTIPLY", soft, g.m("MULTIPLY", g.m("MULTIPLY_ADD", a.outputs["Fac"], 0.6, 0.4), strength))
+    em = g.node("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (*color, 1)
+    g.link(k, em.inputs["Strength"])
+    add = g.node("ShaderNodeAddShader")
+    g.link(g.node("ShaderNodeBsdfTransparent").outputs[0], add.inputs[0])
+    g.link(em.outputs[0], add.inputs[1])
+    g.link(add.outputs[0], out.inputs["Surface"])
     return mt
 
 
@@ -828,6 +870,50 @@ def meteors(pic, events, fps, y=150.0, color=(0.8, 0.9, 1.0), strength=6.0):
     return obs
 
 
+# ---------------------------------------------------------------- 饰品上的星光
+
+def glint_mat(name="glint", color=(0.95, 0.98, 1.0), strength=3.0):
+    """四芒星：按物体坐标的 |x|、|z| 算两条互相垂直、往尖端收细的亮线，中心再加一点软光；叠加在后面的东西上，
+    亮度乘 obj["a"]。"""
+    mt, g, out = material(name, "BLENDED")
+    x, _, z = g.sep(g.node("ShaderNodeTexCoord").outputs["Object"])
+    ax = g.m("MAXIMUM", g.m("SUBTRACT", 1.0, g.m("ABSOLUTE", x)), 0.0)
+    az = g.m("MAXIMUM", g.m("SUBTRACT", 1.0, g.m("ABSOLUTE", z)), 0.0)
+    star = g.m("ADD", g.m("MULTIPLY", g.m("POWER", ax, 10.0), g.m("POWER", az, 1.5)),
+               g.m("MULTIPLY", g.m("POWER", az, 10.0), g.m("POWER", ax, 1.5)))
+    star = g.m("MINIMUM", g.m("MULTIPLY_ADD", g.m("POWER", g.m("MULTIPLY", ax, az), 4.0), 0.5, star), 1.0)
+    a = g.node("ShaderNodeAttribute")
+    a.attribute_type = "OBJECT"
+    a.attribute_name = "a"
+    em = g.node("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (*color, 1)
+    g.link(g.m("MULTIPLY", star, g.m("MULTIPLY", a.outputs["Fac"], strength)), em.inputs["Strength"])
+    add = g.node("ShaderNodeAddShader")
+    g.link(g.node("ShaderNodeBsdfTransparent").outputs[0], add.inputs[0])
+    g.link(em.outputs[0], add.inputs[1])
+    g.link(add.outputs[0], out.inputs["Surface"])
+    return mt
+
+
+def glints(pic, points, envs, y=1.25, size=0.011, mat=None):
+    """饰品上的星光：points 是插画坐标，envs 每个点一条逐帧的亮度（0..1）。放在镜头前 y 米、穿过那一点的视线上
+    （人物层的前面；机位只挪一两厘米，错位不到画面宽的 0.1%），半宽是画面宽的 size，亮起来时也放大一点。"""
+    mat = mat or glint_mat()
+    verts = [(-1, 0, -1), (1, 0, -1), (1, 0, 1), (-1, 0, 1)]     # 面朝 -Y，对着镜头
+    half = size * pic.sx * y
+    obs = []
+    for k, ((u, v), env) in enumerate(zip(points, envs)):
+        ob = mesh_obj(f"glint_{k}", verts, [(0, 1, 2, 3)], mat)
+        ob.location = pic.point(u, v, y)
+        fr = list(range(len(env)))
+        key_prop(ob, "a", list(zip(fr, [float(e) for e in env])), "LINEAR")
+        sc = [half * (0.55 + 0.45 * float(e)) for e in env]
+        for i in (0, 2):
+            kit.fcurve(ob, "scale", i, fr, sc)
+        obs.append(ob)
+    return obs
+
+
 # ---------------------------------------------------------------- 立在空中的字
 
 def text_obj(body, font_path, size, loc, align="CENTER", spacing=1.0, mat=None):
@@ -1064,10 +1150,12 @@ class Camera:
 
 # ---------------------------------------------------------------- 合成
 
-def compositor(bloom=0.2, threshold=0.8, size=0.6, beam_size=0.3, beam_threshold=0.8):
+def compositor(bloom=0.2, threshold=0.8, size=0.6, beam_size=0.3, beam_threshold=0.8, streak=False):
     """辉光（Bloom）-> 月光光束 -> 一点色散。光束只从月亮那一块发出：画面乘一个跟着月亮走的椭圆遮罩再做 Sun Beams，
-    只把光束加回去，白裙子、亮的花不会拉出光束，强度可以开大。返回 (tree, 光束节点, 遮罩节点)：
-    光束的 Sun Position、Strength 和遮罩的 Position（0..1，左下为原点）、Size（直径，按画面宽算）逐帧写入。"""
+    只把光束加回去，白裙子、亮的花不会拉出光束，强度可以开大。返回 (tree, 光束节点, 遮罩节点, 光条)：
+    光束的 Sun Position、Strength 和遮罩的 Position（0..1，左下为原点）、Size（直径，按画面宽算）逐帧写入。
+    streak：月亮再拉一条水平的光条（变形镜头拍强光那样），用第二个只包住月亮本体的遮罩做 Streaks，频谱盘的柱子
+    不会各自拉出一条；光条是 (Streaks 节点, 它的遮罩)，Strength、Position、Size 同样逐帧写入；不开时是 None。"""
     s = bpy.context.scene
     tree = bpy.data.node_groups.new("post", "CompositorNodeTree")
     s.compositing_node_group = tree
@@ -1099,12 +1187,24 @@ def compositor(bloom=0.2, threshold=0.8, size=0.6, beam_size=0.3, beam_threshold
                   ("Jitter", 0.2), ("Quality", "High")))
     g.link(mix("MULTIPLY", glare.outputs[0], mask.outputs[0]), kit.sock(beams.inputs, "Image"))
     lit = mix("ADD", glare.outputs[0], kit.sock(beams.outputs, "Glare"))
+    streaks = None
+    if streak:
+        smask = g.node("CompositorNodeEllipseMask")
+        s_in = kit.sock(smask.inputs, "Size")
+        for i in range(len(s_in.default_value)):
+            s_in.default_value[i] = 0.0
+        st = g.node("CompositorNodeGlare")
+        setup(st, (("Type", "Streaks"), ("Threshold", 0.6), ("Strength", 0.0), ("Streaks", 2), ("Streaks Angle", 0.0),
+                   ("Iterations", 4), ("Fade", 0.9), ("Color Modulation", 0.15), ("Quality", "High")))
+        g.link(mix("MULTIPLY", glare.outputs[0], smask.outputs[0]), kit.sock(st.inputs, "Image"))
+        lit = mix("ADD", lit, kit.sock(st.outputs, "Glare"))
+        streaks = (st, smask)
     lens = g.node("CompositorNodeLensdist")
     kit.sock(lens.inputs, "Dispersion").default_value = 0.004
     g.link(lit, kit.sock(lens.inputs, "Image"))
     g.link(lens.outputs[0], g.node("NodeGroupOutput").inputs[0])
     s.render.use_compositing = True
-    return tree, beams, mask
+    return tree, beams, mask, streaks
 
 
 def video_output(path, crf="PERC_LOSSLESS"):

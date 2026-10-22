@@ -5,6 +5,9 @@
     $B -b --factory-startup -P cases/kimishira/scripts/pv.py -- build                    # 搭场景 -> renders/scene.blend
     $B -b cases/kimishira/renders/scene.blend -P cases/kimishira/scripts/pv.py -- stills 5 20 70   # 这几秒的静帧
     bash cases/kimishira/scripts/render.sh                                              # 分段渲染、合成成片
+可选的特效用环境变量 FX 开，逗号隔开（FX=bokeh,rim,kick,streak,glint）：
+    bokeh   镜头前的虚焦光斑        rim     月亮那一侧她的轮廓光，跟着心跳
+    kick    重拍上镜头轻推 0.4%     streak  月亮的水平光条          glint   发饰上偶尔闪一下的四芒星
 """
 import os
 import re
@@ -52,9 +55,13 @@ SECTIONS = [
     ("end",      330.00,  0.25, 0.12, 0.60, 0.6, 0.22),
 ]
 
+FX = {x for x in os.environ.get("FX", "").split(",") if x}
+
 FACE = (0.620, 0.352)
 MOON = (0.179, 0.142)
+MOON_DOWN = 0.035      # 天空整层往下挪这么多（画面高的比例）：插画里月亮贴着上边，频谱盘的顶上没地方
 TITLE_Y = 0.5          # 开头的竖排标题离镜头 0.5 米：对焦在它上面时，人物和背景都在焦外
+GLINTS = [(0.667, 0.283), (0.705, 0.313), (0.625, 0.114)]   # 发夹的花、丝带上的花、头顶的蝴蝶结（插画坐标）
 
 
 def P(u, v, zoom, dx=0.0, dy=0.0, dz=0.0):
@@ -136,6 +143,34 @@ def ear_flicks(n, seed):
     return out
 
 
+def twinkle(n, seed, every=(3.0, 8.0), dur=0.6):
+    """发饰的星光：隔 every 秒闪一下，一次 dur 秒，包络尖一点（sin³）。"""
+    rng = np.random.default_rng(seed)
+    out = np.zeros(n, np.float32)
+    k = np.arange(int(dur * FPS))
+    flash = np.sin(np.pi * k / len(k)) ** 3
+    t = rng.uniform(1.0, every[1])
+    while t < n / FPS:
+        f0 = int(t * FPS)
+        m = min(len(k), n - f0)
+        out[f0:f0 + m] = np.maximum(out[f0:f0 + m], flash[:m])
+        t += rng.uniform(*every)
+    return out
+
+
+def kicks(n, downbeats):
+    """重拍上镜头的轻推：{帧: 0..1}，拍点上是 1，0.09 秒的指数衰减，持续 0.35 秒。"""
+    out = {}
+    k = np.arange(int(0.35 * FPS))
+    env = np.exp(-k / (0.09 * FPS))
+    for tb in downbeats:
+        f0 = int(round(float(tb) * FPS))
+        for i, e in enumerate(env):
+            if f0 + i < n:
+                out[f0 + i] = max(out.get(f0 + i, 0.0), float(e))
+    return out
+
+
 def breathing(n):
     """呼吸（0..1，1 是吸满）：每句歌词开唱前 0.5 秒很快吸一口，唱的时候慢慢呼出去；不唱的时候（间奏）按 4.6 秒
     一次平静地起伏。句子的起止取 lyrics.lrc：一句唱到下一个时间标签（空行标的是间奏开始），最长 6 秒。"""
@@ -198,6 +233,7 @@ def section_arrays(n, d):
         "earl": ear_flicks(n, 3),
         "earr": ear_flicks(n, 4),
         "breath": breathing(n),
+        "rim": 0.45 + 0.55 * bass ** 2,                        # 轮廓光跟着心跳
     }, cols["beams"]
 
 
@@ -265,15 +301,17 @@ def title(pic):
 # 月光光束：强度 = BEAM_GAIN × 段落表的光束列 × 心跳；光源遮罩是月亮半径的 BEAM_MASK 倍（包住外圈的频谱）
 BEAM_GAIN = 2.0
 BEAM_MASK = 2.8
+STREAK_GAIN = 0.8      # 月亮水平光条（FX=streak）的强度：× (0.3 + 0.7 × 能量) × 心跳
 
 # Depth Anything 把左下、右下角的大花估得比人物还远；按画面它们离镜头最近，这层的 1/距离 乘一下。
 # far 整层放平在天空再往后一点（220 / 0.8 = 275 米），在中景花田最远处（220 米）后面，不会重叠打架
 LAYER_GAIN = {"near": 2.2, "far": 0.8}
 
 
-def layers(pic, audio):
+def layers(pic, audio, moon_tex):
     """插画的各层。有 prep/meta.json 的 layers（另外做好的远/中/近/人物分层）就用它；没有就用 onepic_prep.py
-    自己做的两层（LaMa 补全的背景 + 人物）。最后面那层带星星闪烁和月晕。返回人物那层。"""
+    自己做的两层（LaMa 补全的背景 + 人物）。最后面那层带星星闪烁和月晕，贴图整个往下挪 MOON_DOWN（moon_tex 是
+    贴图里月亮的位置，pic.meta 里的已经是画面里的）。开了 rim 时人物层带朝月亮的轮廓光。返回人物那层。"""
     spec = pic.meta.get("layers")
     if not spec:
         sky_mat = op.painted("bg", pic.path("plate.png"), extra=op.sky_extra(pic, audio))
@@ -283,8 +321,15 @@ def layers(pic, audio):
     char = None
     for i, L in enumerate(spec):
         name = L["name"]
-        extra = op.sky_extra(pic, audio) if i == 0 else None
-        mat = op.painted(name, L["color"], alpha=L["alpha"], extra=extra)
+        extra, shift = None, None
+        if i == 0:
+            extra, shift = op.sky_extra(pic, audio, moon=moon_tex), (0.0, MOON_DOWN)
+        elif name == "char" and "rim" in FX:
+            # 朝月亮的方向（画面像素坐标，y 朝上）；亮度 0.35 + 0.45 × 心跳
+            mu, mv, _ = pic.meta["moon"]
+            d = np.array([mu - FACE[0], (FACE[1] - mv) / pic.aspect])
+            extra = op.rim_extra(L["color"], d / np.linalg.norm(d), pic.aspect, strength=0.8, audio=audio, gain_col="rim")
+        mat = op.painted(name, L["color"], alpha=L["alpha"], extra=extra, shift=shift)
         if name == "char":
             char = pic.layer(name, pic.girl_inv(), mat, box=pic.girl_box(), grid=560, margin=0.05)
             continue
@@ -305,11 +350,13 @@ def build():
     n = len(d["loud"])
     s.frame_end = n - 1
     pic = op.Pic(PREP, lens=35.0, y_girl=1.6, y_sky=220.0)
+    moon_tex = tuple(pic.meta["moon"])                                   # 贴图里的月亮
+    pic.meta["moon"] = [moon_tex[0], moon_tex[1] + MOON_DOWN, moon_tex[2]]   # 画面里的：频谱盘、光束、标题按这个
     cols, beams = section_arrays(n, d)
     audio = op.Audio(FPS, cols, spec=d["spec"].astype(np.float32))
 
-    char = layers(pic, audio)
-    op.deform(char, pic, audio)      # 头发、尾巴、耳朵、裙摆、嘴
+    char = layers(pic, audio, moon_tex)
+    op.deform(char, pic, audio)      # 头发、尾巴、耳朵、裙摆、嘴、呼吸
 
     # 粒子
     petal = op.petal_mesh()
@@ -321,15 +368,23 @@ def build():
     # 光点贴着花田：花田往远处降下去（约 -0.12 m / m），盒子跟着倾斜
     op.drift("motes", mote, audio, 320, (-9.0, 2.0, -0.35), (18.0, 22.0, 1.3), (0.02, -0.02, 0.05), 0.006,
              seed=2, size_var=0.5, flutter=0.08, rate=0.5, spin=0.0, density="motes", tilt=-0.12)
-    # 旋律盘就是月亮：外圈的频谱，低音来时整圈像心跳一样鼓起来。朝右下（人物那边）的柱子拉长到 1.6 倍，像月光
-    # 斜着照出来的；左上只压到 0.85 倍（压到 0.4 太短，不压又显得挤）。月亮贴着画面上边，正上方的柱子软压在
-    # v = 0.03 以下，整首不出画框（镜头最高到 v ≈ -0.013）
+    if "bokeh" in FX:
+        # 镜头前 0.5~1.3 米的虚焦光斑：几十个，慢慢飘、慢慢明灭，镜头一动它们的视差最大
+        orb = op.ico("bokeh_src", 1.0, 3)
+        orb.data.materials.append(op.bokeh_mat())
+        op.drift("bokeh", orb, audio, 40, (-0.85, 0.5, -0.5), (1.7, 0.8, 1.0), (0.025, 0.0, 0.035), 0.016,
+                 seed=5, size_var=0.5, flutter=0.03, rate=0.35, spin=0.0, density="motes", edge=0.12)
+    # 旋律盘就是月亮：外圈的频谱，低音来时整圈像心跳一样鼓起来。朝右下（人物那边）的柱子拉长到 1.3 倍，像月光
+    # 斜着照出来的；左上只压到 0.85 倍（压到 0.4 太短，不压又显得挤）。正上方的柱子软压在 v = 0.035 以下，
+    # 整首不出画框（镜头最高到 v ≈ -0.013），辉光也留得下
     op.spectrum_ring(pic, audio, d["spec"].shape[1], length=(0.06, 0.85), width=0.04, strength=1.8, pulse="heart",
-                     tilt=(0.6, -50), squeeze=0.15, top=0.03)
+                     tilt=(0.3, -50), squeeze=0.15, top=0.035)
     title(pic)
+    if "glint" in FX:
+        op.glints(pic, GLINTS, [twinkle(n, 20 + i) for i in range(len(GLINTS))])
 
     cam = op.Camera(pic, FPS, n)
-    cam.bake(keys=camera_keys())
+    cam.bake(keys=camera_keys(), kick=kicks(n, d["downbeats"]) if "kick" in FX else None, kick_amount=0.004)
     bad = cam.check(margin=0.07)         # 网格往外多铺了 0.08（镜像延伸）
     spans = []
     for t, w in bad:
@@ -342,26 +397,36 @@ def build():
     sky = np.load(os.path.join(PREP, "sky.npy"))
     op.meteors(pic, pick_meteors(pic, cam, sky), FPS)
 
-    # 月光光束：只从月亮和外圈的频谱发出（遮罩跟着月亮走），跟低音的心跳一起亮
-    tree, beam, bmask = op.compositor()
+    # 月光光束：只从月亮和外圈的频谱发出（遮罩跟着月亮走），跟低音的心跳一起亮；开了 streak 还有月亮的水平光条
+    tree, beam, bmask, streak = op.compositor(streak="streak" in FX)
     mu, mv, mr = pic.meta["moon"]
     moon = pic.point(mu, mv, pic.y_sky)
     edge = moon + op.Vector((mr * pic.sx * pic.y_sky, 0, 0))
-    pos, strength, size = [], [], []
+    pos, strength, size, ssize, sstr = [], [], [], [], []
     for f in range(n):
         q, e = cam.project(f, moon), cam.project(f, edge)
         inside = q is not None and -0.1 < q[0] < 1.1 and -0.1 < q[1] < 1.1
         pos.append(q if q else (0.5, 0.5))
-        size.append(2 * BEAM_MASK * (e[0] - q[0]) if inside and e else 0.0)
+        r = (e[0] - q[0]) if inside and e else 0.0
+        size.append(2 * BEAM_MASK * r)
         strength.append(BEAM_GAIN * beams[f] * (0.6 + 0.8 * float(cols["heart"][f])) if inside else 0.0)
+        ssize.append(2 * 1.25 * r)
+        sstr.append(STREAK_GAIN * (0.3 + 0.7 * float(cols["energy"][f])) * (0.6 + 0.8 * float(cols["heart"][f]))
+                    if inside else 0.0)
     fr = list(range(n))
-    for sock, vals in ((kit.sock(beam.inputs, "Sun Position"), pos), (kit.sock(bmask.inputs, "Position"), pos)):
+
+    def key2(sock, vals):
         for i in range(2):
             kit.fcurve(tree, sock.path_from_id("default_value"), i, fr, [p[i] for p in vals])
-    sz = kit.sock(bmask.inputs, "Size")
-    for i in range(2):
-        kit.fcurve(tree, sz.path_from_id("default_value"), i, fr, size)
+    key2(kit.sock(beam.inputs, "Sun Position"), pos)
+    key2(kit.sock(bmask.inputs, "Position"), pos)
+    key2(kit.sock(bmask.inputs, "Size"), [(x, x) for x in size])
     kit.fcurve(tree, kit.sock(beam.inputs, "Strength").path_from_id("default_value"), 0, fr, strength)
+    if streak:
+        st, smask = streak
+        key2(kit.sock(smask.inputs, "Position"), pos)
+        key2(kit.sock(smask.inputs, "Size"), [(x, x) for x in ssize])
+        kit.fcurve(tree, kit.sock(st.inputs, "Strength").path_from_id("default_value"), 0, fr, sstr)
 
     op.video_output(os.path.join(C.RENDERS, "chunks", "c_#####"))   # 5 位帧号，文件名排序就是时间顺序
     os.makedirs(C.RENDERS, exist_ok=True)

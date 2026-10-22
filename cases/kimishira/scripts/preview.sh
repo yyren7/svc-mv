@@ -1,8 +1,9 @@
 #!/bin/bash
 # 快速预览，在 AutoDL 上：960×540、30 fps（隔一帧渲一帧）、8 采样，4 段同时渲；带歌词和制作信息。
-# 默认只出前 40 秒（约 2 分钟），LEN=0 出整首（约 8 分钟）。
-#   bash cases/kimishira/scripts/preview.sh          -> renders/kimishira_preview_540p_40s.mp4
-#   LEN=0 bash cases/kimishira/scripts/preview.sh    -> renders/kimishira_preview_540p.mp4
+# 默认只出前 40 秒（约 1 分半），LEN=0 出整首（约 8 分钟）；TAG 加在文件名后面，FX（见 pv.py）传给 Blender。
+#   bash cases/kimishira/scripts/preview.sh                    -> renders/kimishira_preview_540p_40s.mp4
+#   FX=bokeh,rim TAG=fx2 bash cases/kimishira/scripts/preview.sh  -> renders/kimishira_preview_540p_40s_fx2.mp4
+#   LEN=0 bash cases/kimishira/scripts/preview.sh              -> renders/kimishira_preview_540p.mp4
 set -euo pipefail
 B=/root/autodl-tmp/tools/blender-5.2.2-linux-x64/blender
 PY=/root/autodl-tmp/ComfyUI/venv/bin/python
@@ -11,8 +12,8 @@ C=cases/kimishira
 R=$C/renders
 P=$R/preview
 LEN=${LEN:-40}
-OUT=$R/kimishira_preview_540p.mp4
-[ "$LEN" -gt 0 ] && OUT=$R/kimishira_preview_540p_${LEN}s.mp4
+OUT=$R/kimishira_preview_540p${TAG:+_$TAG}.mp4
+[ "$LEN" -gt 0 ] && OUT=$R/kimishira_preview_540p_${LEN}s${TAG:+_$TAG}.mp4
 mkdir -p $P $R/logs
 rm -f $P/*
 
