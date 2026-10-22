@@ -11,8 +11,8 @@
     $EQ scripts/ring_lab.py beatgrid <mix.wav> <grid.npz>
     $EQ scripts/ring_lab.py click <mix.wav> <out.wav> --t0 165 --t1 200 --grid <grid.npz>
     $EQ scripts/ring_lab.py click <mix.wav> <out.wav> --t0 101 --t1 114 --at 103.09 103.65 104.55 --at-low 106.40 108.04
-    # 夏季大三角的三颗星：在底图上核对位置
-    $PY scripts/ring_lab.py stars <帧目录> --moon <场景>_moon.npz
+    # 夏季大三角的三颗星：在底图上核对位置（TRI_STARS 是在 101–114 s 的底图上用 --t0 103 --t1 114 定的）
+    $PY scripts/ring_lab.py stars <帧目录> --moon <场景>_moon.npz [--t0 103 --t1 114]
     $PY scripts/ring_lab.py draw <帧目录> <输出目录> --style halo --bands <bands.npz> --moon <场景>_moon.npz [--f0 <f0.npz>]
     $PY scripts/ring_lab.py grid <输出目录> --moon <场景>_moon.npz --font <ttf> A=<帧目录> B=<帧目录> ...
 拍子网格、句首、星名、大三角、结尾的时刻都在下面"拍子网格和时刻表"的常量里；section_col 用 ast 从 pv.py 读段落表的一列。
