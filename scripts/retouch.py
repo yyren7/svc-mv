@@ -4,11 +4,15 @@ pixel for pixel. Runs on AutoDL with ComfyUI up, through comfy_batch.sh:
         nohup bash /root/autodl-tmp/comfy_batch.sh <spec.json> > retouch.log 2>&1 &
 A spec:
     {"picture": <png>, "dir": <out dir>, "box": [u0, v0, u1, v1], "prompt": ..., "negative": ...,
-     "denoise": [0.65, 0.8], "seeds": [1, 2, 3, 4], "crop": [1008, 1792], "steps": 30}
+     "denoise": [0.65, 0.8], "seeds": [1, 2, 3, 4], "crop": [1008, 1792], "steps": 30, "rotate": [u, v, degrees]}
 Qwen gets a crop of the picture at its own pixels (crop: w, h, multiples of 16, centred on the box), so a small part
 is drawn at full resolution and nothing is upscaled; only the box, edges feathered, is pasted back. The crop is
-also the reference picture, for the style. Out: one full picture per denoise × seed, <dir>/<tag>_d<denoise>_s<seed>.png,
-and <dir>/_sheet.png with the box of each next to the original."""
+also the reference picture, for the style. rotate turns what is inside the box about (u, v) before Qwen sees it
+(cv2's angle: positive is counter-clockwise), to straighten a prop the model would otherwise keep as it is;
+the seams it makes are inside the mask and get redrawn. Below denoise ~0.9 the model keeps the drawing's
+structure (a hand's pose, a prop's angle); 1.0 draws the box afresh from the prompt and the surroundings.
+Out: one full picture per denoise × seed, <dir>/<tag>_d<denoise>_s<seed>.png, and <dir>/_sheet.png with the box
+of each next to the original."""
 import json
 import os
 import sys
@@ -46,10 +50,19 @@ def main():
     cw, ch = spec.get("crop", [1008, 1792])
     cx = min(max((bx0 + bx1) // 2 - cw // 2, 0), W - cw)
     cy = min(max((by0 + by1) // 2 - ch // 2, 0), H - ch)
-    crop = pic[cy:cy + ch, cx:cx + cw]
+    src = pic
+    if spec.get("rotate"):
+        ru, rv, deg = spec["rotate"]
+        turned = cv2.warpAffine(pic, cv2.getRotationMatrix2D((ru * W, rv * H), deg, 1.0), (W, H),
+                                flags=cv2.INTER_LANCZOS4, borderMode=cv2.BORDER_REFLECT)
+        inside = np.zeros((H, W), np.float32)
+        inside[by0:by1, bx0:bx1] = 1
+        inside = cv2.GaussianBlur(inside, (0, 0), 6)[..., None]
+        src = (pic * (1 - inside) + turned * inside).round().astype(np.uint8)
+    crop = pic[cy:cy + ch, cx:cx + cw]            # what is pasted around the result stays the original
     hole = np.zeros((ch, cw), np.uint8)
     hole[by0 - cy:by1 - cy, bx0 - cx:bx1 - cx] = 1
-    save(f"{COMFY}/input/{tag}_work.png", crop)
+    save(f"{COMFY}/input/{tag}_work.png", src[cy:cy + ch, cx:cx + cw])
     save(f"{COMFY}/input/{tag}_hole.png", grow(hole, 16) * 255)       # 2 latent pixels of room around the box
     m = cv2.GaussianBlur(grow(hole, 10).astype(np.float32), (0, 0), 6)[..., None]
 
