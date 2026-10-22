@@ -62,8 +62,10 @@ TRIANGLE = (106.40, 108.04)     # 夏の大三角：「な」到「く」（清�
 OBOETE = 108.36                 # 覚えて：句首
 MIRU = (112.0, 113.55)          # 見る
 NO_LINE_STAR = (ARE_GA, KIMI_WA)        # 这两句不留句星，让给大三角
-# 大三角用画里月亮右边本来就有的三颗星：off 以 R 为单位、相对月亮中心，x 向右、y 向下，在第 4166 帧量得（见 tri_px）
-TRI_STARS = {"Vega": (3.841, 0.107), "Deneb": (5.073, -0.140), "Altair": (4.480, 1.946)}
+# 大三角用画里月亮右边本来就有的三颗星：off 以 R 为单位、相对月亮中心，x 向右、y 向下（见 tri_px）。第 4166 帧上量的是
+# Vega (3.841, 0.107)、Deneb (5.073, -0.140)、Altair (4.480, 1.946)，到 101–114 s 镜头动了，天津四偏出 2 像素；
+# 现在的值是 stars 子命令在 101–114 s 的底图上、103–114 s（三颗星亮着的时候）测的中位数
+TRI_STARS = {"Vega": (3.845, 0.103), "Deneb": (5.088, -0.154), "Altair": (4.489, 1.947)}
 TRI_EDGES = (("Deneb", "Altair", 106.40, 106.85), ("Altair", "Vega", 106.85, 107.30),
              ("Vega", "Deneb", 107.30, 107.75))         # 按唱名的顺序一条条连上：起点、终点、开始长、长满
 TRI_FADE = (112.6, 113.6)       # 连线保持到 112.6 秒，「見る」时淡出
@@ -829,8 +831,8 @@ def stars_cmd(a):
             out.append(f"{k} 偏 ({dx:+.2f}, {dy:+.2f}) = {math.hypot(dx, dy):.2f} px（{m.sum()} 帧）")
         print(f"f_{int(f0):05d}（{f0 / FPS:.2f} s）前后 0.5 秒：" + "；".join(out), flush=True)
     sel = (nos >= (a.t0 or 0) * FPS) & (nos <= (a.t1 or 1e9) * FPS)
-    msg = "，".join(f'"{k}": ({np.median(rec[sel & good[:, s], s, 3]):.3f}, {np.median(rec[sel & good[:, s], s, 4]):.3f})'
-                   for s, k in enumerate(names))
+    fit = [np.median(rec[sel & good[:, s], s, 3:5], axis=0) for s in range(len(names))]
+    msg = "，".join(f'"{k}": ({x:.3f}, {y:.3f})' for k, (x, y) in zip(names, fit))
     print(("偏差超过 1.5 像素，修正后的 off（R）：" if worst > 1.5 else f"最大偏差 {worst:.2f} px，不用修正；测到的 off（R）：")
           + msg, flush=True)
 
