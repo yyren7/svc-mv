@@ -10,7 +10,8 @@
     bars    细线 + 峰值点：64 根细线绕满一圈（低频在下、高频在上，左右对称），根部亮、往梢上淡；顶上的峰值点停一下再慢慢落
     halo    光环：频谱绕成一条连续的平滑闭合曲线，外面两圈是 0.12、0.25 秒前的"回声"，里面一层很淡的光晕
     ripple  涟漪：每一拍从月亮边上放出一圈细环往外扩散、变淡（重拍更亮），环的起伏是那一拍的频谱；里圈一条细环跟着心跳
-    melody  旋律：月亮外 12 个刻度是 12 个音名，一颗光点按人声的音高走（角度是音名，半径是音高），拖着 1.5 秒的尾巴
+    melody  旋律：一颗光点每两小节顺时针绕月亮一圈（每隔一个小节线回到正上方），离月亮的远近是人声的音高，
+            画出来的旋律线像唱片的纹路，转一圈后淡掉；圈上 8 个刻度是这两小节的 8 拍，拍子到时亮一下
     halo+ripple  光环和涟漪叠在一起
 帧文件名是 60 fps 的场景帧号（f_03960.png），间隔取帧（30 fps）也行。"""
 import argparse
@@ -96,9 +97,9 @@ def f0_cmd(a):
 
 
 class Melody:
-    """人声音高 -> 旋律盘上的位置。音名的角度：出现最多的音名在正上方，音高往上走时顺时针转；半径按整段的音域。"""
+    """人声音高 -> 旋律盘上的半径（按这一段的音域）；角度跟时间走，每两小节一圈。"""
 
-    def __init__(self, f0npz):
+    def __init__(self, f0npz, song):
         self.t0 = float(f0npz["t0"])
         f0 = f0npz["f0"]
         self.voiced = (f0npz["prob"] > 0.3) & (f0 > 0)
@@ -110,10 +111,11 @@ class Melody:
             if np.isfinite(m[i]) and np.isfinite(w).sum() >= 3:
                 mm[i] = np.nanmedian(w)
         self.m = mm
-        ok = np.isfinite(mm)
-        pc = np.round(mm[ok]) % 12
-        self.top = int(np.bincount(pc.astype(int), minlength=12).argmax())
-        self.lo, self.hi = np.percentile(mm[ok], [5, 95])
+        self.lo, self.hi = np.percentile(mm[np.isfinite(mm)], [5, 95])
+        db = song.downbeats
+        self.bar = float(np.median(np.diff(db)))
+        self.ref = float(db[0])
+        self.rev = 2 * self.bar              # 一圈两小节
 
     def at(self, f):
         i = int(round(f - self.t0 * FPS))
@@ -121,11 +123,12 @@ class Melody:
             return None
         return self.m[i]
 
-    def theta(self, m):
-        return np.pi - 2 * np.pi * (m - self.top) / 12.0
+    def theta(self, t):
+        """顺时针（画面上从正上方往右转），每隔一个小节线在正上方。"""
+        return np.pi - 2 * np.pi * (t - self.ref) / self.rev
 
     def radius(self, m):
-        return 1.24 + 0.55 * np.clip((m - self.lo) / max(self.hi - self.lo, 1), -0.1, 1.1)
+        return 1.20 + 0.42 * np.clip((m - self.lo) / max(self.hi - self.lo, 1), -0.1, 1.1)
 
 
 # ---------------------------------------------------------------- 画
@@ -247,39 +250,45 @@ def draw_ripple(cv, song, f, gain=1.0):
 
 
 def draw_melody(cv, song, f, mel):
-    guide = cv.layer(MOON, 0.18)
-    cv.curve(guide, np.linspace(0, 2 * np.pi, 241), np.full(241, 1.13), 1.0, 0.008)
-    # 刻度：12 个音名，最近唱到的亮一点（0.5 秒衰减）
-    energy = np.zeros(12)
-    for g in range(f - 90, f + 1):
-        m = mel.at(g)
-        if m is not None:
-            energy[int(round(m - mel.top)) % 12] += float(song.voice[g]) * math.exp(-(f - g) / (0.5 * FPS)) / 12
+    t = f / FPS
+    guide = cv.layer(MOON, 0.16)
+    cv.curve(guide, np.linspace(0, 2 * np.pi, 241), np.full(241, 1.12), 1.0, 0.008)
+    # 刻度：一圈 8 拍，拍子到时亮一下（0.35 秒衰减，重拍更亮）
     ticks = cv.layer(MOON, 0.9)
-    for k in range(12):
-        th = mel.theta(mel.top + k)
-        cv.line(ticks, th, 1.09, 1.17, min(0.25 + 0.75 * energy[k], 1.0), 0.012)
-    # 尾巴：最近 1.5 秒，不唱的地方断开；相邻两帧在极坐标里插值，换音时走圆弧
+    beat = mel.bar / 4
+    for k in range(8):
+        th = mel.theta(mel.ref + k * beat)
+        val = 0.22
+        for tb in song.beats[(song.beats > t - 1.0) & (song.beats <= t)]:
+            if abs(((tb - mel.ref) / beat - k + 4) % 8 - 4) < 0.3:
+                down = np.min(np.abs(song.downbeats - tb)) < 0.05
+                val += (0.8 if down else 0.5) * math.exp(-(t - tb) / 0.35)
+        cv.line(ticks, th, 1.07, 1.15 if k % 4 else 1.18, min(val, 1.0), 0.012)
+    # 旋律线：最近 0.9 圈，不唱的地方断开，越旧越暗越细
     trail = cv.layer(MOON, 1.0)
-    span = int(1.5 * FPS)
-    prev = None
+    span = int(0.9 * mel.rev * FPS)
+    seg = []
+
+    def flush():
+        if len(seg) >= 2:
+            for i in range(len(seg) - 1):               # 一段段画，亮度和粗细随时间变
+                (t0, r0), (t1, r1) = seg[i], seg[i + 1]
+                age = (f - t1 * FPS) / span
+                v = float(song.voice[min(int(t1 * FPS), song.n - 1)])
+                cv.curve(trail, mel.theta(np.array([t0, t1])), np.array([r0, r1]),
+                         0.95 * (1 - age) ** 1.2 * (0.55 + 0.45 * v), 0.005 + 0.016 * (1 - age), closed=False)
+        seg.clear()
     for g in range(f - span, f + 1):
         m = mel.at(g)
         if m is None:
-            prev = None
+            flush()
             continue
-        th, r = mel.theta(m), mel.radius(m)
-        if prev is not None and abs(th - prev[0]) < np.pi / 2:
-            age = (f - g) / span
-            k = max(2, int(abs(th - prev[0]) / 0.03))
-            tt = np.linspace(prev[0], th, k)
-            rr = np.linspace(prev[1], r, k)
-            cv.curve(trail, tt, rr, 0.85 * (1 - age) ** 1.5, 0.004 + 0.014 * (1 - age), closed=False)
-        prev = (th, r)
+        seg.append((g / FPS, mel.radius(m)))
+    flush()
     m = mel.at(f)
     if m is not None:
         head = cv.layer(WARM, 1.0)
-        cv.dot(head, mel.theta(m), mel.radius(m), 0.028 * (0.7 + 0.6 * float(song.voice[f])), 1.0)
+        cv.dot(head, mel.theta(t), mel.radius(m), 0.032 * (0.75 + 0.5 * float(song.voice[f])), 1.0)
 
 
 # ---------------------------------------------------------------- 合成
@@ -292,7 +301,7 @@ def setup(a):
     G["song"] = Song(a.bands, a.f0)
     G["moon"] = np.load(a.moon)
     if a.style == "melody":
-        G["mel"] = Melody(G["song"].f0)
+        G["mel"] = Melody(G["song"].f0, G["song"])
     if a.style == "bars":
         G["pk"] = peaks(G["song"], a.f_end, 32)
 
