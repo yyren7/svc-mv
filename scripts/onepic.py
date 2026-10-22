@@ -440,8 +440,10 @@ def sky_extra(pic, audio, stars="stars.png", star_gain=1.4, star_color=(0.75, 0.
             near = g.m("EXPONENT", g.m("DIVIDE", d, -0.6 * mr))
             far = g.m("EXPONENT", g.m("DIVIDE", d, -2.5 * mr))
             h = g.m("MULTIPLY", g.m("MULTIPLY_ADD", near, 0.75, g.m("MULTIPLY", far, 0.25)), audio.at(g, "halo"))
-            # 月亮本体不加：圆盘外 0.1 个半径以内从 0 升到 1，月亮自己的亮度一直是贴图的，不跟着低音闪
-            h = g.m("MULTIPLY", h, g.m("DIVIDE", d, 0.1 * mr, clamp=True))
+            # 月亮本体不加：圆盘外 0.02 个半径以内从 0 升到 1，月亮自己的亮度一直是贴图的，不跟着低音闪。
+            # 原来是 0.1 个半径：圆盘外这一圈月晕不足，合成器又按月亮遮罩把光束、光条从这里扣掉，插画本身月亮边上
+            # 那圈饱和的深蓝露出来，成了月亮外面一圈暗的「甜甜圈」（低音重时 R 通道在 1.05–1.11 R 回升 6.8%）
+            h = g.m("MULTIPLY", h, g.m("DIVIDE", d, 0.02 * mr, clamp=True))
             col = g.v("MULTIPLY_ADD", halo_color, g.xyz(h, h, h), col)
         return col
     return f
