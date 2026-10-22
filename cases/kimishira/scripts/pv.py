@@ -322,9 +322,10 @@ def build():
     op.drift("motes", mote, audio, 320, (-9.0, 2.0, -0.35), (18.0, 22.0, 1.3), (0.02, -0.02, 0.05), 0.006,
              seed=2, size_var=0.5, flutter=0.08, rate=0.5, spin=0.0, density="motes", tilt=-0.12)
     # 旋律盘就是月亮：外圈的频谱，低音来时整圈像心跳一样鼓起来。朝右下（人物那边）的柱子拉长到 1.6 倍，像月光
-    # 斜着照出来的；其余方向原样，左上不缩短（缩过，太短了）。月亮贴着画面上边，最响时正上方的柱尖会出画框一点
+    # 斜着照出来的；左上只压到 0.85 倍（压到 0.4 太短，不压又显得挤）。月亮贴着画面上边，正上方的柱子软压在
+    # v = 0.03 以下，整首不出画框（镜头最高到 v ≈ -0.013）
     op.spectrum_ring(pic, audio, d["spec"].shape[1], length=(0.06, 0.85), width=0.04, strength=1.8, pulse="heart",
-                     tilt=(0.6, -50))
+                     tilt=(0.6, -50), squeeze=0.15, top=0.03)
     title(pic)
 
     cam = op.Camera(pic, FPS, n)
