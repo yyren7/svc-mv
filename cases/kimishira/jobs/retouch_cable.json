@@ -1,0 +1,12 @@
+{
+ "_doc": "scripts/retouch.py, after retouch_hands_a d100 s2: the new cable faded out at v 0.83 and the old one went on 80 px to the left from v 0.86. Only the joint is redrawn, so the two ends meet in one curve.",
+ "picture": "/root/autodl-tmp/svc-mv/cases/kimishira/art/retouch_hands_a/retouch_hands_a_d100_s2.png",
+ "dir": "/root/autodl-tmp/svc-mv/cases/kimishira/art/retouch_cable",
+ "box": [0.52, 0.79, 0.60, 0.93],
+ "crop": [1008, 1008],
+ "prompt": "Picture 1 with the microphone cable redrawn where it is broken: one thin black cable hanging down over the white dress in a single smooth continuous curve, joining the cable above to the cable below without any gap, step or second line. Exactly the same anime drawing style, line quality, colours and lighting as the rest of the picture; everything else unchanged.",
+ "negative": "two cables, broken line, gap, blurry, low quality, text, watermark",
+ "denoise": [1.0],
+ "seeds": [1, 2, 3, 4],
+ "steps": 30
+}
