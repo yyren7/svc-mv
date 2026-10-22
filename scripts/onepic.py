@@ -660,7 +660,7 @@ def deform(ob, pic, audio, prep=None, amp=None):
     """人物层的网格按 onepic_prep.py rig 的权重图局部变形（像 Live2D），贴图跟着网格走：
     - 头发、丝带：从发根往下传的波，跟着风时间（audio 的 wind 列）摆，幅度乘 sway 列；
     - 尾巴：绕根部转，越往尖转得越多（tail_s），两个周期叠加；
-    - 耳朵：audio 的 earl / earr 列（抖一下的衰减振荡）；
+    - 耳朵：audio 的 earl / earr 列（-1..1），正值是往外、往上张：左耳尖往左，右耳尖往右；
     - 裙摆：横向的慢波；
     - 嘴：以嘴为中心上下伸缩、嘴角横向跟一点，伸缩量是 audio 的 mouth 列（负的是合一点）；
     - 呼吸：胸口和肩膀按 rig 的 breath 权重，随 audio 的 breath 列（0..1，1 是吸满，0.5 是插画本来的样子）抬起、
@@ -704,10 +704,10 @@ def deform(ob, pic, audio, prep=None, amp=None):
                                   g.m("MULTIPLY", wave(tau, f2, 11.0, 1.7), 0.35)))
     dv = g.m("MULTIPLY", wh, g.m("MULTIPLY", wave(tau, (f1 + f2) / 1.6, 9.0, 0.6), 0.25))
     # 耳朵
-    ear = g.m("ADD", g.m("MULTIPLY", attr("w_ear_l"), audio.at_gn(g, "earl")),
-              g.m("MULTIPLY", attr("w_ear_r"), audio.at_gn(g, "earr")))
-    du = g.m("MULTIPLY_ADD", ear, A["ear"], du)
-    dv = g.m("MULTIPLY_ADD", ear, -0.3 * A["ear"], dv)
+    el = g.m("MULTIPLY", attr("w_ear_l"), audio.at_gn(g, "earl"))
+    er = g.m("MULTIPLY", attr("w_ear_r"), audio.at_gn(g, "earr"))
+    du = g.m("MULTIPLY_ADD", g.m("SUBTRACT", er, el), A["ear"], du)
+    dv = g.m("MULTIPLY_ADD", g.m("ADD", el, er), -0.3 * A["ear"], dv)
     # 尾巴：绕根部转（在等比的坐标里转，再换回 u）
     bu, bv = info["tail_base"]
     p1, p2 = A["tail_period"]

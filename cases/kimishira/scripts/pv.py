@@ -128,19 +128,34 @@ METEOR_TIMES = [5.0, 17.48, 24.00, 70.20, 81.0, 92.0, 140.37, 150.92, 168.4, 186
                 233.0, 255.3, 259.6, 277.6, 286.4, 297.3, 306.2, 312.7, 317.0, 333.0]
 
 
-def ear_flicks(n, seed):
-    """耳朵隔 5~13 秒抖一下：0.6 秒的衰减振荡（7 Hz）。"""
+def ear_moves(n, seed):
+    """两只耳朵的动作 (earl, earr)，-1..1，正值是往外、往上张一点。慢，像在听歌，不抽（7 Hz 的抖动太快太突然）：
+    一直有一点很慢的摆（周期 4~7 秒、幅度 0.12），隔 6~14 秒转一下：0.45 秒转过去、停 0.25~0.6 秒、0.9 秒回来，
+    幅度 ±0.5~1；一半的动作两只耳朵一起（相差不到 0.1 秒），其余各动各的。"""
     rng = np.random.default_rng(seed)
-    out = np.zeros(n, np.float32)
-    k = np.arange(int(0.6 * FPS))
-    flick = np.sin(op.TAU * 7 * k / FPS) * np.exp(-k / (0.16 * FPS))
-    t = rng.uniform(3, 8)
-    while t < n / FPS:
-        f0 = int(t * FPS)
-        m = min(len(k), n - f0)
-        out[f0:f0 + m] += flick[:m]
-        t += rng.uniform(5, 13)
-    return out
+    t = np.arange(n) / FPS
+    ears = [0.12 * np.sin(op.TAU * t / rng.uniform(4, 7) + rng.uniform(0, op.TAU)) for _ in range(2)]
+
+    def smooth(x):
+        x = np.clip(x, 0, 1)
+        return x * x * (3 - 2 * x)
+
+    def turn(ear, t0, amp):
+        rise, hold, fall = 0.45, rng.uniform(0.25, 0.6), 0.9
+        s = t - t0
+        env = np.where(s < rise, smooth(s / rise), np.where(s < rise + hold, 1.0, smooth(1 - (s - rise - hold) / fall)))
+        ears[ear] += amp * np.where((s >= 0) & (s <= rise + hold + fall), env, 0.0)
+
+    tt = rng.uniform(2, 8)
+    while tt < n / FPS:
+        amp = rng.uniform(0.5, 1.0) * rng.choice((-1.0, 1.0))
+        if rng.uniform() < 0.5:
+            turn(0, tt, amp)
+            turn(1, tt + rng.uniform(0, 0.1), amp)
+        else:
+            turn(int(rng.integers(2)), tt, amp)
+        tt += rng.uniform(6, 14)
+    return [e.astype(np.float32) for e in ears]
 
 
 def twinkle(n, seed, every=(3.0, 8.0), dur=0.6):
@@ -216,6 +231,7 @@ def section_arrays(n, d):
         cols[key] = np.convolve(np.pad(cols[key], (k // 2, k - k // 2 - 1), mode="edge"), np.ones(k) / k, "valid")
     loud, bass, high = d["loud"][:n], d["bass"][:n], d["high"][:n]
     speed = 0.55 + 1.1 * cols["energy"] + 0.35 * loud
+    earl, earr = ear_moves(n, 3)
     return {
         "energy": cols["energy"],
         "density": cols["petals"],
@@ -230,8 +246,8 @@ def section_arrays(n, d):
         "sway": 0.6 + 0.6 * cols["energy"],                    # 头发、裙摆、尾巴摆动的幅度
         # 嘴：人声快包络 -> 伸缩量；不唱的时候合一点（-0.28），唱得响时再张开一点（+0.18）
         "mouth": -0.28 + 0.46 * np.clip((d["voice"][:n] - 0.30) / 0.6, 0, 1),
-        "earl": ear_flicks(n, 3),
-        "earr": ear_flicks(n, 4),
+        "earl": earl,
+        "earr": earr,
         "breath": breathing(n),
         "rim": 0.45 + 0.55 * bass ** 2,                        # 轮廓光跟着心跳
     }, cols["beams"]
@@ -356,7 +372,7 @@ def build():
     audio = op.Audio(FPS, cols, spec=d["spec"].astype(np.float32))
 
     char = layers(pic, audio, moon_tex)
-    op.deform(char, pic, audio)      # 头发、尾巴、耳朵、裙摆、嘴、呼吸
+    op.deform(char, pic, audio, amp={"ear": 0.010})      # 头发、尾巴、耳朵、裙摆、嘴、呼吸；耳朵动得慢，幅度给大一点
 
     # 粒子
     petal = op.petal_mesh()
