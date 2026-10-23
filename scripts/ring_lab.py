@@ -38,8 +38,9 @@
             尾巴上留着星最近的亮暗
     disc    月轮唱片：月亮是唱片中间的标签，外面 9 道正圆的纹（1.40–4.60 R，大体往外越来越疏，间距有松有紧），
             淡淡的，朝她和对面两段亮（唱片的反光），跟这道纹的响度慢慢明暗。每道纹一段频率（里低外高），光点沿纹顺时针转，拖着细尾巴；
-            每道纹各有转速（2 到 8 小节一圈），颜色从里圈暖白到外圈冰蓝。光点的颗数、亮暗跟这道纹的频率走，
-            时机各自随机（同 orbit）
+            每道纹各有基准转速（2 到 8 小节一圈），同一道纹上的光点快慢拉开（0.6–1.6 倍），快的追过慢的；
+            颜色从里圈暖白到外圈冰蓝。每颗光点按自己的周期明灭（4–12 拍，相位随机）；颗数、亮暗跟这道纹的频率走，
+            出现熄灭的时机各自随机（同 orbit）
     disc+voice  再加人声：她唱的时候，一颗暖金的光点沿着她音高那道纹走（音域分到各道纹上，两小节一圈），
             换音时滑到别的纹上，留下旋律线。要 --f0
     $PY scripts/ring_lab.py draw <帧目录> <输出目录> --style disc+voice --bands <bands.npz> --moon <场景>_moon.npz \
@@ -619,8 +620,8 @@ def disc_sheen(th):
 
 
 class Disc:
-    """disc 样式的数据：每道纹上的光点（颗数按纹的周长，里圈 3 颗、外圈 8 颗，最多 45 颗，各多备 2 颗轮换）、转速（这道纹的
-    速度 ±5%）、大小、尾巴，每道纹那段频率的响度，逐帧的出现程度和累计转角。全部只由帧号算出来。"""
+    """disc 样式的数据：每道纹上的光点（颗数按纹的周长，里圈 3 颗、外圈 8 颗，最多 45 颗，各多备 2 颗轮换）、转速、
+    明灭的周期和相位、大小、尾巴，每道纹那段频率的响度，逐帧的出现程度和累计转角。全部只由帧号算出来。"""
 
     def __init__(self, song, pv, seed=11):
         rng = np.random.default_rng(seed)
@@ -631,7 +632,13 @@ class Disc:
         self.r = DISC_R[self.track]
         self.color = [tuple(a + (b - a) * k / (K - 1) for a, b in zip(DISC_INNER, DISC_OUTER)) for k in range(K)]
         self.phase = rng.uniform(0, 2 * np.pi, n)
-        self.omega = 2 * np.pi / (np.array(DISC_BEATS, float)[self.track] * BEAT) * rng.uniform(0.95, 1.05, n)
+        # 转速：这道纹的基准速度乘 0.6–1.6，同一道纹上的几颗在这个范围里均匀拉开（再打乱、各 ±3%），不会一起走，
+        # 快的会追过慢的
+        m = np.empty(n)
+        for k in range(K):
+            idx = np.flatnonzero(self.track == k)
+            m[idx] = rng.permutation(np.geomspace(0.6, 1.6, len(idx))) * rng.uniform(0.97, 1.03, len(idx))
+        self.omega = 2 * np.pi / (np.array(DISC_BEATS, float)[self.track] * BEAT) * m
         self.sway_p = rng.uniform(5, 11, n)
         self.sway_ph = rng.uniform(0, 2 * np.pi, n)
         self.size = 0.8 + 0.6 * rng.random(n) ** 2
@@ -645,8 +652,10 @@ class Disc:
         self.level = np.clip(0.12 + 0.88 * (lvl - lo) / (hi - lo), 0.05, 1.0)     # 每道纹的响度 (K, F)
         speed = 0.7 + 0.6 * smooth(song.loud, 1.0 * FPS)   # 响的时候一起转快一点
         self.A = np.concatenate([[0.0], np.cumsum(speed)[:-1]]) / FPS
-        self.tw = np.stack([rng.uniform(2.5, 5, n), rng.uniform(5, 11, n),
-                            rng.uniform(0, 2 * np.pi, n), rng.uniform(0, 2 * np.pi, n)])
+        # 明灭：每颗光点按自己的周期从暗到亮再暗下去（4、6、8 或 12 拍，1.5–4.4 秒，和歌的拍子成倍数），
+        # 相位随机，此起彼伏，不会一起闪
+        self.blink_p = rng.choice((4, 6, 8, 12), n) * BEAT
+        self.blink_ph = rng.uniform(0, 2 * np.pi, n)
         self.env = envelopes(rng, raw[self.track])
         self.alive = lifecycle(rng, song.n, self.track, 0.3 + (cmax[:, None] - 0.3) * self.level)
         # 纹本身的亮度：这道纹的响度再慢慢跟（1.5 秒），段落表的旋律盘列，一点柔和的心跳
@@ -656,14 +665,13 @@ class Disc:
 
     def at(self, i, g):
         """第 i 颗光点在第 g 帧（数组）：位置 x、y（R 单位，x 朝右、y 朝下），极角 th，响度 env，出现的程度 alive，
-        亮度 br（自己的明灭和这段频率各一半，经过反光处亮一点）。"""
+        亮度 br（明灭的周期从 0.15 到满，这段频率再调亮暗一些，经过反光处亮一点）。"""
         g = np.asarray(g)
         t = g / FPS
         th = self.phase[i] - self.omega[i] * self.A[g] + 0.05 * np.sin(2 * np.pi * t / self.sway_p[i] + self.sway_ph[i])
-        p1, p2, f1, f2 = self.tw[:, i]
-        tw = 0.5 + 0.3 * np.sin(2 * np.pi * t / p1 + f1) + 0.2 * np.sin(2 * np.pi * t / p2 + f2)
+        blink = 0.5 + 0.5 * np.sin(2 * np.pi * t / self.blink_p[i] + self.blink_ph[i])
         env, alive = self.env[i, g], self.alive[i, g]
-        br = np.clip(alive * (0.3 + 0.7 * (0.5 * tw + 0.5 * env ** 1.2)) * (1 + 0.35 * disc_sheen(th)), 0, 1)
+        br = np.clip(alive * 1.15 * (0.15 + 0.85 * blink) * (0.65 + 0.35 * env ** 1.2) * (1 + 0.3 * disc_sheen(th)), 0, 1)
         return self.r[i] * np.sin(th), self.r[i] * np.cos(th), th, env, alive, br
 
 
