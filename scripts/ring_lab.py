@@ -39,7 +39,7 @@
     disc    月轮唱片：月亮是唱片中间的标签，外面 9 道正圆的纹（1.40–4.60 R，大体往外越来越疏，间距有松有紧），
             淡淡的，朝她和对面两段亮（唱片的反光），跟这道纹的响度慢慢明暗。每道纹一段频率（里低外高），光点沿纹顺时针转，拖着细尾巴；
             每道纹各有基准转速（2 到 8 小节一圈），同一道纹上的光点快慢拉开（0.6–1.6 倍），快的追过慢的；
-            颜色从里圈暖白到外圈冰蓝。每颗光点按自己的周期明灭（4–12 拍，相位随机）；颗数、亮暗跟这道纹的频率走，
+            颜色从里圈暖白到外圈冰蓝，个别几颗是金、红、粉的点缀。每颗光点按自己的周期明灭（4–12 拍，相位随机）；颗数、亮暗跟这道纹的频率走，
             出现熄灭的时机各自随机（同 orbit）
     disc+voice  再加人声：她唱的时候，一颗暖金的光点沿着她音高那道纹走（音域分到各道纹上，两小节一圈），
             换音时滑到别的纹上，留下旋律线。要 --f0
@@ -610,6 +610,8 @@ class Orbits:
 DISC_R = np.array((1.40, 1.60, 1.96, 2.16, 2.67, 3.00, 3.42, 4.09, 4.60))
 DISC_BEATS = (16, 8, 24, 12, 32, 16, 20, 12, 24)   # 每道纹转一圈的拍数（里 -> 外）：2 到 8 小节，快慢差 4 倍，各转各的
 DISC_INNER, DISC_OUTER = (1.00, 0.94, 0.86), (0.70, 0.85, 1.00)    # 里圈暖白 -> 外圈冰蓝
+# 点缀：63 颗光点里个别几颗不用纹的颜色，金 4 颗、红 3 颗、粉 2 颗（粉呼应她的发色）；星芯往白里调，读起来是带颜色的星
+DISC_ACCENTS = (((1.00, 0.76, 0.36), 4), ((1.00, 0.40, 0.34), 3), ((1.00, 0.64, 0.80), 2))
 DISC_SHEEN = math.radians(78)   # 唱片上的反光朝她（画布的极角：0 正下方，π/2 正右），对面也有一道
 VOICE = (1.00, 0.80, 0.50)      # disc+voice 的人声光点：金色，比里圈的暖白更饱和，分得出来
 
@@ -631,6 +633,15 @@ class Disc:
         n = len(self.track)
         self.r = DISC_R[self.track]
         self.color = [tuple(a + (b - a) * k / (K - 1) for a, b in zip(DISC_INNER, DISC_OUTER)) for k in range(K)]
+        # 每颗光点的颜色：colors 的下标，前 K 个是各道纹的颜色，后面是点缀。点缀用另一个种子挑，
+        # 别的随机数（位置、转速、明灭、出现熄灭）和不加点缀时一样
+        self.colors = self.color + [c for c, _ in DISC_ACCENTS]
+        self.ci = self.track.copy()
+        pick = np.random.default_rng(seed + 1).permutation(n)
+        j = 0
+        for a, (_, m) in enumerate(DISC_ACCENTS):
+            self.ci[pick[j:j + m]] = K + a
+            j += m
         self.phase = rng.uniform(0, 2 * np.pi, n)
         # 转速：这道纹的基准速度乘 0.6–1.6，同一道纹上的几颗在这个范围里均匀拉开（再打乱、各 ±3%），不会一起走，
         # 快的会追过慢的
@@ -1008,14 +1019,14 @@ def draw_orbit(cv, song, f, ob):
 
 def draw_disc(cv, song, f, dk):
     """唱片：9 道淡淡的纹，朝她和对面那两段亮（反光），跟这道纹的响度慢慢明暗；纹上的光点像 orbit 的星，
-    只是轨道是正圆、颜色按纹从里圈暖白到外圈冰蓝，柔光小一点，读起来是纹上走的光，不是一颗颗星。"""
+    只是轨道是正圆、颜色按纹从里圈暖白到外圈冰蓝（个别是金、红、粉），柔光小一点，读起来是纹上走的光，不是一颗颗星。"""
     cv2 = cv.cv2
     f = min(f, song.n - 1)
     K = len(DISC_R)
     groove = [cv.layer(dk.color[k], 1.0, blur=0.008) for k in range(K)]
-    trail = [cv.layer(dk.color[k], 1.0, blur=0.01, dtype=np.float32) for k in range(K)]
-    core = [cv.layer(tuple(0.4 * c + 0.6 for c in dk.color[k]), 1.0) for k in range(K)]
-    halo = [cv.layer(dk.color[k], 0.3, blur=0.03) for k in range(K)]
+    trail = [cv.layer(c, 1.0, blur=0.01, dtype=np.float32) for c in dk.colors]
+    core = [cv.layer(tuple(0.4 * x + 0.6 for x in c), 1.0) for c in dk.colors]
+    halo = [cv.layer(c, 0.3, blur=0.03) for c in dk.colors]
     th = np.linspace(0, 2 * np.pi, 181)
     sh = 0.35 + 0.65 * disc_sheen(0.5 * (th[1:] + th[:-1]))
     base = (0.7 + 0.3 * float(dk.ring[f])) * (0.92 + 0.16 * float(dk.pulse[f]))
@@ -1026,7 +1037,7 @@ def draw_disc(cv, song, f, dk):
             cv2.line(groove[k], tuple(p[s]), tuple(p[s + 1]), int(255 * v * sh[s]), cv.width(0.011), cv2.LINE_AA, 4)
     scr = np.zeros((cv.S, cv.S), np.uint8)
     for i in range(len(dk.track)):
-        k = dk.track[i]
+        k = dk.ci[i]
         g = np.arange(max(f - int(dk.tail[i] * FPS), 0), f + 1, 2)
         if g[-1] != f:
             g = np.append(g, f)
