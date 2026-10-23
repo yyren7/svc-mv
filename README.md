@@ -45,6 +45,7 @@ jobs files.
 | `scripts/onepic_finish.py` | 分段视频拼接，一次编码成片：颗粒、暗角、淡入淡出、字幕、音轨 |
 | `scripts/retouch.py` | 用 Qwen 的局部 img2img 重画一张图里的一个框（手、道具），其余像素不动 |
 | `scripts/retouch_apply.py` | 把修好的图放进一图流的 prep：`color.png` 和人物层的实心处 |
+| `scripts/layers.py` | 一张成品图拆成人物层和近 / 中 / 远三层背景（AutoDL）：anime-seg 抠人物、Depth Anything 分深度、Qwen 补画每层被挡住的部分 |
 
 Notes that apply to every case:
 
