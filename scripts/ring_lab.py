@@ -36,7 +36,7 @@
             拍子上，一拍最多两颗）、什么时候熄灭（各自的寿命，淡出时尾巴慢慢退掉）是随机的；亮暗一半是每颗星自己的
             明灭，一半是它那段频谱（里圈低频、外圈高频），反应的快慢、迟早各不相同，不会一起亮一起暗。
             尾巴上留着星最近的亮暗
-    disc    月轮唱片：月亮是唱片中间的标签，外面 7 道正圆的纹（1.40–2.91 R，往外越来越疏），淡淡的，朝她和对面
+    disc    月轮唱片：月亮是唱片中间的标签，外面 7 道正圆的纹（1.40–4.60 R，往外越来越疏），淡淡的，朝她和对面
             两段亮（唱片的反光），跟这道纹的响度慢慢明暗。每道纹一段频率（里低外高），光点沿纹顺时针转，拖着细尾巴；
             每道纹各有转速（2 到 8 小节一圈），颜色从里圈暖白到外圈冰蓝。光点的颗数、亮暗跟这道纹的频率走，
             时机各自随机（同 orbit）
@@ -602,9 +602,10 @@ class Orbits:
         return X * c - Y * s, X * s + Y * c, d, env, alive, br
 
 
-# disc：月亮是唱片中间的标签，外面 7 道正圆的纹（半径 1.40 R 起每道 ×1.13，往外越来越疏，到 2.91 R），
-# 每道纹一段频率（里低外高），光点沿纹顺时针转
-DISC_R = 1.40 * 1.13 ** np.arange(7)
+# disc：月亮是唱片中间的标签，外面 7 道正圆的纹，每道纹一段频率（里低外高），光点沿纹顺时针转。
+# 纹的半径 1.40 + 0.18 k + 0.0589 k²（R）：1.40、1.64、2.00、2.47、3.06、3.78、4.60，间距从 0.24 R 拉开到 0.83 R，
+# 外圈疏、铺得开，盘大致占满画面左上那四分之一（月亮在那里；外两圈的顶上出画）
+DISC_R = 1.40 + 0.18 * np.arange(7) + 0.0589 * np.arange(7) ** 2
 DISC_BEATS = (16, 8, 24, 12, 32, 16, 24)    # 每道纹转一圈的拍数（里 -> 外）：2 到 8 小节，快慢差 4 倍，各转各的
 DISC_INNER, DISC_OUTER = (1.00, 0.94, 0.86), (0.70, 0.85, 1.00)    # 里圈暖白 -> 外圈冰蓝
 DISC_SHEEN = math.radians(78)   # 唱片上的反光朝她（画布的极角：0 正下方，π/2 正右），对面也有一道
@@ -617,7 +618,7 @@ def disc_sheen(th):
 
 
 class Disc:
-    """disc 样式的数据：每道纹上的光点（颗数按纹的周长，里圈 2 颗、外圈 5 颗，各多备 2 颗轮换）、转速（这道纹的
+    """disc 样式的数据：每道纹上的光点（颗数按纹的周长，里圈 2 颗、外圈 8 颗，各多备 2 颗轮换）、转速（这道纹的
     速度 ±5%）、大小、尾巴，每道纹那段频率的响度，逐帧的出现程度和累计转角。全部只由帧号算出来。"""
 
     def __init__(self, song, pv, seed=11):
@@ -633,7 +634,8 @@ class Disc:
         self.sway_p = rng.uniform(5, 11, n)
         self.sway_ph = rng.uniform(0, 2 * np.pi, n)
         self.size = 0.8 + 0.6 * rng.random(n) ** 2
-        self.tail = (1.0 + 0.7 * (self.size - 0.8) / 0.6) / self.omega      # 尾巴按角度定：57°–97° 的弧
+        # 尾巴按角度定：57°–97° 的弧；2 R 以外的纹按 √(2/r) 收短，外圈的弧不至于拖过半个画面
+        self.tail = (1.0 + 0.7 * (self.size - 0.8) / 0.6) * np.minimum(1, (2.0 / self.r) ** 0.5) / self.omega
         nb = song.spec.shape[1]
         edges = np.round(np.linspace(0, nb, K + 1)).astype(int)
         raw = np.stack([song.spec[:, edges[k]:edges[k + 1]].mean(1) for k in range(K)])
@@ -1128,8 +1130,8 @@ def draw_one(path):
     H, W = img.shape[:2]
     q, r = G["moon"]["pos"][f], float(G["moon"]["r"][f])
     cx, cy, R = q[0] * W, (1 - q[1]) * H, r * W
-    # melody2 要画到大三角（天津四在 5.1 R），orbit 的外圈到 4.2 R，disc 的外圈纹在 2.91 R
-    half = {"melody2": 5.6, "orbit": 4.8}.get(a.style, 3.6 if "disc" in a.style.split("+") else HALF)
+    # melody2 要画到大三角（天津四在 5.1 R），orbit 的外圈到 4.2 R，disc 的外圈纹在 4.60 R
+    half = {"melody2": 5.6, "orbit": 4.8}.get(a.style, 5.2 if "disc" in a.style.split("+") else HALF)
     n = int(math.ceil(2 * half * R))
     x0, y0 = int(round(cx - n / 2)), int(round(cy - n / 2))
     cv = Canvas(R, half, (cx - x0 - n / 2, cy - y0 - n / 2))
