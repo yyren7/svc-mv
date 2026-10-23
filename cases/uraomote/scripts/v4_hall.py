@@ -9,8 +9,11 @@ a rose lamp behind every print, so the back of each sheet shows through the fron
 A print is one sheet with two pictures on the same UVs: the front one faces -X, the back one is printed mirrored,
 so from the front it shows through exactly behind the front picture, and from behind it reads left-right reversed.
 Light through the paper passes both inks, so the translucent colour is front x back. `WET` (0..1) is how much light
-the paper lets through: dry paper about 0.15, wet paper 0.7.
-KV' does not exist yet, so for now every back is a 裏 picture of another composition.
+the paper lets through: dry paper about 0.15, wet paper 0.7. The KV's back is KV' (same composition); every other
+print carries round 2's pictures, a 表 one in front and a 裏 one of another composition behind.
+The walls, the ceiling and the floor under the water are Poly Haven textures, the lamps and the pipes Poly Haven
+models (scripts/fetch_assets.py). `LAMPS` lights the ceiling lamps (1 is about right; 0, the default, leaves them
+off). Below about 128 samples the denoiser draws fine vertical stripes over everything.
 """
 import math
 import os
@@ -26,6 +29,7 @@ import assets as A  # noqa: E402
 import cyc  # noqa: E402
 import kit  # noqa: E402
 import mvlib as m  # noqa: E402
+import texlib as T  # noqa: E402
 
 OUT, SHOTS = cyc.args(os.path.join(C.RENDERS, "v4_hall"), ["aisle_dawn", "aisle_rose", "front_rose"])
 ART = os.path.join(C.CASE, "art", "v4")
@@ -34,13 +38,13 @@ SHEET_W, SHEET_H = 2.4, 4.2                 # a print, metres
 TOP = 5.0                                   # the prints' top edge above the water
 ROWS = [2.0 + 4.0 * i for i in range(7)]    # x of each wire
 WET = float(os.environ.get("WET", 0.18))
+LAMPS = float(os.environ.get("LAMPS", 0.0))
 ROSE = "#F0285A"
 
-# fronts are 表 pictures, backs 裏 ones; the first print (row 0, in the middle) is the KV
-KV = ("v4_kv_205", "v4_chorus_203")
-FRONTS = ["v4_kv_201", "v4_window_201", "v4_kv_203", "v4_window_203", "v4_kv_207", "v4_kv_205"]
-BACKS = ["v4_chorus_201", "v4_rain_201", "v4_chorus_205", "v4_water_201", "v4_chorus_207", "v4_rain_203",
-         "v4_water_203"]
+# fronts are 表 pictures, backs 裏 ones; the first print (row 0, in the middle) is the KV with KV' behind it
+KV = ("v4_kv_211", "v4_kvu_211_n75")
+FRONTS = ["v4_a1_211", "v4_a2_211", "v4_a3_211", "v4_a4_211", "v4_q1_211", "v4_a5_211"]
+BACKS = ["v4_u1_211", "v4_u2_211", "v4_c1_211", "v4_w2_211", "v4_u4_211", "v4_c2_211", "v4_c4_211"]
 
 
 def _nodes(name):
@@ -143,15 +147,18 @@ def sheet(name, x, y, mat, seed):
 
 
 def hall(dawn):
-    plaster, b = A._principled("plaster", **{"Base Color": m.srgb("#8E8D89" if dawn else "#5A5856"), "Roughness": 0.92})
-    A._bump(plaster, b, 3.0, 0.25, detail=8.0, distance=0.02)
-    water, b = A._principled("water", **{"Base Color": (0.002, 0.002, 0.003, 1.0), "Roughness": 0.015, "IOR": 1.33})
+    plaster = T.pbr("worn_plaster_wall", scale=1.0, tint=None if dawn else "#76767E", name="plaster")
+    slab = T.pbr("concrete_slab_wall", scale=1.0, tint="#9A9AA0" if dawn else "#5A5A62", name="ceiling")
+    # 3 cm of black water over a concrete floor: dark enough to read as a mirror, the floor only where a beam falls
+    bed = A.rounded_box("floor", (L + 20, WD, 0.1), 0.0, [T.pbr("hangar_concrete_floor", scale=1.0, tint="#38383C")])
+    bed.location = (L / 2, 0, -0.08)
+    water, b = A._principled("water", **{"Base Color": (0.03, 0.03, 0.035, 1.0), "Roughness": 0.015, "IOR": 1.33,
+                                         "Transmission Weight": 1.0})
     A._bump(water, b, 0.35, 0.05, detail=2.0, distance=0.03)
-    floor = A.rounded_box("water", (L + 20, WD, 0.04), 0.0, [water])
-    floor.location = (L / 2, 0, -0.02)
+    A.rounded_box("water", (L + 20, WD, 0.03), 0.0, [water]).location = (L / 2, 0, -0.015)
     t = 0.4
+    A.rounded_box("ceiling", (L + 20, WD + 2 * t, t), 0.0, [slab]).location = (L / 2, 0, H + t / 2)
     walls = [((L / 2, -WD / 2 - t / 2, H / 2), (L + 20, t, H)),          # the dark wall
-             ((L / 2, 0, H + t / 2), (L + 20, WD + 2 * t, t)),          # ceiling
              ((L + t / 2, 0, H / 2), (t, WD, H)),                       # far end
              ((L / 2, WD / 2 + t / 2, 3.0), (L + 20, t, 6.0)),          # window wall below the windows
              ((L / 2, WD / 2 + t / 2, 11.25), (L + 20, t, 1.5))]        # and above them
@@ -167,6 +174,48 @@ def hall(dawn):
     em.inputs["Strength"].default_value = 2.5 if dawn else 0.4
     nt.links.new(em.outputs[0], out.inputs["Surface"])
     A.rounded_box("sky", (L + 40, 0.1, 30), 0.0, [sky]).location = (L / 2, WD / 2 + 4.0, 10)
+
+
+def _piece(aid, pick=None):
+    """The one mesh of a Poly Haven model (or of a modular pack, `pick`), at real size, and its local bounds."""
+    root = T.model(aid, scale=1.0, pick=pick)
+    ob = next(c for c in root.children if c.type == "MESH")
+    ob.parent = None
+    bpy.data.objects.remove(root)
+    vs = [v.co for v in ob.data.vertices]
+    return ob, Vector([min(v[i] for v in vs) for i in range(3)]), Vector([max(v[i] for v in vs) for i in range(3)])
+
+
+def _copies(ob, locs):
+    """`ob` at the first location and a copy sharing its mesh at each of the others."""
+    for k, loc in enumerate(locs):
+        c = ob if k == 0 else ob.copy()
+        if k:
+            m._link(c)
+        c.location = loc
+
+
+def lamps():
+    """Industrial lamps hanging from the ceiling between the rows, two to a row; lit by LAMPS, else off."""
+    ob, lo, hi = _piece("hanging_industrial_lamp")
+    for slot in ob.material_slots:
+        for n in slot.material.node_tree.nodes if slot.material and slot.material.node_tree else []:
+            if n.type == "BSDF_PRINCIPLED":
+                n.inputs["Emission Strength"].default_value = 6.0 * LAMPS
+    spots = [(x + 2.0, y) for x in ROWS for y in (-3.2, 3.2)]
+    _copies(ob, [(x - (lo.x + hi.x) / 2, y - (lo.y + hi.y) / 2, H - hi.z) for x, y in spots])
+    if LAMPS > 0:
+        for k, (x, y) in enumerate(spots):
+            cyc.point_light(f"lamp{k}", (x, y, H - (hi.z - lo.z) - 0.15), 4200, 400 * LAMPS, radius=0.12)
+
+
+def pipes():
+    """Two runs of pipe under the ceiling along the dark wall: the pack's straight piece end to end along X."""
+    ob, lo, hi = _piece("modular_industrial_pipes_01", pick="pipe02")
+    ob.rotation_euler = (0.0, math.pi / 2, 0.0)                # its length, along local Z, now runs along X
+    cx, cy, n = (lo.x + hi.x) / 2, (lo.y + hi.y) / 2, int((L + 12) / (hi.z - lo.z)) + 1
+    _copies(ob, [(-6 + i * (hi.z - lo.z) - lo.z, y - cy, z + cx)
+                 for y, z in ((-WD / 2 + 0.35, 9.6), (-WD / 2 + 0.6, 10.15)) for i in range(n)])
 
 
 def hang():
@@ -198,17 +247,20 @@ def light(dawn, prints):
         ob = bpy.data.objects.new("sun", sun)
         m._link(ob)
         ob.rotation_mode = "QUATERNION"
-        ob.rotation_quaternion = Vector((0.35, -0.55, -0.75)).normalized().to_track_quat("-Z", "Y")
+        # low enough that the beams cross the whole hall to the dark wall
+        ob.rotation_quaternion = Vector((0.35, -0.8, -0.45)).normalized().to_track_quat("-Z", "Y")
         cyc.area_light("bounce", (L / 2, 0, 0.6), (L / 2, 0, 5), 20, 7000, 400, size_y=8)   # light off the water
-        cyc.haze("haze", (L + 10, WD, H), (L / 2, 0, H / 2), 0.0045, color="#E4ECF4", anisotropy=0.55)
+        cyc.area_light("skylight", (L / 2, WD / 2 - 0.3, 8.25), (L / 2, -WD / 2, 3.0), 40, 9500, 2500, size_y=4.5)
+        cyc.haze("haze", (L + 10, WD, H), (L / 2, 0, H / 2), 0.006, color="#E4ECF4", anisotropy=0.55)
         return
     for p in prints:
         x = p.data.vertices[0].co.x
         y = sum(v.co.y for v in p.data.vertices) / len(p.data.vertices)
         lamp = cyc.area_light(f"behind_{p.name}", (x + 0.9, y, TOP - SHEET_H / 2), (x, y, TOP - SHEET_H / 2),
-                              2.0, 2000, 260, size_y=3.6, color=ROSE)
+                              2.0, 2000, 200, size_y=3.6, color=ROSE)
         lamp.visible_glossy = False
-    cyc.area_light("fill", (L / 2, 0, H - 0.5), (L / 2, 0, 0), 30, 9000, 120, size_y=10, color="#5A78FF")
+    # a cold light from above, so her 表 still reads on the front while the 裏 shows through it
+    cyc.area_light("fill", (L / 2, 0, H - 0.5), (L / 2, 0, 0), 30, 9000, 500, size_y=10, color="#5A78FF")
     cyc.haze("haze", (L + 10, WD, H), (L / 2, 0, H / 2), 0.0035, color="#F2D8E0", anisotropy=0.4)
 
 
@@ -220,6 +272,8 @@ def main():
     cyc.cycles(bounces=8)
     cyc.world((0.0004, 0.0004, 0.0008))
     hall(dawn)
+    lamps()
+    pipes()
     prints = hang()
     light(dawn, prints)
     cyc.post(bloom=0.35 if dawn else 0.6, threshold=1.0 if dawn else 0.75)
