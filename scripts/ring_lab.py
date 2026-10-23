@@ -29,9 +29,13 @@
             闭合的圆留到 END_HOLD，乐队最后一下之后光点减速，最后一个和弦停在正上方。亮度跟 pv.py 段落表的 ring 列
     $PY scripts/ring_lab.py draw <帧目录> <输出目录> --style melody2 --bands <bands.npz> --moon <场景>_moon.npz \
         --f0 <melody.npz> [--pv cases/kimishira/scripts/pv.py]
-    orbit   环绕的星群：ORBIT_N 颗星各在一条略扁、略斜的轨道上绕月亮顺时针转，拖着长尾巴；转得慢（里圈四小节一圈），
-            每颗星快慢略有不同、还各自慢慢起伏，响的时候一起转快一点。每颗星管一段频谱（里圈低频、外圈高频），那段越响越亮、尾巴越长，很响时带四芒光。
-            星的多少跟整体响度走：每颗星有自己的门槛（还慢慢上下漂），响度过了门槛就淡入，回落就熄灭
+    orbit   环绕的星群：ORBIT_N 颗星在同一个倾斜的轨道面上绕月亮顺时针转（同心、不相交，像星轨照片；下半圈是近处，
+            星经过时大一点、亮一点），拖着彗尾；转得慢（里圈四小节一圈），每颗星快慢略有不同、还各自慢慢起伏，
+            响的时候一起转快一点。大多是小星，七八颗大的；冰白、浅蓝为主，少数暖金、淡粉。
+            整体跟着歌走，个体各自随机：亮着的颗数跟整体响度（最多 ORBIT_MAX 颗），但哪颗星、什么时候出现（落在
+            拍子上，一拍最多两颗）、什么时候熄灭（各自的寿命，淡出时尾巴慢慢退掉）是随机的；亮暗一半是每颗星自己的
+            明灭，一半是它那段频谱（里圈低频、外圈高频），反应的快慢、迟早各不相同，不会一起亮一起暗。
+            尾巴上留着星过去两秒的亮暗；大星亮的时候带渐细的四芒光
 帧文件名是 60 fps 的场景帧号（f_03960.png），间隔取帧（30 fps）也行。"""
 import argparse
 import glob
@@ -454,20 +458,30 @@ class Melody2:
         return self.midi[j] if 0 <= j < len(self.midi) else np.nan
 
 
-ORBIT_N = 90
+ORBIT_N = 52
+ORBIT_MAX = 40                  # 最响时亮着的星（目标颗数 2 + 38 × 整体响度），其余的轮换着出来
+# 星的颜色和占比：大多是月光的冰白、浅蓝，少数暖金点缀，更少的淡粉呼应她的发色。尾巴是这个颜色，星芯往白里调
+ORBIT_TINTS = (((0.82, 0.90, 1.00), 0.50),
+               ((0.62, 0.80, 1.00), 0.25),
+               ((1.00, 0.86, 0.62), 0.15),
+               ((1.00, 0.76, 0.86), 0.10))
+# 所有轨道在同一个倾斜的面上：同心、不相交，像星轨照片。短轴/长轴 0.86（倾斜约 31°）；长轴朝右下 12°，
+# 正对着她的脸。下半圈是近处，星经过时大一点、亮一点，转起来有纵深
+ORBIT_FLAT = 0.86
+ORBIT_AXIS = math.radians(12)
 
 
 class Orbits:
-    """orbit 样式的数据：每颗星的轨道、转速、频段、出现的门槛（固定的随机数），逐帧的星群密度和累计转角。
-    全部只由帧号算出来，任意一段帧都能单独画。"""
+    """orbit 样式的数据：每颗星的轨道、转速、频段、大小、颜色、出现的门槛（固定的随机数），逐帧的星群密度和
+    累计转角。全部只由帧号算出来，任意一段帧都能单独画。"""
 
     def __init__(self, song, seed=7):
         rng = np.random.default_rng(seed)
         n = ORBIT_N
-        u = rng.random(n)
-        self.a = 1.45 + 2.6 * u ** 0.9                      # 半长轴（R）：1.45–4.05，星之间留得开
-        self.b = self.a * rng.uniform(0.82, 1.0, n)         # 半短轴：略扁，像斜着看的圆轨道
-        self.tilt = rng.uniform(0, np.pi, n)
+        u = (rng.permutation(n) + rng.random(n)) / n        # 分层抽样：轨道均匀铺开，不扎堆
+        self.a = 1.5 + 2.7 * u ** 0.9                       # 半长轴（R）：1.5–4.2
+        self.flat = ORBIT_FLAT + rng.uniform(-0.015, 0.015, n)
+        self.axis = ORBIT_AXIS + np.radians(rng.uniform(-3, 3, n))
         self.phase = rng.uniform(0, 2 * np.pi, n)
         # 里圈四小节一圈，往外只慢一点；每颗星快慢差几个百分点，转速还各自慢慢起伏（转角上 ±0.12 弧度）
         self.omega = 2 * np.pi / (16 * BEAT) * (1.3 / self.a) ** 0.5 * rng.uniform(0.93, 1.07, n)
@@ -475,23 +489,90 @@ class Orbits:
         self.sway_ph = rng.uniform(0, 2 * np.pi, n)
         nb = song.spec.shape[1]
         self.band = np.clip(np.round(u ** 0.9 * (nb - 1) + rng.normal(0, 3, n)), 1, nb - 2).astype(int)
-        self.h = rng.random(n)                              # 出现的门槛
-        self.wob_p = rng.uniform(6, 14, n)                  # 门槛上下漂的周期（秒）：响度不变时也有星生灭
-        self.wob_ph = rng.uniform(0, 2 * np.pi, n)
-        self.warm = rng.random(n) < 0.25
+        self.size = 0.7 + 1.3 * rng.random(n) ** 2.5        # 大多是小星，七八颗大的（> 1.5）
+        self.tail = 1.4 + 1.0 * (self.size - 0.7) / 1.3     # 尾巴的时长（秒）：大星拖得长
+        w = np.array([x[1] for x in ORBIT_TINTS])
+        self.tint = rng.choice(len(ORBIT_TINTS), n, p=w / w.sum())
         lvl = smooth(song.spec.mean(1), 0.5 * FPS)
         lo, hi = np.percentile(lvl, [10, 95])
         self.level = np.clip(0.12 + 0.88 * (lvl - lo) / (hi - lo), 0.05, 1.0)
         speed = 0.7 + 0.6 * smooth(song.loud, 1.0 * FPS)   # 响的时候一起转快一点
         self.A = np.concatenate([[0.0], np.cumsum(speed)[:-1]]) / FPS
+        # 亮暗：一半是每颗星自己的明灭（两个慢正弦，周期 2.5–5 s 和 5–11 s），一半是它那段频谱。频谱也不直接用：
+        # 每颗星起得快慢（0.08–0.25 s）、落得快慢（0.6–2.0 s）、晚多少（0–0.5 s）各不相同，鼓点来时此起彼伏地亮，
+        # 不会齐刷刷一闪；整群的平均亮度仍然跟着歌走
+        self.tw = np.stack([rng.uniform(2.5, 5, n), rng.uniform(5, 11, n),
+                            rng.uniform(0, 2 * np.pi, n), rng.uniform(0, 2 * np.pi, n)])
+        F = song.n
+        raw = np.stack([song.spec[:, b - 1:b + 2].mean(1) for b in self.band])
+        ka = 1 - np.exp(-1 / (FPS * rng.uniform(0.08, 0.25, n)))
+        kr = 1 - np.exp(-1 / (FPS * rng.uniform(0.6, 2.0, n)))
+        env = np.empty((n, F), np.float32)
+        x = raw[:, 0].copy()
+        for f in range(F):
+            x += np.where(raw[:, f] > x, ka, kr) * (raw[:, f] - x)
+            env[:, f] = x
+        lag = rng.integers(0, int(0.5 * FPS) + 1, n)
+        self.env = np.stack([np.concatenate([np.full(k, env[i, 0]), env[i, :F - k]]) for i, k in enumerate(lag)])
+        self.alive = self.lifecycle(rng, F)
 
-    def xy(self, i, g):
-        """第 i 颗星在第 g 帧（可以是数组）的位置，R 单位，x 朝右、y 朝下；θ 减小是顺时针。"""
-        th = (self.phase[i] - self.omega[i] * self.A[g]
-              + 0.12 * np.sin(2 * np.pi * np.asarray(g) / FPS / self.sway_p[i] + self.sway_ph[i]))
-        X, Y = self.a[i] * np.sin(th), self.b[i] * np.cos(th)
-        c, s = math.cos(self.tilt[i]), math.sin(self.tilt[i])
-        return X * c - Y * s, X * s + Y * c
+    def lifecycle(self, rng, F):
+        """星的生灭 -> 每颗星逐帧的出现程度 (n, F)，0..1。亮着的颗数跟整体响度走（目标 2 + 38 × level），
+        但哪颗、什么时候是随机的：
+        - 出现只落在拍子上（165 BPM 网格），按缺的颗数以 2.5 秒的时间常数补，一拍最多 2 颗，淡入 0.4–0.9 秒；
+        - 每颗星亮着时平均 8–20 秒自己熄灭（由别的星补上，响度不变时也在轮换）；比目标多时按 2.5 秒的时间常数
+          多灭一些；淡出 1.0–2.5 秒，淡出完再过 1 秒才能再出现。
+        整首按固定种子模拟一遍，每个进程算出来的都一样，任意一段帧都能单独画。"""
+        n = ORBIT_N
+        target = 2 + (ORBIT_MAX - 2) * self.level
+        nb = int((F / FPS - BEAT_PHI) / BEAT) + 1
+        on_beat = np.zeros(F, bool)
+        bf = np.round(beat_time(np.arange(nb)) * FPS).astype(int)
+        on_beat[bf[(bf >= 0) & (bf < F)]] = True
+        life = rng.uniform(8, 20, n) * FPS                  # 帧
+        on = np.zeros(n, bool)
+        free = np.zeros(n)                                  # 能再出现的帧
+        t_on = np.full(n, -1e9)
+        fin = np.ones(n)
+        spans = []                                          # (星, 出现帧, 淡入帧数, 熄灭帧, 淡出帧数)
+        on[rng.choice(n, int(round(target[0])), replace=False)] = True
+        for f in range(F):
+            k = on.sum()
+            haz = 1 / life + max(k - target[f], 0) / (2.5 * FPS * max(k, 1))
+            for i in np.flatnonzero(on & (rng.random(n) < haz)):
+                fout = rng.uniform(1.0, 2.5) * FPS
+                spans.append((i, t_on[i], fin[i], f, fout))
+                on[i] = False
+                free[i] = f + fout + FPS
+            if on_beat[f] and target[f] > on.sum():
+                ok = np.flatnonzero(~on & (free <= f))
+                b = min(rng.poisson((target[f] - on.sum()) * BEAT / 2.5), 2, len(ok))
+                for i in rng.choice(ok, b, replace=False):
+                    on[i], t_on[i], fin[i] = True, f, rng.uniform(0.4, 0.9) * FPS
+        for i in np.flatnonzero(on):
+            spans.append((i, t_on[i], fin[i], F + 1e9, 1.0))
+        out = np.zeros((n, F), np.float32)
+        fr = np.arange(F)
+        for i, a, fi, b, fo in spans:
+            lo, hi = int(max(a, 0)), int(min(b + fo + 1, F))
+            x = fr[lo:hi]
+            out[i, lo:hi] = smoothstep((x - a) / fi) * (1 - smoothstep((x - b) / fo))
+        return out
+
+    def at(self, i, g):
+        """第 i 颗星在第 g 帧（数组）：位置 x、y（R 单位，x 朝右、y 朝下；θ 减小是顺时针），远近 d（下半圈 1 近，
+        上半圈 −1 远），它那段频谱（各自的快慢、迟早）的响度 env，出现的程度 alive，亮度 br（0..1）。"""
+        g = np.asarray(g)
+        t = g / FPS
+        th = self.phase[i] - self.omega[i] * self.A[g] + 0.12 * np.sin(2 * np.pi * t / self.sway_p[i] + self.sway_ph[i])
+        X, Y = self.a[i] * np.sin(th), self.a[i] * self.flat[i] * np.cos(th)
+        c, s = math.cos(self.axis[i]), math.sin(self.axis[i])
+        d = np.cos(th)
+        p1, p2, f1, f2 = self.tw[:, i]
+        tw = 0.5 + 0.3 * np.sin(2 * np.pi * t / p1 + f1) + 0.2 * np.sin(2 * np.pi * t / p2 + f2)
+        env, alive = self.env[i, g], self.alive[i, g]
+        br = np.clip(alive * (0.3 + 0.7 * (0.55 * tw + 0.45 * env ** 1.2)) * (1 + 0.2 * d), 0, 1)
+        return X * c - Y * s, X * s + Y * c, d, env, alive, br
 
 
 # ---------------------------------------------------------------- 画
@@ -509,9 +590,11 @@ class Canvas:
         self.c = np.array([(self.n / 2 + off[0]) * SS - 0.5, (self.n / 2 + off[1]) * SS - 0.5])
         self.layers = []
 
-    def layer(self, color, gain):
-        m = np.zeros((self.S, self.S), np.uint8)
-        self.layers.append((m, color, gain))
+    def layer(self, color, gain, blur=0.0, dtype=np.uint8):
+        """一张遮罩，0..255。blur（R 单位）> 0 时着色前先高斯模糊，画柔光用。dtype=float32 的遮罩用来累加：
+        各自先画在 8 位的草稿上再加进来，交叉的地方光相加，不会互相盖掉。"""
+        m = np.zeros((self.S, self.S), dtype)
+        self.layers.append((m, color, gain, blur))
         return m
 
     def px(self, x, y):
@@ -558,8 +641,11 @@ class Canvas:
         """着色相加，加两层辉光，缩回 1 倍；月亮圆盘里压暗（月亮本身的亮度由贴图决定）。返回 float32 RGB。"""
         cv2 = self.cv2
         rgb = np.zeros((self.S, self.S, 3), np.float32)
-        for m, color, gain in self.layers:
-            rgb += (m.astype(np.float32) / 255.0)[..., None] * (np.array(color, np.float32) * gain)
+        for m, color, gain, blur in self.layers:
+            x = m.astype(np.float32) / 255.0
+            if blur > 0:
+                x = cv2.GaussianBlur(x, (0, 0), blur * self.R * SS)
+            rgb += x[..., None] * (np.array(color, np.float32) * gain)
         s1, s2 = 0.04 * self.R * SS, 0.16 * self.R * SS
         rgb = rgb + glow[0] * cv2.GaussianBlur(rgb, (0, 0), s1) + glow[1] * cv2.GaussianBlur(rgb, (0, 0), s2)
         yy, xx = np.mgrid[0:self.S, 0:self.S]
@@ -777,28 +863,54 @@ def draw_melody2(cv, song, f, mel):
 
 
 def draw_orbit(cv, song, f, ob):
-    t = f / FPS
+    """每颗星：彗尾 + 星芯 + 柔光，大星响的时候再加渐细的四芒光。
+    尾巴是星过去 1.4–2.4 秒走过的弧，每一点的亮度、粗细都按星经过那里时的样子（那时的响度、出现的程度、远近），
+    所以尾巴上留着这段频谱的节奏；新出现的星从出现的地方开始拖出尾巴，熄灭时星芯先暗、尾巴慢慢退掉。"""
+    cv2 = cv.cv2
     f = min(f, song.n - 1)
-    hh = ob.h + 0.12 * np.sin(2 * np.pi * t / ob.wob_p + ob.wob_ph)
-    alive = smoothstep((ob.level[f] - hh) / 0.08)
-    layers = {False: cv.layer(MOON, 1.0), True: cv.layer(WARM, 1.0)}
-    for i in np.flatnonzero(alive > 0.01):
-        e = float(song.spec[f, ob.band[i] - 1:ob.band[i] + 2].mean())
-        v = float(alive[i]) * (0.3 + 0.7 * e ** 1.2)
-        m = layers[bool(ob.warm[i])]
-        # 尾巴：1.0–2.4 秒走过的弧，越往后越暗越细
-        g = np.arange(max(f - int((1.0 + 1.4 * e) * FPS), 0), f + 1, 2)
+    k = range(len(ORBIT_TINTS))
+    trail = [cv.layer(ORBIT_TINTS[j][0], 1.0, dtype=np.float32) for j in k]
+    core = [cv.layer(tuple(0.35 * c + 0.65 for c in ORBIT_TINTS[j][0]), 1.0) for j in k]
+    halo = [cv.layer(ORBIT_TINTS[j][0], 0.45, blur=0.035) for j in k]
+    scr = np.zeros((cv.S, cv.S), np.uint8)
+    for i in range(ORBIT_N):
+        g = np.arange(max(f - int(ob.tail[i] * FPS), 0), f + 1, 2)
         if g[-1] != f:
             g = np.append(g, f)
-        p = cv.px(*ob.xy(i, g)).tolist()
-        for s in range(len(p) - 1):
-            x = (s + 1) / (len(p) - 1)
-            cv.cv2.line(m, tuple(p[s]), tuple(p[s + 1]), int(255 * v * x ** 1.6), cv.width(0.004 + 0.012 * x),
-                        cv.cv2.LINE_AA, 4)
-        x, y = ob.xy(i, f)
-        cv.dot_xy(m, x, y, 0.014 + 0.016 * e, v)
-        if e > 0.75:
-            cv.sparkle(m, x, y, 0.0, (0.05 + 0.4 * (e - 0.75)) * float(alive[i]), v * 0.8)
+        x, y, d, e, alive, br = ob.at(i, g)
+        if br.max() < 0.01:
+            continue
+        rc = 0.028 * ob.size[i]                             # 星芯半径（R）：一般 2–2.5 像素，大星 5 像素上下
+        # 彗尾：比星芯略窄，往后渐细渐暗；响的地方粗一点、亮一点，近处粗一点
+        q = 1 - (f - g) / (ob.tail[i] * FPS)                # 星头 1，尾梢 0
+        w = 1.5 * rc * (0.15 + 0.85 * q ** 1.2) * (0.8 + 0.4 * e) * (1 + 0.25 * d)
+        val = 0.8 * br * q ** 1.5
+        p = cv.px(x, y)
+        pl = p.tolist()
+        for s in range(len(pl) - 1):
+            if val[s + 1] > 0.004:
+                cv2.line(scr, tuple(pl[s]), tuple(pl[s + 1]), int(255 * val[s + 1]), cv.width(w[s + 1]),
+                         cv2.LINE_AA, 4)
+        pad = int(1.5 * rc * 1.5 * cv.R * SS) + 4
+        x0, y0 = np.maximum(p.min(0) // 16 - pad, 0)
+        x1, y1 = np.minimum(p.max(0) // 16 + pad, cv.S)
+        trail[ob.tint[i]][y0:y1, x0:x1] += scr[y0:y1, x0:x1]
+        scr[y0:y1, x0:x1] = 0
+        # 星芯和柔光
+        if br[-1] < 0.01:
+            continue
+        r = rc * (0.85 + 0.3 * e[-1]) * (1 + 0.25 * d[-1])
+        cv.dot_xy(core[ob.tint[i]], x[-1], y[-1], r, br[-1])
+        cv.dot_xy(halo[ob.tint[i]], x[-1], y[-1], 2.4 * r, br[-1])
+        # 大星亮到一定程度时的四芒光：细，往外渐暗。看的是这颗星自己的亮度，几颗大星不会同时闪
+        s = float(np.clip((br[-1] - 0.65) / 0.3, 0, 1))
+        if ob.size[i] > 1.5 and s > 0.02:
+            arm = (0.12 + 0.28 * s) * ob.size[i] / 1.6
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                for j, v in enumerate((0.85, 0.5, 0.2)):
+                    a0, a1 = r + arm * j / 3, r + arm * (j + 1) / 3
+                    cv.line_xy(core[ob.tint[i]], (x[-1] + dx * a0, y[-1] + dy * a0),
+                               (x[-1] + dx * a1, y[-1] + dy * a1), v * s * br[-1], 0.009)
 
 
 # ---------------------------------------------------------------- 合成
@@ -832,8 +944,8 @@ def draw_one(path):
     H, W = img.shape[:2]
     q, r = G["moon"]["pos"][f], float(G["moon"]["r"][f])
     cx, cy, R = q[0] * W, (1 - q[1]) * H, r * W
-    # melody2 要画到大三角（天津四在 5.1 R），orbit 的外圈到 4.05 R
-    half = {"melody2": 5.6, "orbit": 4.6}.get(a.style, HALF)
+    # melody2 要画到大三角（天津四在 5.1 R），orbit 的外圈到 4.2 R
+    half = {"melody2": 5.6, "orbit": 4.8}.get(a.style, HALF)
     n = int(math.ceil(2 * half * R))
     x0, y0 = int(round(cx - n / 2)), int(round(cy - n / 2))
     cv = Canvas(R, half, (cx - x0 - n / 2, cy - y0 - n / 2))
@@ -850,7 +962,7 @@ def draw_one(path):
             draw_melody2(cv, song, f, G["mel"])
         elif st == "orbit":
             draw_orbit(cv, song, f, G["orb"])
-    light = cv.light()
+    light = cv.light((0.7, 0.35) if a.style == "orbit" else (0.8, 0.5))     # orbit 的光多，宽辉光收一点，不起雾
     sx0, sy0, sx1, sy1 = max(x0, 0), max(y0, 0), min(x0 + n, W), min(y0 + n, H)
     sub = light[sy0 - y0:sy1 - y0, sx0 - x0:sx1 - x0] * a.gain
     reg = img[sy0:sy1, sx0:sx1]
