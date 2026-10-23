@@ -5,7 +5,7 @@ the two-sided print as a painting.
 import json
 import os
 
-from v4_prompts import HER, LOOK, OMOTE, TALL, URA, WIDE, qwen
+from v4_prompts import HER, LOOK1 as LOOK, OMOTE, TALL, URA1 as URA, WIDE, qwen
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 

@@ -8,15 +8,26 @@ HER = ("an original anime girl of about seventeen: slender, pale skin, straight 
        "line, a long loose black ribbon tie, a black pleated knee-length skirt, white socks and black loafers. No "
        "accessories, no hair clips.")
 
+LOOK1 = ("A breathtaking high-end anime key visual for a music video, refined and elegant rather than cute: delicate "
+         "clean lineart, meticulous glossy hair with fine strands, luminous soft light with gentle bloom, cinematic "
+         "composition, shallow depth of field, subtle paper grain. No text, no letters, no logo, no signature.")
+# from round 2: eyes, shading and grading named, since round 1's 裏 pictures came out as flat pink wallpaper
 LOOK = ("A breathtaking high-end anime key visual for a music video, refined and elegant rather than cute: delicate "
-        "clean lineart, meticulous glossy hair with fine strands, luminous soft light with gentle bloom, cinematic "
-        "composition, shallow depth of field, subtle paper grain. No text, no letters, no logo, no signature.")
+        "clean lineart, finely detailed eyes with layered highlights, meticulous glossy hair with fine strands catching "
+        "the light, painterly soft shading with subtle colour gradients, luminous light with gentle bloom, cinematic "
+        "composition and colour grading, shallow depth of field, subtle paper grain. No text, no letters, no logo, "
+        "no signature.")
 
 # 表: the face she shows. 裏: the side she hides.
 OMOTE = ("Cool high-key morning light: white, silver and pale sky-blue tones, airy and clean, soft blue-grey shadows; "
          "the only warm colour in the picture is the hidden rose red in her hair.")
-URA = ("Low-key night: deep black and ink-blue darkness lit by vivid fluorescent rose-red light from behind and below, "
-       "glowing rim light on her hair and skin, glossy wet highlights, dramatic and beautiful.")
+URA1 = ("Low-key night: deep black and ink-blue darkness lit by vivid fluorescent rose-red light from behind and below, "
+        "glowing rim light on her hair and skin, glossy wet highlights, dramatic and beautiful.")
+URA = ("Low-key night lighting in two colours: a strong vivid rose-red light from behind sets her hair and edges "
+       "glowing, and a faint cold blue light from above keeps her face readable; deep velvety blacks, glossy "
+       "highlights, cinematic contrast.")
+INK = ("The ink behaves like real ink dropped into water: billowing translucent veils and thin silky curling filaments, "
+       "layered and catching the light, not smoke and not fire.")
 
 WIDE, TALL = (1664, 928), (928, 1664)
 
