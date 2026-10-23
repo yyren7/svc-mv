@@ -11,7 +11,7 @@
 月亮外圈用 RING 选：stars（默认，星环：光点沿看不见的轨道绕月亮转，scripts/star_ring.py）、bars（原来的频谱细柱）
 或 none（不放）。
 BLEND 换场景文件的路径，两份场景可以同时搭、同时渲。几秒的 PNG 小样（30 fps，RES 默认 50 即 1080p）：
-    $B -b $BLEND -P cases/kimishira/scripts/pv.py -s 3960 -e 4320 -j 2 -a -- clip <名字>   # -> renders/ring_lab/<名字>/
+    $B -b $BLEND -P cases/kimishira/scripts/pv.py -s 3960 -e 4320 -j 2 -a -- clip <名字>   # -> renders/clips/<名字>/
 """
 import os
 import re
@@ -489,7 +489,7 @@ def stills(seconds):
 
 
 def clip(name):
-    """几秒的 PNG 小样：RES（默认 50，1080p）、SAMPLES（默认 16）、30 fps（-j 2），到 renders/ring_lab/<name>/。
+    """几秒的 PNG 小样：RES（默认 50，1080p）、SAMPLES（默认 16）、30 fps（-j 2），到 renders/clips/<name>/。
     渲染由命令行后面的 -s -e -j 2 -a 来做，帧号是 60 fps 的场景帧号。"""
     s = bpy.context.scene
     s.render.resolution_percentage = int(os.environ.get("RES", 50))
@@ -498,7 +498,7 @@ def clip(name):
     im.media_type = "IMAGE"
     im.file_format = "PNG"
     im.color_mode = "RGB"
-    s.render.filepath = os.path.join(C.RENDERS, "ring_lab", name, "f_#####")
+    s.render.filepath = os.path.join(C.RENDERS, "clips", name, "f_#####")
 
 
 def preview():
