@@ -846,6 +846,173 @@ def spectrum_ring(pic, audio, bands, y=None, inner=1.3, length=(0.04, 0.6), widt
     return ob
 
 
+# ---------------------------------------------------------------- 月亮外圈的星环
+
+def star_ring(pic, ring, y=None, tail_pts=40, gain=1.0, rows=4096):
+    """月亮外圈的星环（star_ring.Ring）：光点沿看不见的正圆轨道绕月亮转，拖着细尾巴。摆在月亮的视线上、y 米处
+    （默认天空的 0.97，和频谱环一样），人物、花瓣、近处的花田在它前面，会挡住它。
+    逐帧的 (θ, 亮度, 响度) 存成一张浮点贴图（每帧一行、每颗光点一列，帧数多时折成几块并排，同 Audio），
+    Geometry Nodes 按帧去查，网格只是骨架：
+    - 尾巴（stars_trail）：每颗光点一条沿轨道的细带，tail_pts 个点从尾梢到光头，每个点查它那一刻（往前 tail 秒以内）
+      的位置、亮度、响度；宽 1.1 × 星芯半径 ×（往尾梢变细、响时宽一点、经过反光处宽一点），亮度 × 0.85 q^1.8
+      （q 光头 1、尾梢 0）；带子两边多留 0.12 R，着色器在那里画一点辉光；
+    - 光头（stars_head）：每颗一小片正方形，着色器画星芯（外圈半亮、中间一半半径全亮，颜色往白里调）、光晕（1.8 倍
+      半径，0.3）和一点辉光。
+    亮度按显示值算（0..1，和在画面上滤色叠上去一样），着色器里过 Gamma 2.2 换成线性再发光，叠加在后面的东西上。
+    长度以月亮半径 R 为单位：R = 月亮在画面上的半径，换到 y 米处。"""
+    mu, mv, mr = pic.meta["moon"]
+    y = y or pic.y_sky * 0.97
+    c = pic.point(mu, mv, y)
+    Rm = mr * pic.sx * y                    # 月亮半径（米）
+    th, br, env, _ = ring.tables()
+    n, F = br.shape
+    K = int(math.ceil(F / rows))
+    px = np.zeros((rows, n * K, 4), np.float32)
+    px[..., 3] = 1
+    for b in range(K):
+        blk = slice(b * rows, min((b + 1) * rows, F))
+        m = blk.stop - blk.start
+        for ch, a in enumerate((th, br, env)):
+            px[:m, b * n:(b + 1) * n, ch] = a[:, blk].T
+    img = bpy.data.images.new("star_ring", n * K, rows, alpha=False, float_buffer=True)
+    img.colorspace_settings.name = "Non-Color"
+    img.pixels.foreach_set(px.ravel())
+    img.pack()
+
+    def skeleton(name, verts_per, faces_per, extra):
+        """每颗光点 verts_per 个顶点的网格，带每颗光点的属性 li、r、rc、tailf、col 和 extra(顶点在这颗里的序号) 给的属性。"""
+        nv = n * verts_per
+        faces = [tuple(i * verts_per + v for v in f) for i in range(n) for f in faces_per]
+        ob = mesh_obj(name, np.zeros((nv, 3)), faces)
+        me = ob.data
+        li = np.repeat(np.arange(n), verts_per)
+        vals = dict(li=li, r=ring.r[li], rc=0.020 * ring.size[li], tailf=ring.tail[li] * ring.fps)
+        vals.update({k: np.tile(v, n) for k, v in extra.items()})
+        for k, v in vals.items():
+            me.attributes.new(k, "FLOAT", "POINT").data.foreach_set("value", np.asarray(v, np.float32))
+        col = np.concatenate([ring.color[li], np.ones((nv, 1), np.float32)], 1)
+        me.attributes.new("col", "FLOAT_COLOR", "POINT").data.foreach_set("color", col.ravel())
+        return ob
+
+    def nodes(name, head):
+        ng, g, gi, go = new_group(name, "GeometryNodeTree", inputs=[("Geometry", "NodeSocketGeometry", None)],
+                                  outputs=[("Geometry", "NodeSocketGeometry", None)])
+
+        def attr(nm):
+            a = g.node("GeometryNodeInputNamedAttribute", data_type="FLOAT")
+            a.inputs["Name"].default_value = nm
+            return kit.sock(a.outputs, "Attribute")
+
+        frame = g.node("GeometryNodeInputSceneTime").outputs["Frame"]
+        q = None if head else attr("q")
+        fs = frame if head else g.m("SUBTRACT", frame, g.m("MULTIPLY", g.m("SUBTRACT", 1.0, q), attr("tailf")))
+        fs = g.m("MINIMUM", g.m("MAXIMUM", g.m("ROUND", fs), 0.0), float(F - 1))
+        block = g.m("FLOOR", g.m("DIVIDE", fs, float(rows)))
+        row = g.m("SUBTRACT", fs, g.m("MULTIPLY", block, float(rows)))
+        u = g.m("DIVIDE", g.m("ADD", g.m("MULTIPLY_ADD", block, float(n), attr("li")), 0.5), float(n * K))
+        v = g.m("DIVIDE", g.m("ADD", row, 0.5), float(rows))
+        t = g.node("GeometryNodeImageTexture")
+        t.interpolation = "Closest"
+        t.extension = "EXTEND"
+        t.inputs["Image"].default_value = img
+        g.link(g.xyz(u, v, 0), t.inputs["Vector"])
+        a, b_, e = g.sep(t.outputs["Color"])          # Separate XYZ 也能拆颜色：θ、亮度、响度
+        sh = g.m("POWER", g.m("ABSOLUTE", g.m("COSINE", g.m("SUBTRACT", a, ring.sheen))), 4.0)     # star_ring.sheen()
+        radial = g.xyz(g.m("SINE", a), 0.0, g.m("MULTIPLY", g.m("COSINE", a), -1.0))
+        center = g.v("ADD", tuple(c), g.v("SCALE", radial, g.m("MULTIPLY", attr("r"), Rm)))
+        widen = g.m("MULTIPLY_ADD", sh, 0.2, 1.0)
+        loud = g.m("MULTIPLY_ADD", e, 0.4, 0.8)
+        if head:
+            rh = g.m("MULTIPLY", g.m("MULTIPLY", attr("rc"), g.m("MULTIPLY_ADD", e, 0.3, 0.85)), widen)
+            E = g.m("MULTIPLY_ADD", rh, 1.8, 0.12)
+            off = g.xyz(attr("ox"), 0.0, attr("oy"))
+            pos = g.v("ADD", center, g.v("SCALE", off, g.m("MULTIPLY", E, Rm)))
+            store = (("hb", b_), ("rh", rh), ("E", E))
+        else:
+            w = g.m("MULTIPLY", g.m("MULTIPLY", g.m("MULTIPLY", attr("rc"), 1.1), g.m("MULTIPLY_ADD", q, 0.75, 0.25)),
+                    g.m("MULTIPLY", loud, widen))
+            hw = g.m("MULTIPLY", w, 0.5)
+            H = g.m("ADD", hw, 0.12)
+            pos = g.v("ADD", center, g.v("SCALE", radial, g.m("MULTIPLY", g.m("MULTIPLY", attr("side"), H), Rm)))
+            sv = g.m("MULTIPLY", g.m("MULTIPLY", b_, 0.85), g.m("POWER", q, 1.8))
+            store = (("sv", sv), ("hw", hw), ("H", H))
+        sp = g.node("GeometryNodeSetPosition")
+        g.link(gi.outputs["Geometry"], sp.inputs["Geometry"])
+        g.link(pos, sp.inputs["Position"])
+        geo = sp.outputs[0]
+        for nm, val in store:
+            st = g.node("GeometryNodeStoreNamedAttribute", data_type="FLOAT", domain="POINT")
+            g.link(geo, st.inputs["Geometry"])
+            st.inputs["Name"].default_value = nm
+            g.link(val, kit.sock(st.inputs, "Value"))
+            geo = st.outputs[0]
+        g.link(geo, go.inputs["Geometry"])
+        return ng
+
+    def material_(name, head):
+        mt, g, out = material(name, "BLENDED")
+
+        def attr(nm, out_name="Fac"):
+            a = g.node("ShaderNodeAttribute")
+            a.attribute_type = "GEOMETRY"
+            a.attribute_name = nm
+            return a.outputs[out_name]
+
+        def fade(x, edge, soft):
+            """x 到 edge 之前是 1，过了 edge 软软地落到 0（edge ± soft 之间 smoothstep）。"""
+            mr_ = g.node("ShaderNodeMapRange")
+            mr_.interpolation_type = "SMOOTHSTEP"
+            g.link(x, kit.sock(mr_.inputs, "Value", "VALUE"))
+            g.link(g.m("SUBTRACT", edge, soft), kit.sock(mr_.inputs, "From Min", "VALUE"))
+            g.link(g.m("ADD", edge, soft), kit.sock(mr_.inputs, "From Max", "VALUE"))
+            kit.sock(mr_.inputs, "To Min", "VALUE").default_value = 1.0
+            kit.sock(mr_.inputs, "To Max", "VALUE").default_value = 0.0
+            return kit.sock(mr_.outputs, "Result", "VALUE")
+
+        def glow(d, k):
+            """辉光：σ = 0.04 R 的高斯，k 是峰值。"""
+            return g.m("MULTIPLY", k, g.m("EXPONENT", g.m("MULTIPLY", g.m("MULTIPLY", d, d), -312.5)))
+
+        col = attr("col", "Color")
+        if head:
+            rh, E = attr("rh"), attr("E")
+            rho = g.m("MULTIPLY", g.v("LENGTH", g.xyz(attr("ox"), attr("oy"), 0.0)), E)
+            core = g.m("ADD", g.m("MULTIPLY", fade(rho, rh, 0.006), 0.55),
+                       g.m("MULTIPLY", fade(rho, g.m("MULTIPLY", rh, 0.5), 0.006), 0.45))
+            halo = g.m("ADD", g.m("MULTIPLY", fade(rho, g.m("MULTIPLY", rh, 1.8), 0.05), 0.3),
+                       glow(rho, g.m("MULTIPLY", g.m("MULTIPLY", rh, rh), 153.0)))
+            white = g.v("MULTIPLY_ADD", col, (0.4, 0.4, 0.4), (0.6, 0.6, 0.6))
+            rgb = g.v("SCALE", g.v("ADD", g.v("SCALE", white, core), g.v("SCALE", col, halo)), attr("hb"))
+        else:
+            hw = attr("hw")
+            d = g.m("MULTIPLY", g.m("ABSOLUTE", attr("side")), attr("H"))
+            prof = g.m("ADD", fade(d, hw, 0.008), glow(d, g.m("MULTIPLY", hw, 13.96)))
+            rgb = g.v("SCALE", col, g.m("MULTIPLY", prof, attr("sv")))
+        rgb = g.v("MINIMUM", rgb, (1.0, 1.0, 1.0))
+        gm = g.node("ShaderNodeGamma")
+        g.link(rgb, gm.inputs["Color"])
+        gm.inputs["Gamma"].default_value = 2.2
+        em = g.node("ShaderNodeEmission")
+        g.link(gm.outputs["Color"], em.inputs["Color"])
+        em.inputs["Strength"].default_value = gain
+        add = g.node("ShaderNodeAddShader")
+        g.link(g.node("ShaderNodeBsdfTransparent").outputs[0], add.inputs[0])
+        g.link(em.outputs[0], add.inputs[1])
+        g.link(add.outputs[0], out.inputs["Surface"])
+        return mt
+
+    T = tail_pts
+    trail = skeleton("stars_trail", 2 * T, [(2 * j, 2 * j + 1, 2 * j + 3, 2 * j + 2) for j in range(T - 1)],
+                     {"q": np.repeat(np.linspace(0, 1, T), 2), "side": np.tile([-1.0, 1.0], T)})
+    head = skeleton("stars_head", 4, [(0, 1, 2, 3)], {"ox": [-1.0, 1.0, 1.0, -1.0], "oy": [-1.0, -1.0, 1.0, 1.0]})
+    for ob, is_head in ((trail, False), (head, True)):
+        ob.data.materials.append(material_(ob.name, is_head))
+        mod = ob.modifiers.new("stars", "NODES")
+        mod.node_group = nodes(ob.name, is_head)
+    print(f"star ring: {n} lights, {F} frames, R {Rm:.2f} m at {y:.0f} m", flush=True)
+    return trail, head
+
+
 # ---------------------------------------------------------------- 流星
 
 def meteors(pic, events, fps, y=150.0, color=(0.8, 0.9, 1.0), strength=6.0):
