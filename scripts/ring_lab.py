@@ -29,6 +29,9 @@
             闭合的圆留到 END_HOLD，乐队最后一下之后光点减速，最后一个和弦停在正上方。亮度跟 pv.py 段落表的 ring 列
     $PY scripts/ring_lab.py draw <帧目录> <输出目录> --style melody2 --bands <bands.npz> --moon <场景>_moon.npz \
         --f0 <melody.npz> [--pv cases/kimishira/scripts/pv.py]
+    orbit   环绕的星群：ORBIT_N 颗星各在一条略扁、略斜的轨道上绕月亮顺时针转，拖着尾巴；里圈快、外圈慢，响的时候
+            一起转快一点。每颗星管一段频谱（里圈低频、外圈高频），那段越响越亮、尾巴越长，很响时带四芒光。
+            星的多少跟整体响度走：每颗星有自己的门槛（还慢慢上下漂），响度过了门槛就淡入，回落就熄灭
 帧文件名是 60 fps 的场景帧号（f_03960.png），间隔取帧（30 fps）也行。"""
 import argparse
 import glob
@@ -115,6 +118,7 @@ class Song:
         d = np.load(bands)
         self.spec = d["spec"].astype(np.float32)
         self.bass = d["bass"].astype(np.float32)
+        self.loud = d["loud"].astype(np.float32)
         self.voice = d["voice"].astype(np.float32)
         self.beats = d["beats"]
         self.downbeats = d["downbeats"]
@@ -450,6 +454,43 @@ class Melody2:
         return self.midi[j] if 0 <= j < len(self.midi) else np.nan
 
 
+ORBIT_N = 90
+
+
+class Orbits:
+    """orbit 样式的数据：每颗星的轨道、转速、频段、出现的门槛（固定的随机数），逐帧的星群密度和累计转角。
+    全部只由帧号算出来，任意一段帧都能单独画。"""
+
+    def __init__(self, song, seed=7):
+        rng = np.random.default_rng(seed)
+        n = ORBIT_N
+        u = rng.random(n)
+        self.a = 1.22 + 1.45 * u ** 0.8                     # 半长轴（R）
+        self.b = self.a * rng.uniform(0.82, 1.0, n)         # 半短轴：略扁，像斜着看的圆轨道
+        self.tilt = rng.uniform(0, np.pi, n)
+        self.phase = rng.uniform(0, 2 * np.pi, n)
+        # 里圈两小节一圈，往外按开普勒变慢
+        self.omega = 2 * np.pi / (8 * BEAT) * (1.3 / self.a) ** 1.5 * rng.uniform(0.85, 1.15, n)
+        nb = song.spec.shape[1]
+        self.band = np.clip(np.round(u ** 0.8 * (nb - 1) + rng.normal(0, 3, n)), 1, nb - 2).astype(int)
+        self.h = rng.random(n)                              # 出现的门槛
+        self.wob_p = rng.uniform(6, 14, n)                  # 门槛上下漂的周期（秒）：响度不变时也有星生灭
+        self.wob_ph = rng.uniform(0, 2 * np.pi, n)
+        self.warm = rng.random(n) < 0.25
+        lvl = smooth(song.spec.mean(1), 0.5 * FPS)
+        lo, hi = np.percentile(lvl, [10, 95])
+        self.level = np.clip(0.12 + 0.88 * (lvl - lo) / (hi - lo), 0.05, 1.0)
+        speed = 0.7 + 0.6 * smooth(song.loud, 1.0 * FPS)   # 响的时候一起转快一点
+        self.A = np.concatenate([[0.0], np.cumsum(speed)[:-1]]) / FPS
+
+    def xy(self, i, g):
+        """第 i 颗星在第 g 帧（可以是数组）的位置，R 单位，x 朝右、y 朝下；θ 减小是顺时针。"""
+        th = self.phase[i] - self.omega[i] * self.A[g]
+        X, Y = self.a[i] * np.sin(th), self.b[i] * np.cos(th)
+        c, s = math.cos(self.tilt[i]), math.sin(self.tilt[i])
+        return X * c - Y * s, X * s + Y * c
+
+
 # ---------------------------------------------------------------- 画
 
 class Canvas:
@@ -732,6 +773,31 @@ def draw_melody2(cv, song, f, mel):
                 cv.dot_xy(tri, p1[0], p1[1], 0.02, 0.9 * fade)
 
 
+def draw_orbit(cv, song, f, ob):
+    t = f / FPS
+    f = min(f, song.n - 1)
+    hh = ob.h + 0.12 * np.sin(2 * np.pi * t / ob.wob_p + ob.wob_ph)
+    alive = smoothstep((ob.level[f] - hh) / 0.08)
+    layers = {False: cv.layer(MOON, 1.0), True: cv.layer(WARM, 1.0)}
+    for i in np.flatnonzero(alive > 0.01):
+        e = float(song.spec[f, ob.band[i] - 1:ob.band[i] + 2].mean())
+        v = float(alive[i]) * (0.3 + 0.7 * e ** 1.2)
+        m = layers[bool(ob.warm[i])]
+        # 尾巴：0.25–0.7 秒走过的弧，越往后越暗越细
+        g = np.arange(max(f - int((0.25 + 0.45 * e) * FPS), 0), f + 1, 2)
+        if g[-1] != f:
+            g = np.append(g, f)
+        p = cv.px(*ob.xy(i, g)).tolist()
+        for s in range(len(p) - 1):
+            x = (s + 1) / (len(p) - 1)
+            cv.cv2.line(m, tuple(p[s]), tuple(p[s + 1]), int(255 * v * x ** 1.6), cv.width(0.004 + 0.012 * x),
+                        cv.cv2.LINE_AA, 4)
+        x, y = ob.xy(i, f)
+        cv.dot_xy(m, x, y, 0.014 + 0.016 * e, v)
+        if e > 0.75:
+            cv.sparkle(m, x, y, 0.0, (0.05 + 0.4 * (e - 0.75)) * float(alive[i]), v * 0.8)
+
+
 # ---------------------------------------------------------------- 合成
 
 G = {}
@@ -745,6 +811,8 @@ def setup(a):
         G["mel"] = Melody(G["song"].f0, G["song"])
     if a.style == "melody2":
         G["mel"] = Melody2(a.f0, a.pv, G["song"].n)
+    if a.style == "orbit":
+        G["orb"] = Orbits(G["song"])
     if a.style == "bars":
         G["pk"] = peaks(G["song"], a.f_end, 32)
 
@@ -776,6 +844,8 @@ def draw_one(path):
             draw_melody(cv, song, f, G["mel"])
         elif st == "melody2":
             draw_melody2(cv, song, f, G["mel"])
+        elif st == "orbit":
+            draw_orbit(cv, song, f, G["orb"])
     light = cv.light()
     sx0, sy0, sx1, sy1 = max(x0, 0), max(y0, 0), min(x0 + n, W), min(y0 + n, H)
     sub = light[sy0 - y0:sy1 - y0, sx0 - x0:sx1 - x0] * a.gain
