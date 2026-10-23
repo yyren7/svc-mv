@@ -29,13 +29,13 @@
             闭合的圆留到 END_HOLD，乐队最后一下之后光点减速，最后一个和弦停在正上方。亮度跟 pv.py 段落表的 ring 列
     $PY scripts/ring_lab.py draw <帧目录> <输出目录> --style melody2 --bands <bands.npz> --moon <场景>_moon.npz \
         --f0 <melody.npz> [--pv cases/kimishira/scripts/pv.py]
-    orbit   环绕的星群：ORBIT_N 颗星在同一个倾斜的轨道面上绕月亮顺时针转（同心、不相交，像星轨照片；下半圈是近处，
-            星经过时大一点、亮一点），拖着彗尾；转得慢（里圈四小节一圈），每颗星快慢略有不同、还各自慢慢起伏，
-            响的时候一起转快一点。大多是小星，七八颗大的；冰白、浅蓝为主，少数暖金、淡粉。
+    orbit   环绕的星群：ORBIT_N 颗星在同一个倾斜的轨道面上绕月亮顺时针转（大致同心，像星轨照片；下半圈是近处，
+            星经过时大一点、亮一点），拖着细的彗尾。转速有快有慢：多数里圈四小节一圈，约三分之一的小星快 1.5–3 倍，
+            大星稳；各自还慢慢起伏，响的时候一起转快一点。大多是小星，十来颗大的；冰白、浅蓝为主，少数暖金、淡粉。
             整体跟着歌走，个体各自随机：亮着的颗数跟整体响度（最多 ORBIT_MAX 颗），但哪颗星、什么时候出现（落在
             拍子上，一拍最多两颗）、什么时候熄灭（各自的寿命，淡出时尾巴慢慢退掉）是随机的；亮暗一半是每颗星自己的
             明灭，一半是它那段频谱（里圈低频、外圈高频），反应的快慢、迟早各不相同，不会一起亮一起暗。
-            尾巴上留着星过去两秒的亮暗；大星亮的时候带渐细的四芒光
+            尾巴上留着星最近的亮暗
 帧文件名是 60 fps 的场景帧号（f_03960.png），间隔取帧（30 fps）也行。"""
 import argparse
 import glob
@@ -480,17 +480,21 @@ class Orbits:
         n = ORBIT_N
         u = (rng.permutation(n) + rng.random(n)) / n        # 分层抽样：轨道均匀铺开，不扎堆
         self.a = 1.5 + 2.7 * u ** 0.9                       # 半长轴（R）：1.5–4.2
-        self.flat = ORBIT_FLAT + rng.uniform(-0.015, 0.015, n)
-        self.axis = ORBIT_AXIS + np.radians(rng.uniform(-3, 3, n))
+        self.flat = ORBIT_FLAT + rng.uniform(-0.03, 0.03, n)     # 每条轨道的扁度、朝向略有出入，不像机械的同心圆
+        self.axis = ORBIT_AXIS + np.radians(rng.uniform(-5, 5, n))
         self.phase = rng.uniform(0, 2 * np.pi, n)
-        # 里圈四小节一圈，往外只慢一点；每颗星快慢差几个百分点，转速还各自慢慢起伏（转角上 ±0.12 弧度）
-        self.omega = 2 * np.pi / (16 * BEAT) * (1.3 / self.a) ** 0.5 * rng.uniform(0.93, 1.07, n)
-        self.sway_p = rng.uniform(5, 11, n)
-        self.sway_ph = rng.uniform(0, 2 * np.pi, n)
         nb = song.spec.shape[1]
         self.band = np.clip(np.round(u ** 0.9 * (nb - 1) + rng.normal(0, 3, n)), 1, nb - 2).astype(int)
-        self.size = 0.7 + 1.3 * rng.random(n) ** 2.5        # 大多是小星，七八颗大的（> 1.5）
-        self.tail = 1.4 + 1.0 * (self.size - 0.7) / 1.3     # 尾巴的时长（秒）：大星拖得长
+        self.size = 0.7 + 1.3 * rng.random(n) ** 2.5        # 大多是小星，十来颗大的（> 1.5）
+        # 转速：里圈四小节一圈、往外慢一点是基准；每颗星再乘 0.9–3.0（多数在 1 上下，小星里约三分之一快 1.5 倍
+        # 以上），大星不超过 1.25，大的稳、小的快；转速还各自慢慢起伏（转角上 ±0.12 弧度）
+        m = 0.9 + 2.1 * rng.random(n) ** 2.5
+        m = np.where(self.size > 1.5, np.minimum(m, 1.25), m)
+        self.omega = 2 * np.pi / (16 * BEAT) * (1.3 / self.a) ** 0.5 * m
+        self.sway_p = rng.uniform(5, 11, n)
+        self.sway_ph = rng.uniform(0, 2 * np.pi, n)
+        # 尾巴按长度定（2.4–4.2 R，大星长），换成时长：快的星尾巴的时长短，弧长差不多，不会拖成一整圈
+        self.tail = (2.4 + 1.8 * (self.size - 0.7) / 1.3) / (self.a * self.omega)
         w = np.array([x[1] for x in ORBIT_TINTS])
         self.tint = rng.choice(len(ORBIT_TINTS), n, p=w / w.sum())
         lvl = smooth(song.spec.mean(1), 0.5 * FPS)
@@ -863,54 +867,47 @@ def draw_melody2(cv, song, f, mel):
 
 
 def draw_orbit(cv, song, f, ob):
-    """每颗星：彗尾 + 星芯 + 柔光，大星响的时候再加渐细的四芒光。
-    尾巴是星过去 1.4–2.4 秒走过的弧，每一点的亮度、粗细都按星经过那里时的样子（那时的响度、出现的程度、远近），
+    """每颗星：彗尾 + 星芯 + 柔光。星芯中间最亮、往外柔和地暗下去，像一个光点，不是一块平的圆盘；
+    彗尾细、边缘柔（整层轻微模糊），离星头越远暗得越快。不加十字星芒：动着的星带星芒像贴上去的。
+    尾巴是星最近走过的一段弧，每一点的亮度、粗细都按星经过那里时的样子（那时的响度、出现的程度、远近），
     所以尾巴上留着这段频谱的节奏；新出现的星从出现的地方开始拖出尾巴，熄灭时星芯先暗、尾巴慢慢退掉。"""
     cv2 = cv.cv2
     f = min(f, song.n - 1)
     k = range(len(ORBIT_TINTS))
-    trail = [cv.layer(ORBIT_TINTS[j][0], 1.0, dtype=np.float32) for j in k]
+    trail = [cv.layer(ORBIT_TINTS[j][0], 1.0, blur=0.01, dtype=np.float32) for j in k]
     core = [cv.layer(tuple(0.35 * c + 0.65 for c in ORBIT_TINTS[j][0]), 1.0) for j in k]
-    halo = [cv.layer(ORBIT_TINTS[j][0], 0.45, blur=0.035) for j in k]
+    halo = [cv.layer(ORBIT_TINTS[j][0], 0.35, blur=0.03) for j in k]
     scr = np.zeros((cv.S, cv.S), np.uint8)
     for i in range(ORBIT_N):
         g = np.arange(max(f - int(ob.tail[i] * FPS), 0), f + 1, 2)
         if g[-1] != f:
             g = np.append(g, f)
-        x, y, d, e, alive, br = ob.at(i, g)
+        x, y, d, e, _, br = ob.at(i, g)
         if br.max() < 0.01:
             continue
-        rc = 0.028 * ob.size[i]                             # 星芯半径（R）：一般 2–2.5 像素，大星 5 像素上下
-        # 彗尾：比星芯略窄，往后渐细渐暗；响的地方粗一点、亮一点，近处粗一点
+        rc = 0.022 * ob.size[i]                             # 星芯半径（R）：一般 1.5–2 像素，大星 4 像素上下
+        # 彗尾：比星芯窄，往后渐细；亮度离星头越远掉得越快；响的地方粗一点、亮一点，近处粗一点
         q = 1 - (f - g) / (ob.tail[i] * FPS)                # 星头 1，尾梢 0
-        w = 1.5 * rc * (0.15 + 0.85 * q ** 1.2) * (0.8 + 0.4 * e) * (1 + 0.25 * d)
-        val = 0.8 * br * q ** 1.5
+        w = 1.1 * rc * (0.25 + 0.75 * q) * (0.8 + 0.4 * e) * (1 + 0.25 * d)
+        val = 0.85 * br * q ** 1.8
         p = cv.px(x, y)
         pl = p.tolist()
         for s in range(len(pl) - 1):
             if val[s + 1] > 0.004:
                 cv2.line(scr, tuple(pl[s]), tuple(pl[s + 1]), int(255 * val[s + 1]), cv.width(w[s + 1]),
                          cv2.LINE_AA, 4)
-        pad = int(1.5 * rc * 1.5 * cv.R * SS) + 4
+        pad = int(1.1 * rc * 1.5 * cv.R * SS) + 4
         x0, y0 = np.maximum(p.min(0) // 16 - pad, 0)
         x1, y1 = np.minimum(p.max(0) // 16 + pad, cv.S)
         trail[ob.tint[i]][y0:y1, x0:x1] += scr[y0:y1, x0:x1]
         scr[y0:y1, x0:x1] = 0
-        # 星芯和柔光
+        # 星芯（外圈半亮、里面一半半径全亮，中间最亮）和柔光
         if br[-1] < 0.01:
             continue
         r = rc * (0.85 + 0.3 * e[-1]) * (1 + 0.25 * d[-1])
-        cv.dot_xy(core[ob.tint[i]], x[-1], y[-1], r, br[-1])
-        cv.dot_xy(halo[ob.tint[i]], x[-1], y[-1], 2.4 * r, br[-1])
-        # 大星亮到一定程度时的四芒光：细，往外渐暗。看的是这颗星自己的亮度，几颗大星不会同时闪
-        s = float(np.clip((br[-1] - 0.65) / 0.3, 0, 1))
-        if ob.size[i] > 1.5 and s > 0.02:
-            arm = (0.12 + 0.28 * s) * ob.size[i] / 1.6
-            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                for j, v in enumerate((0.85, 0.5, 0.2)):
-                    a0, a1 = r + arm * j / 3, r + arm * (j + 1) / 3
-                    cv.line_xy(core[ob.tint[i]], (x[-1] + dx * a0, y[-1] + dy * a0),
-                               (x[-1] + dx * a1, y[-1] + dy * a1), v * s * br[-1], 0.009)
+        cv.dot_xy(core[ob.tint[i]], x[-1], y[-1], r, 0.55 * br[-1])
+        cv.dot_xy(core[ob.tint[i]], x[-1], y[-1], 0.5 * r, br[-1])
+        cv.dot_xy(halo[ob.tint[i]], x[-1], y[-1], 2.0 * r, br[-1])
 
 
 # ---------------------------------------------------------------- 合成
