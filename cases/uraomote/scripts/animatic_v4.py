@@ -8,7 +8,7 @@ her illustrations on a card filling the frame (section 3.1).
 
     blender -b --factory-startup -P cases/uraomote/scripts/animatic_v4.py -- <frames_dir> [first_bar last_bar]
     env: FPS=12 SAMPLES=16 WIDTH=640, LIMIT=1 (the first frame of every shot), AT=0.5 (that point of every shot),
-         ONLY=P4,P5 (those sections)
+         ONLY=P4,P5 (those sections), DEVICE=CPU (render on the CPU), DRY=1 (run the shots, render nothing)
     python cases/uraomote/scripts/animatic_cut.py <frames_dir> cases/uraomote/audio/urao_mix.m4a <out.mp4> 12
 
 Frames are numbered on the song's clock and frames already there are skipped, so bar ranges can run side by side
@@ -643,6 +643,9 @@ def stamp():
 def setup():
     m.reset()
     scene = cyc.cycles(samples=SAMPLES, bounces=6)
+    if os.environ.get("DEVICE") == "CPU":           # when the GPU is taken: the server has 256 cores
+        scene.cycles.device = "CPU"
+        scene.cycles.denoising_use_gpu = False
     scene.render.resolution_x, scene.render.resolution_y = WIDTH, WIDTH * 9 // 16
     scene.render.resolution_percentage = 100
     scene.render.use_persistent_data = True
