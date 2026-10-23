@@ -7,7 +7,7 @@ assets/models/
 *.blend
 *.blend1
 *.mp4
-fonts/
+fonts
 assets/polyhaven/
 assets/thirdparty/
 # pictures: official references and generated drafts stay on the local disk; their READMEs and jobs files are kept

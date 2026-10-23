@@ -94,6 +94,10 @@
 月晕和月光光束跟柔和版的心跳（低音的平方再 0.3 秒滑动平均，`pulse` 列），幅度也小，不闪；月亮本身的圆盘亮度不变。
 光束只从月亮和这圈频谱发出（`BEAM_GAIN`、`BEAM_MASK`）。镜头始终看整张画，月亮一直在画面里。
 
+旋律盘别的样式（光环、涟漪、跟着人声音高画的旋律线、环绕的星群、月轮唱片……）在 `scripts/ring_lab.py` 里试：
+`pv.py` 用 `RING=none` 渲出不带频谱环的底帧，ring_lab 在上面画 2D 的光并排比较，各样式和命令在它的 docstring 里，
+小样在服务器的 `renders/ring_lab/`。选定的样式再做进 Blender 场景。
+
 ## 可选特效
 
 `FX=` 开，逗号隔开，`pv.py build` 时读（`preview.sh`、`render.sh` 前面加上就行）。默认都不开，用不用还没定；
@@ -120,8 +124,9 @@
 
 ## 怎么跑
 
-全部在 AutoDL 上（`ssh autodl`），本地只写脚本、看结果。服务器上的 `/root/autodl-tmp/svc-mv` 是这个仓库的 git 克隆，
-和本地都经 GitHub 同步：哪边动手前先 `git pull`，改完提交、`git push`。用 scp 把文件推过去再各自提交，两边会各加一遍同样的文件，合并时全是冲突。
+全部在 AutoDL 上（`ssh autodl`），本地只写脚本、看结果。服务器上的 `/root/autodl-tmp/svc-mv` 是这个仓库的 git 克隆：
+本地提交、push 到 GitHub，服务器上 `git pull`；服务器推不了这个仓库，别在那边提交。用 scp 把脚本推过去，两边会各加一遍同样的文件，
+下次 pull 就冲突。详见总 README 的 [Local and the GPU server](../../README.md#local-and-the-gpu-server)。
 
 ```sh
 PY=/root/autodl-tmp/ComfyUI/venv/bin/python; export PYTHONPATH=/root/autodl-tmp/pv/pylib
@@ -140,7 +145,7 @@ UPSCALER2=/root/autodl-tmp/ComfyUI/models/upscale_models/2x-AnimeSharpV4_RCAN.sa
 $PY scripts/onepic_prep.py rig /root/autodl-tmp/layers/kue_stars_103/char.png $C/rig.json $C/art/prep
 # 修图（ComfyUI 由 comfy_batch.sh 起停），挑好的放进 art/prep，再重跑上面的 rig
 CLIENT="env PYTHONPATH=/root/autodl-tmp/pv/pylib $PY /root/autodl-tmp/svc-mv/scripts/retouch.py" \
-    bash /root/autodl-tmp/comfy_batch.sh $PWD/$C/jobs/retouch_hands_a.json       # 它会 cd 到 ComfyUI，任务给绝对路径
+    bash scripts/comfy_batch.sh $C/jobs/retouch_hands_a.json       # 它会 cd 到 ComfyUI，CLIENT 里的脚本给绝对路径
 $PY scripts/retouch_apply.py $C/art/prep $C/art/retouch_cable/retouch_cable_d100_s3.png
 
 # 快速预览：前 40 秒约 1 分半 -> renders/kimishira_preview_540p_40s.mp4；LEN=0 整首；FX、TAG 见上
@@ -160,7 +165,8 @@ $PY $C/scripts/cover.py $C/renders/stills/t_070.00.png $C/renders/cover
 
 - 分区：音乐 → 翻唱。类型选"自制"，在简介里写明原曲。
 - 作者声明勾选"使用 AI 合成技术"：歌声是 DDSP-SVC 转换的，插画是 AI 画的。
-- 插画和放大、深度模型都是非商用许可（见 [docs/comfyui.md](../../docs/comfyui.md) 和 [docs/onepic.md](../../docs/onepic.md)），不开充电、不接商单的普通投稿没问题。
+- 插画（Qwen-Image-2.1 画的）和放大、深度模型都是非商用许可，不开充电、不接商单。Qwen 的许可严格说只许研究和评估用，
+  见 [docs/models.md](../../docs/models.md)。
 - 上传 `renders/kimishira_pv.mp4` 原文件即可（B 站会按 4K 转码）。
 
 草稿（按需改）：

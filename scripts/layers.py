@@ -1,8 +1,8 @@
 """Split a finished picture into layers for Blender: the character, and the background in three depth bands (near,
 mid, far), every layer the full size of the picture and aligned with the others, each with what it hides drawn in.
-    CLIENT="env PYTHONPATH=/root/autodl-tmp/pv/pylib /root/autodl-tmp/ComfyUI/venv/bin/python /root/autodl-tmp/layers.py" \
-        bash comfy_batch.sh <spec.json>...
-Runs on AutoDL next to comfy_gen.py, with ComfyUI up (comfy_batch.sh starts it). A spec:
+    CLIENT="env PYTHONPATH=/root/autodl-tmp/pv/pylib /root/autodl-tmp/ComfyUI/venv/bin/python $PWD/scripts/layers.py" \
+        bash scripts/comfy_batch.sh <spec.json>...
+Runs on AutoDL in the repo's checkout, next to comfy_gen.py, with ComfyUI up (comfy_batch.sh starts it). A spec:
     {"picture": <file in ComfyUI/output>, "dir": <out dir>, "scene": <the whole background, a sentence or two>,
      "far_scene": <only the distant background>, "near": <depth>, "far": <depth>}
 Without "near" and "far" it stops after the plate (the picture with the character taken out and filled in) and the

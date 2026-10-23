@@ -1,7 +1,7 @@
 # Image models: quality and licences
 
 Checked 2026-10-23: the two models in [comfyui.md](comfyui.md) against Krea 2, the strongest open-weights
-rival. Krea 2 has not been run here; its quality notes come from the leaderboard and other people's tests.
+rival, and the licences of the other models a picture passes through. Krea 2 has not been run here; its quality notes come from the leaderboard and other people's tests.
 Licences change, so read the licence file again before relying on this, and get a written grant before anything
 commercial. This is not legal advice.
 
@@ -37,10 +37,21 @@ side-by-side from the same jobs before switching anything.
 | Commercial licence | email model-business@notice.qwencloud.com; no public price | ask CircleStone Labs (see the model card); people report slow replies | above $1M, an enterprise licence from opensource@krea.ai |
 
 - From strictest to loosest: Qwen, Anima, Krea 2.
+- Qwen's "non-commercial" is narrower than the word: research or evaluation only (1(i)). Read strictly, even an
+  unpaid public video is neither, and the licence allows no other use.
 - Anima's licence is built like FLUX.1 [dev]'s. The outputs clause allows commercial use, but the definition of
   non-commercial excludes revenue-generating activity, so running Anima for a paid job is unclear. Get a grant from
   CircleStone Labs to be sure.
 - Early reports of a 50-seat limit on Krea 2 are not in the licence text; the only limit is the revenue.
+
+The other models a picture passes through, by their model cards:
+
+| Model | What it does here | Licence |
+|---|---|---|
+| Depth Anything V2 Large | depth for the layers (`onepic_prep.py`, `layers.py`) | CC BY-NC 4.0; the Small model is Apache 2.0 |
+| 4x-AnimeSharp, 2x-AnimeSharpV4 RCAN (Kim2091) | enlarging pictures and layers | CC BY-NC-SA 4.0 |
+| anime-seg (skytnt, ISNet) | cutting the character out | Apache 2.0 |
+| big-lama | filling in behind the character (`onepic_prep.py`) | Apache 2.0 (the LaMa repo) |
 
 ## Before a commercial release
 
@@ -51,7 +62,8 @@ side-by-side from the same jobs before switching anything.
 - Krea 2 is the clean way while revenue stays under $1M, but it can't use the reference sheets.
 - No model licence covers the characters themselves: a character drawn to an official design also needs its owner's
   permission.
-- The other models in the pipeline (Depth Anything V2, anime-seg, the upscalers) were not checked.
+- Depth Anything V2 Large and the AnimeSharp upscalers are non-commercial too: use Depth Anything V2 Small and an
+  upscaler whose licence allows it.
 
 ## Sources
 

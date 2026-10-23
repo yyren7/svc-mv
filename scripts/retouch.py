@@ -1,7 +1,7 @@
 """Redraw one part of a finished picture (a hand, a prop) with Qwen-Image-2.1's masked img2img; the rest stays
 pixel for pixel. Runs on AutoDL with ComfyUI up, through comfy_batch.sh:
     CLIENT="env PYTHONPATH=/root/autodl-tmp/pv/pylib /root/autodl-tmp/ComfyUI/venv/bin/python /root/autodl-tmp/svc-mv/scripts/retouch.py" \
-        nohup bash /root/autodl-tmp/comfy_batch.sh <spec.json> > retouch.log 2>&1 &
+        nohup bash scripts/comfy_batch.sh <spec.json> > retouch.log 2>&1 < /dev/null &
 A spec:
     {"picture": <png>, "dir": <out dir>, "box": [u0, v0, u1, v1], "prompt": ..., "negative": ...,
      "denoise": [0.65, 0.8], "seeds": [1, 2, 3, 4], "crop": [1008, 1792], "steps": 30, "rotate": [u, v, degrees]}

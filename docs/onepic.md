@@ -96,5 +96,5 @@
 
 ## 许可
 
-Depth Anything V2 Large（CC BY-NC 4.0）、4x-AnimeSharp（CC BY-NC-SA 4.0）是非商用许可，插画模型同样（见 [comfyui.md](comfyui.md)）。
-普通投稿可以，商用前要换掉。
+Depth Anything V2 Large（CC BY-NC 4.0）、4x-AnimeSharp 和 2x-AnimeSharpV4（CC BY-NC-SA 4.0）是非商用许可，anime-seg、big-lama 是 Apache 2.0。
+插画模型的许可（Qwen 只许研究和评估用）和商用前要换掉什么，见 [models.md](models.md)。

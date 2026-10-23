@@ -1,8 +1,9 @@
 #!/bin/bash
 # Draw job files on ComfyUI and stop it afterwards, so it holds the GPU only while it draws.
-#   nohup bash comfy_batch.sh <jobs.json>... > batch.log 2>&1 &
-# CLIENT is the command each file is handed to (layers.py's docstring has the one for layer specs).
-CLIENT=${CLIENT:-"/root/miniconda3/bin/python /root/autodl-tmp/comfy_gen.py"}
+#   nohup bash scripts/comfy_batch.sh <jobs.json>... > batch.log 2>&1 < /dev/null &
+# CLIENT is the command each file is handed to (layers.py's docstring has the one for layer specs); by default the
+# comfy_gen.py beside this script.
+CLIENT=${CLIENT:-"/root/miniconda3/bin/python $(dirname "$(realpath "$0")")/comfy_gen.py"}
 files=()
 for f in "$@"; do files+=("$(realpath "$f")"); done
 cd /root/autodl-tmp/ComfyUI || exit 1

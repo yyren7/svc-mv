@@ -5,7 +5,9 @@ Character illustrations (key visuals, poses, close-ups) are drawn on ComfyUI on 
 
 ## The server
 
-- AutoDL, an RTX 4090D (24 GB). ComfyUI lives at `/root/autodl-tmp/ComfyUI` with its own `venv/`.
+- AutoDL (`ssh autodl`), an RTX 4090D (24 GB). ComfyUI lives at `/root/autodl-tmp/ComfyUI` with its own `venv/`;
+  the repo's checkout is `/root/autodl-tmp/svc-mv` (how the two sides stay in step: the README's
+  [Local and the GPU server](../README.md#local-and-the-gpu-server)).
 - `scripts/comfy_batch.sh` starts ComfyUI, draws the job files and stops it, so ComfyUI holds the GPU only while it
   draws. Check `nvidia-smi` before a batch. Blender renders run on the same card.
 
@@ -64,22 +66,28 @@ case's own illustrations, one file per round (`t1.json`, `t2.json`, ...). The pi
 
 ## Running a batch
 
+Commit and push the jobs file first, then on the server:
+
 ```sh
-# reference pictures go to ComfyUI/input/ first
-scp -P <port> ref_*.png root@<host>:/root/autodl-tmp/ComfyUI/input/
-scp -P <port> scripts/comfy_gen.py scripts/comfy_batch.sh jobs.json root@<host>:/root/autodl-tmp/
-ssh -p <port> root@<host>
-cd /root/autodl-tmp
-sed -i 's/\r$//' comfy_gen.py comfy_batch.sh jobs.json      # files from Windows carry CRLF; bash will not run them
-nohup bash comfy_batch.sh jobs.json > batch.log 2>&1 &     # several job files run one after another
-# when batch.log ends with "== done" and "comfyui stopped":
-scp -P <port> 'root@<host>:/root/autodl-tmp/ComfyUI/output/<prefix>*' <local folder>
-.venv/Scripts/python scripts/art_sheet.py <folder>/_sheet.png 4 <folder>/*.png    # a contact sheet to choose from
+cd /root/autodl-tmp/svc-mv && git pull
+cp -p <the pictures the jobs name in ref> ../ComfyUI/input/
+nohup bash scripts/comfy_batch.sh characters/<name>/jobs/t9.json > ../batch_t9.log 2>&1 < /dev/null &
+# several job files run one after another. When the log ends with "== done" and "comfyui stopped":
+cp -pn ../ComfyUI/output/<prefix>* characters/<name>/art/      # the checkout keeps the pictures too
 ```
 
-`comfy_batch.sh` expects `comfy_gen.py` in `/root/autodl-tmp/` and runs it with `/root/miniconda3/bin/python`
-(it needs only the standard library). ComfyUI's own log is `/root/autodl-tmp/comfy.log`. It hands each file to
-`$CLIENT` instead when that is set (see [Layers for Blender](#layers-for-blender)).
+and locally:
+
+```sh
+scp 'autodl:/root/autodl-tmp/svc-mv/characters/<name>/art/<prefix>*' characters/<name>/art/
+.venv/Scripts/python scripts/art_sheet.py characters/<name>/art/_sheet_t9.png 4 characters/<name>/art/<prefix>*.png
+scp characters/<name>/art/_sheet_t9.png autodl:/root/autodl-tmp/svc-mv/characters/<name>/art/
+```
+
+`comfy_batch.sh` runs the `comfy_gen.py` beside it with `/root/miniconda3/bin/python` (it needs only the standard
+library). ComfyUI's own log is `/root/autodl-tmp/comfy.log`. It hands each file to `$CLIENT` instead when that is
+set (see [Layers for Blender](#layers-for-blender)). It `cd`s into ComfyUI, so a `$CLIENT` script needs an absolute
+path.
 
 The upscale models in `ComfyUI/models/upscale_models/` are Kim2091's `4x-AnimeSharp.pth` and
 `2x-AnimeSharpV4_RCAN.safetensors`, from `hf-mirror.com` (the server cannot reach huggingface.co).
@@ -108,9 +116,9 @@ picture and filled in where a nearer layer hid it, plus their depth maps, for an
 runs on the server with ComfyUI up, so it goes through `comfy_batch.sh` with a different client:
 
 ```sh
-scp scripts/layers.py scripts/comfy_gen.py scripts/comfy_batch.sh <spec.json> root@<host>:/root/autodl-tmp/
-CLIENT="env PYTHONPATH=/root/autodl-tmp/pv/pylib /root/autodl-tmp/ComfyUI/venv/bin/python /root/autodl-tmp/layers.py" \
-    nohup bash comfy_batch.sh <spec.json> > layers.log 2>&1 &
+cd /root/autodl-tmp/svc-mv && git pull
+CLIENT="env PYTHONPATH=/root/autodl-tmp/pv/pylib /root/autodl-tmp/ComfyUI/venv/bin/python $PWD/scripts/layers.py" \
+    nohup bash scripts/comfy_batch.sh characters/<name>/jobs/layers_<pick>.json > ../layers.log 2>&1 < /dev/null &
 ```
 
 The first run (a spec without `near` and `far`) cuts the character out (anime-seg), fills the plate behind her

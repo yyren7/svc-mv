@@ -19,39 +19,86 @@ jobs files.
 
 ## Shared scripts
 
+Audio and lyrics:
+
 | File | What it does |
 |---|---|
 | `scripts/analyze.py` | Beats, downbeats, loudness per frame and sung lines, from the mix and the vocal |
 | `scripts/transcribe.py` | Lyrics with word timestamps (faster-whisper) |
-| `scripts/mvlib.py` | 2D layout kit: flat / toon / halftone materials, text in Mincho / Gothic / DIN, rules, marks, barcodes |
+| `scripts/audio_bands.py` | 逐帧音频特征：节拍、重拍、响度、低频、高频、人声、对数频谱 |
+| `scripts/lrc2ass.py` | LRC 歌词（可带译文）和制作信息 -> ASS 字幕 |
+
+3D sets in Blender (local):
+
+| File | What it does |
+|---|---|
 | `scripts/kit.py` | Blender-native motion kit: F-curve helpers, Geometry Nodes (kinetic text, timecode, bursts, speedlines, shatter), Line Art, rigid bodies, cloth, compositor |
 | `scripts/cyc.py` | Shared Cycles setup: GPU, kelvin lamps, physical DOF with autofocus, haze, per-shot exposure, the still loop |
 | `scripts/assets.py` | Cycles material library and procedural hero props (hearts, heart bulbs) |
 | `scripts/props.py` | Procedural set dressing at 1:12: set box, iron bed, twin-bell clock, window with a printed sky card, desk things, polaroids, tiles, instancing |
 | `scripts/texlib.py` | Poly Haven PBR surfaces box-mapped onto procedural meshes, HDRI worlds, models scaled to 1:12 |
 | `scripts/fetch_assets.py` | Downloads the Poly Haven (CC0) and CC BY assets the sets use into `assets/` |
+| `scripts/encode.py` | Frames + audio slice to MP4, with film grain |
+| `scripts/test_kit.py` | Smoke test for `kit.py` |
+
+2D print material:
+
+| File | What it does |
+|---|---|
+| `scripts/mvlib.py` | 2D layout kit in Blender: flat / toon / halftone materials, text in Mincho / Gothic / DIN, rules, marks, barcodes |
 | `scripts/riso.py` | 2D material as a risograph print (PIL): paper, halftone screens, inks that overprint out of register; `separate()` turns an illustration into the inks |
+
+Illustrations on ComfyUI (AutoDL):
+
+| File | What it does |
+|---|---|
 | `scripts/comfy_gen.py` | Queues a jobs file on ComfyUI: Anima or Qwen-Image-2.1, reference pictures, img2img from an earlier job |
 | `scripts/comfy_batch.sh` | Starts ComfyUI on the GPU server, draws the job files, stops it again |
 | `scripts/art_sheet.py` | Tiles pictures into a labelled contact sheet |
-| `scripts/encode.py` | Frames + audio slice to MP4, with film grain |
-| `scripts/test_kit.py` | Smoke test for `kit.py` |
-| `scripts/onepic.py` | 一图流的 Blender 场景：按深度起伏的插画层、音频数据贴图、漂流粒子、频谱环、流星、立体标题、镜头、合成 |
-| `scripts/onepic_prep.py` | 一图流的素材准备（AutoDL）：深度、人物遮罩、补全背景、天空、星点、月亮；接入另外做好的分层并放大 |
-| `scripts/onepic_setup.sh` | AutoDL 上一图流的环境：依赖装进单独的 pylib，下载模型 |
-| `scripts/audio_bands.py` | 逐帧音频特征：节拍、重拍、响度、低频、高频、人声、对数频谱 |
-| `scripts/onepic_player.py` | 一图流左下角的歌名、进度条和时间，可选带唱片和一圈频谱的旋律盘，逐帧透明 PNG |
-| `scripts/lrc2ass.py` | LRC 歌词（可带译文）和制作信息 -> ASS 字幕 |
-| `scripts/onepic_finish.py` | 分段视频拼接，一次编码成片：颗粒、暗角、淡入淡出、字幕、音轨 |
 | `scripts/retouch.py` | 用 Qwen 的局部 img2img 重画一张图里的一个框（手、道具），其余像素不动 |
 | `scripts/retouch_apply.py` | 把修好的图放进一图流的 prep：`color.png` 和人物层的实心处 |
 | `scripts/layers.py` | 一张成品图拆成人物层和近 / 中 / 远三层背景（AutoDL）：anime-seg 抠人物、Depth Anything 分深度、Qwen 补画每层被挡住的部分 |
 
+One-picture PV, 一图流 (AutoDL):
+
+| File | What it does |
+|---|---|
+| `scripts/onepic_setup.sh` | AutoDL 上一图流的环境：依赖装进单独的 pylib，下载模型 |
+| `scripts/onepic_prep.py` | 一图流的素材准备（AutoDL）：深度、人物遮罩、补全背景、天空、星点、月亮；接入另外做好的分层并放大 |
+| `scripts/onepic.py` | 一图流的 Blender 场景：按深度起伏的插画层、音频数据贴图、漂流粒子、频谱环、流星、立体标题、镜头、合成 |
+| `scripts/onepic_player.py` | 一图流左下角的歌名、进度条和时间，可选带唱片和一圈频谱的旋律盘，逐帧透明 PNG |
+| `scripts/onepic_finish.py` | 分段视频拼接，一次编码成片：颗粒、暗角、淡入淡出、字幕、音轨 |
+| `scripts/ring_lab.py` | 君の知らない物語（kimishira）月亮外圈旋律盘的样式实验：在渲染帧上画几种 2D 的光并排比较；目前只给这个 case 用 |
+
 Notes that apply to every case:
 
 - [docs/comfyui.md](docs/comfyui.md): drawing illustrations on ComfyUI: the server, the two models, the jobs file, and the recipes that worked.
-- [docs/models.md](docs/models.md): Qwen-Image-2.1, Anima and Krea 2 compared on quality and on what their licences allow commercially.
+- [docs/models.md](docs/models.md): Qwen-Image-2.1, Anima and Krea 2 compared on quality, and what every model in the pipeline allows commercially.
 - [docs/onepic.md](docs/onepic.md)：一图流 PV 的做法和踩过的坑。
+
+## Local and the GPU server
+
+Local (Windows) is for writing scripts, the 3D sets in Blender, and looking at results. ComfyUI and the whole
+one-picture PV run on AutoDL (`ssh autodl`, an RTX 4090D, 24 GB):
+
+| On AutoDL | |
+|---|---|
+| `/root/autodl-tmp/svc-mv` | a git checkout of this repo |
+| `/root/autodl-tmp/ComfyUI` | ComfyUI with its own `venv/`; its `input/` and `output/` |
+| `/root/autodl-tmp/pv/` | the one-picture PV's `pylib/` and `models/` (`scripts/onepic_setup.sh`) |
+| `/root/autodl-tmp/tools/blender-5.2.2-linux-x64/` | Blender |
+| `/root/autodl-tmp/conda_envs/` | `evalq` (librosa), `ddsp` (DDSP-SVC's, for RMVPE) |
+
+- **Code goes one way**: commit locally, push to GitHub, then `git pull` in the checkout on the server. Don't commit
+  on the server (its token can't push to this repo), and don't scp scripts over: a file added on both sides
+  conflicts on the next pull.
+- When the server can't reach GitHub, carry the commits in a bundle: locally `git bundle create x.bundle
+  <server HEAD>..main`, scp it over, then on the server `/usr/bin/git pull --ff-only x.bundle main`.
+- **What git leaves out sits at the same path on both sides** (`art/`, `ref/`, a case's `audio/`): copy pictures
+  from `ComfyUI/output/` into the checkout's folder as well as pulling them locally, send contact sheets made
+  locally back, and compare md5 on both sides. Don't overwrite a file that is newer on the other side. Renders and
+  a PV's `art/prep/` are made on the server and stay there; pull what you want to watch.
+- Background jobs over ssh need `nohup ... < /dev/null &`, or the ssh session hangs.
 
 ## A case's folder
 
@@ -66,6 +113,9 @@ cases/<name>/
   jobs/          ComfyUI jobs files for the case's own illustrations, one per round
   art/           the pictures they drew (not in git)
 ```
+
+A one-picture PV ([cases/kimishira](cases/kimishira/)) has `pv.py` and its render scripts in `scripts/` instead of
+set scripts, plus `rig.json` (where the character's moving parts are) and `credits.txt` (the end credits).
 
 A set script starts like this:
 
