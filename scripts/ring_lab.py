@@ -36,10 +36,10 @@
             拍子上，一拍最多两颗）、什么时候熄灭（各自的寿命，淡出时尾巴慢慢退掉）是随机的；亮暗一半是每颗星自己的
             明灭，一半是它那段频谱（里圈低频、外圈高频），反应的快慢、迟早各不相同，不会一起亮一起暗。
             尾巴上留着星最近的亮暗
-    disc    月轮唱片：月亮是唱片中间的标签，外面 13 道正圆的纹（1.40–8.00 R，大体往外越来越疏，间距有松有紧；
-            盘占画面将近一半），
-            淡淡的，朝她和对面两段亮（唱片的反光），跟这道纹的响度慢慢明暗。每道纹一段频率（里低外高），光点沿纹顺时针转，拖着细尾巴；
-            每道纹各有基准转速（2 到 11 小节一圈），同一道纹上的光点快慢拉开（0.6–1.6 倍），快的追过慢的；
+    disc    月轮唱片：月亮是唱片中间的标签，外面 15 道正圆的纹（1.40–10.40 R，大体往外越来越疏，间距有松有紧；
+            盘超过半个画面，最外两道从她身后过），纹本身透明（DISC_GROOVE），只看得到沿纹走的光点。
+            每道纹一段频率（里低外高），光点沿纹顺时针转，拖着细尾巴；
+            每道纹各有基准转速（2 到 14 小节一圈），同一道纹上的光点快慢拉开（0.6–1.6 倍），快的追过慢的；
             颜色从里圈暖白到外圈冰蓝，个别几颗是金、红、粉的点缀。每颗光点按自己的周期明灭（4–12 拍，相位随机）；颗数、亮暗跟这道纹的频率走，
             出现熄灭的时机各自随机（同 orbit）
     disc+voice  再加人声：她唱的时候，一颗暖金的光点沿着她音高那道纹走（音域分到各道纹上，两小节一圈），
@@ -604,16 +604,18 @@ class Orbits:
         return X * c - Y * s, X * s + Y * c, d, env, alive, br
 
 
-# disc：月亮是唱片中间的标签，外面 13 道正圆的纹，每道纹一段频率（里低外高），光点沿纹顺时针转。
+# disc：月亮是唱片中间的标签，外面 15 道正圆的纹，每道纹一段频率（里低外高），光点沿纹顺时针转。
 # 纹的半径（R）：里面 9 道 1.40–4.60 R，间距大体往外变宽（按 1 + 0.25 k），每个间距再随机放宽或收窄（×0.55–1.6，
-# 种子 1）：0.20、0.36、0.20、0.51、0.33、0.42、0.67、0.51 R，有松有紧；外面再加 4 道，间距更宽（0.70、0.90、0.75、
-# 1.05 R），到 8.00 R。盘占画面的 37–44%（月亮在左上，盘的右边刚过画面中线，外几圈的顶上、左边出画）
-DISC_R = np.array((1.40, 1.60, 1.96, 2.16, 2.67, 3.00, 3.42, 4.09, 4.60, 5.30, 6.20, 6.95, 8.00))
-# 每道纹转一圈的拍数（里 -> 外）：2 到 11 小节，各转各的；外 4 道慢，光点走的线速度和 4.60 R 那道差不多
-DISC_BEATS = (16, 8, 24, 12, 32, 16, 20, 12, 24, 28, 36, 32, 44)
+# 种子 1）：0.20、0.36、0.20、0.51、0.33、0.42、0.67、0.51 R，有松有紧；外面再加 6 道，间距更宽（0.70、0.90、0.75、
+# 1.05、1.15、1.25 R），到 10.40 R。最外两道从她身后过（猫耳约 8 R，脸约 10.8 R）：做进场景后被她挡住，
+# ring_lab 叠 2D 的光时画在她身上
+DISC_R = np.array((1.40, 1.60, 1.96, 2.16, 2.67, 3.00, 3.42, 4.09, 4.60, 5.30, 6.20, 6.95, 8.00, 9.15, 10.40))
+# 每道纹转一圈的拍数（里 -> 外）：2 到 14 小节，各转各的；外 6 道慢，光点走的线速度和 4.60 R 那道差不多
+DISC_BEATS = (16, 8, 24, 12, 32, 16, 20, 12, 24, 28, 36, 32, 44, 48, 56)
+DISC_GROOVE = 0.0               # 纹本身的亮度（乘 0.09–0.18）：0 是纹透明，只有光点沿着它走
 DISC_INNER, DISC_OUTER = (1.00, 0.94, 0.86), (0.70, 0.85, 1.00)    # 里圈暖白 -> 外圈冰蓝
-# 点缀：119 颗光点里个别几颗不用纹的颜色，金 7 颗、红 5 颗、粉 4 颗（粉呼应她的发色）；星芯往白里调，读起来是带颜色的星
-DISC_ACCENTS = (((1.00, 0.76, 0.36), 7), ((1.00, 0.40, 0.34), 5), ((1.00, 0.64, 0.80), 4))
+# 点缀：158 颗光点里个别几颗不用纹的颜色，金 9 颗、红 7 颗、粉 5 颗（粉呼应她的发色）；星芯往白里调，读起来是带颜色的星
+DISC_ACCENTS = (((1.00, 0.76, 0.36), 9), ((1.00, 0.40, 0.34), 7), ((1.00, 0.64, 0.80), 5))
 DISC_SHEEN = math.radians(78)   # 唱片上的反光朝她（画布的极角：0 正下方，π/2 正右），对面也有一道
 VOICE = (1.00, 0.80, 0.50)      # disc+voice 的人声光点：金色，比里圈的暖白更饱和，分得出来
 
@@ -624,7 +626,7 @@ def disc_sheen(th):
 
 
 class Disc:
-    """disc 样式的数据：每道纹上的光点（颗数按纹的周长，里圈 3 颗、外圈 14 颗，最多 93 颗，各多备 2 颗轮换）、转速、
+    """disc 样式的数据：每道纹上的光点（颗数按纹的周长，里圈 3 颗、外圈 19 颗，最多 128 颗，各多备 2 颗轮换）、转速、
     明灭的周期和相位、大小、尾巴，每道纹那段频率的响度，逐帧的出现程度和累计转角。全部只由帧号算出来。"""
 
     def __init__(self, song, pv, seed=11):
@@ -670,8 +672,8 @@ class Disc:
         self.blink_p = rng.choice((4, 6, 8, 12), n) * BEAT
         self.blink_ph = rng.uniform(0, 2 * np.pi, n)
         self.env = envelopes(rng, raw[self.track])
-        # 光点比 orbit 的星多一倍，一拍最多出现 3 颗才补得上
-        self.alive = lifecycle(rng, song.n, self.track, 0.3 + (cmax[:, None] - 0.3) * self.level, per_beat=3)
+        # 光点是 orbit 的星的两三倍，一拍最多出现 4 颗才补得上
+        self.alive = lifecycle(rng, song.n, self.track, 0.3 + (cmax[:, None] - 0.3) * self.level, per_beat=4)
         # 纹本身的亮度：这道纹的响度再慢慢跟（1.5 秒），段落表的旋律盘列，一点柔和的心跳
         self.groove = np.stack([smooth(x, 1.5 * FPS) for x in self.level])
         self.ring = section_col(pv, song.n)
@@ -1031,23 +1033,25 @@ def draw_orbit(cv, song, f, ob):
 
 
 def draw_disc(cv, song, f, dk):
-    """唱片：13 道淡淡的纹，朝她和对面那两段亮（反光），跟这道纹的响度慢慢明暗；纹上的光点像 orbit 的星，
-    只是轨道是正圆、颜色按纹从里圈暖白到外圈冰蓝（个别是金、红、粉），柔光小一点，读起来是纹上走的光，不是一颗颗星。"""
+    """唱片：15 道纹（DISC_GROOVE > 0 时画成淡淡的线，朝她和对面那两段亮（反光），跟这道纹的响度慢慢明暗；
+    现在是 0，纹透明）；纹上的光点像 orbit 的星，只是轨道是正圆、颜色按纹从里圈暖白到外圈冰蓝（个别是金、红、粉），
+    柔光小一点，读起来是纹上走的光，不是一颗颗星。"""
     cv2 = cv.cv2
     f = min(f, song.n - 1)
     K = len(DISC_R)
-    groove = [cv.layer(dk.color[k], 1.0, blur=0.008) for k in range(K)]
     trail = [cv.layer(c, 1.0, blur=0.01, dtype=np.float32) for c in dk.colors]
     core = [cv.layer(tuple(0.4 * x + 0.6 for x in c), 1.0) for c in dk.colors]
     halo = [cv.layer(c, 0.3, blur=0.03) for c in dk.colors]
-    th = np.linspace(0, 2 * np.pi, 181)
-    sh = 0.35 + 0.65 * disc_sheen(0.5 * (th[1:] + th[:-1]))
-    base = (0.7 + 0.3 * float(dk.ring[f])) * (0.92 + 0.16 * float(dk.pulse[f]))
-    for k in range(K):
-        v = (0.09 + 0.09 * float(dk.groove[k, f])) * base
-        p = cv.px(*cv.polar(th, np.full(181, DISC_R[k]))).tolist()
-        for s in range(180):
-            cv2.line(groove[k], tuple(p[s]), tuple(p[s + 1]), int(255 * v * sh[s]), cv.width(0.011), cv2.LINE_AA, 4)
+    if DISC_GROOVE > 0:
+        groove = [cv.layer(dk.color[k], 1.0, blur=0.008) for k in range(K)]
+        th = np.linspace(0, 2 * np.pi, 181)
+        sh = 0.35 + 0.65 * disc_sheen(0.5 * (th[1:] + th[:-1]))
+        base = DISC_GROOVE * (0.7 + 0.3 * float(dk.ring[f])) * (0.92 + 0.16 * float(dk.pulse[f]))
+        for k in range(K):
+            v = (0.09 + 0.09 * float(dk.groove[k, f])) * base
+            p = cv.px(*cv.polar(th, np.full(181, DISC_R[k]))).tolist()
+            for s in range(180):
+                cv2.line(groove[k], tuple(p[s]), tuple(p[s + 1]), int(255 * v * sh[s]), cv.width(0.011), cv2.LINE_AA, 4)
     scr = np.zeros((cv.S, cv.S), np.uint8)
     for i in range(len(dk.track)):
         k = dk.ci[i]
@@ -1165,7 +1169,7 @@ def draw_one(path):
     H, W = img.shape[:2]
     q, r = G["moon"]["pos"][f], float(G["moon"]["r"][f])
     cx, cy, R = q[0] * W, (1 - q[1]) * H, r * W
-    # melody2 要画到大三角（天津四在 5.1 R），orbit 的外圈到 4.2 R，disc 的外圈纹在 DISC_R[-1]（8.00 R）
+    # melody2 要画到大三角（天津四在 5.1 R），orbit 的外圈到 4.2 R，disc 的外圈纹在 DISC_R[-1]（10.40 R）
     half = {"melody2": 5.6, "orbit": 4.8}.get(a.style, DISC_R[-1] + 0.6 if "disc" in a.style.split("+") else HALF)
     n = int(math.ceil(2 * half * R))
     x0, y0 = int(round(cx - n / 2)), int(round(cy - n / 2))
