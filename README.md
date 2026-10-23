@@ -50,6 +50,7 @@ jobs files.
 Notes that apply to every case:
 
 - [docs/comfyui.md](docs/comfyui.md): drawing illustrations on ComfyUI: the server, the two models, the jobs file, and the recipes that worked.
+- [docs/models.md](docs/models.md): Qwen-Image-2.1, Anima and Krea 2 compared on quality and on what their licences allow commercially.
 - [docs/onepic.md](docs/onepic.md)：一图流 PV 的做法和踩过的坑。
 
 ## A case's folder

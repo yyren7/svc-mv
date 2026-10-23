@@ -20,8 +20,10 @@ Character illustrations (key visuals, poses, close-ups) are drawn on ComfyUI on 
 
 Why these two (checked 2026-10-21): Qwen-Image-2.1 is first on the Artificial Analysis open-weights text-to-image
 board (T2I v2.1, Elo 1042, 2026-09), which has no anime category. Anima (CircleStone Labs and Comfy Org, 2B
-parameters, released 2026-05-15) is the newest anime-specific model. Both licences are non-commercial, so private
-use is fine. Replace the illustrations before any commercial release.
+parameters, released 2026-05-15) is the newest anime-specific model. Private use is fine with both. Qwen's licence
+bars commercial use, its pictures included; Anima's lets its pictures be used commercially, but not the model
+itself. Before a commercial release, read [models.md](models.md): the licences side by side, and how both compare
+with Krea 2.
 
 ## A jobs file
 
