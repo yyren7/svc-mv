@@ -43,7 +43,7 @@ Style frames (the 2D side): ![](renders/frame_A_post.png) ![](renders/frame_B_po
 | `scripts/sample.py` | 15-second kinetic sample of the chorus |
 | `scripts/animatic.py` | The whole PV at low resolution: every set's shots moving to the song, cut on the downbeats |
 | `scripts/animatic_cut.py` | Joins the animatic's frames with the song into an MP4 |
-| `scripts/v4_hall.py` | v4: the hall's look, stills at dawn and in rose light, the prints carrying the v4 pictures. Written, not run yet |
+| `scripts/v4_hall.py` | v4: the hall's look, stills at dawn and in rose light, the prints carrying the v4 pictures. First look on the server at RES=50 SAMPLES=64 (`renders/v4_hall/`, dawn and rose in separate runs): at dawn the hall is underexposed and its walls and windows don't read; in rose light front and back mix into one red, with vertical stripes. Still on round 1's pictures and procedural plaster, not the manifest's textures |
 
 The sets show each other's pictures as prints: S1's polaroids are the S3 stills, and the style frames hang in
 S1, S2, S3, S4 and S5. Render the style frames and S3 before the others.
@@ -80,6 +80,7 @@ her design, the look, the 表 and 裏 lights. Pictures in `art/v4/`.
 |---|---|---|
 | `jobs/v4_t1.json` (from `v4_t1.py`) | `v4_{sheet,kv,window,chorus,water,rain,print}_*` | Her new design and the look, no reference. `sheet_201` is the design; the 表 pictures (kv, window) work, the 裏 ones came out flat: one pink light, blank faces, pink smoke for ink, ink tears that read as blood, and the bird's-eye view ignored |
 | `jobs/v4_t2.json` (from `v4_t2.py`) | `v4_{kv,a1–a5,q1,c1–c4,w1,w2,u1,u2,u4,r0,f1,f2}_211/213`, `v4_s1–s3_211` | Every illustration of 3.4 from `sheet_201`, two seeds each, and the three skies. The 裏 light gained a cold fill and every face its expression. Sheet: `_sheet_v4_t2.png`. Not picked yet; KV' and Q2 come from the picks |
+| `jobs/v4_t3.json` (from `v4_t3.py`) | `v4_kvu_{211,213}_{62,75,n62,n75}` | KV' in each round-2 KV's own composition. Redrawn from the KV as it is, it stayed in daylight (62, 75: only her face changed). Turned to night first (`v4_kv_*_night.png`), it keeps the composition exactly and comes out at night with the rose light from the window, n75 the better; but hazy, and the rose glow sits in front of her face instead of rimming her hair. Sheet: `_sheet_v4_t3.png` |
 
 ### v3 (no longer used)
 
