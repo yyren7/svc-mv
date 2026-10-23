@@ -32,7 +32,6 @@ import kit  # noqa: E402
 import mvlib as m  # noqa: E402
 import texlib as T  # noqa: E402
 
-OUT, SHOTS = cyc.args(os.path.join(C.RENDERS, "v4_hall"), ["aisle_dawn", "aisle_rose", "front_rose"])
 ART = os.path.join(C.CASE, "art", "v4")
 L, WD, H = 40.0, 14.0, 12.0                 # the hall: length along +X, width along Y, height
 SHEET_W, SHEET_H = 2.4, 4.2                 # a print, metres
@@ -117,8 +116,9 @@ def print_mat(front, back, wet=WET):
     return mat
 
 
-def sheet(name, x, y, mat, seed):
-    """A hanging print: a grid in the YZ plane facing -X, bowed a little and curling at the foot."""
+def sheet(name, x, y, mat, seed, top=TOP):
+    """A hanging print: a grid in the YZ plane facing -X, bowed a little and curling at the foot. Its origin is the
+    middle of its top edge, at (x, y, top), so it turns, lifts in the wind or lies down about that point."""
     rnd = random.Random(seed)
     nu, nv = 10, 18
     bow, curl, lean = rnd.uniform(0.02, 0.06), rnd.uniform(0.03, 0.09), rnd.uniform(-0.04, 0.04)
@@ -128,7 +128,7 @@ def sheet(name, x, y, mat, seed):
         for i in range(nu + 1):
             u = i / nu
             dx = bow * math.sin(math.pi * u) * (0.4 + 0.6 * v) + curl * (1 - v) ** 3 + lean * (1 - v)
-            verts.append((x + dx, y + SHEET_W / 2 - u * SHEET_W, TOP - SHEET_H + v * SHEET_H))
+            verts.append((dx, SHEET_W / 2 - u * SHEET_W, (v - 1) * SHEET_H))
             uvs.append((u, v))
     faces = [(j * (nu + 1) + i, j * (nu + 1) + i + 1, (j + 1) * (nu + 1) + i + 1, (j + 1) * (nu + 1) + i)
              for j in range(nv) for i in range(nu)]
@@ -140,14 +140,16 @@ def sheet(name, x, y, mat, seed):
         for li in poly.loop_indices:
             uv.data[li].uv = uvs[mesh.loops[li].vertex_index]
     ob = A._obj(name, mesh, [mat])
+    ob.location = (x, y, top)
     metal = A._principled("clip", **{"Base Color": m.srgb("#2A2A2E"), "Metallic": 1.0, "Roughness": 0.35})[0]
     for side in (-1, 1):
-        clip = A.rounded_box(f"{name}_clip{side}", (0.03, 0.05, 0.07), 0.004, [metal])
-        clip.location = (x, y + side * (SHEET_W / 2 - 0.12), TOP + 0.01)
+        A.rounded_box(f"{name}_clip{side}", (0.03, 0.05, 0.07), 0.004, [metal],
+                      parent=ob).location = (0, side * (SHEET_W / 2 - 0.12), 0.01)
     return ob
 
 
 def hall(dawn):
+    """The walls, ceiling, water and sky. Returns the walls, the sky and its emission, and the water's material."""
     plaster = T.pbr("worn_plaster_wall", scale=1.0, tint=None if dawn else "#76767E", name="plaster")
     slab = T.pbr("concrete_slab_wall", scale=1.0, tint="#9A9AA0" if dawn else "#5A5A62", name="ceiling")
     # 3 cm of black water over a concrete floor: dark enough to read as a mirror, the floor only where a beam falls
@@ -166,15 +168,19 @@ def hall(dawn):
     xs = [3.0 + 4.0 * i for i in range(10)]                             # window centres, each 2.6 m wide
     edges = [-10.0] + [e for x in xs for e in (x - 1.3, x + 1.3)] + [L + 10]
     walls += [(((a + b2) / 2, WD / 2 + t / 2, 8.25), (b2 - a, t, 4.5)) for a, b2 in zip(edges[::2], edges[1::2])]
+    obs = []
     for k, (loc, size) in enumerate(walls):
-        A.rounded_box(f"wall{k}", size, 0.0, [plaster]).location = loc
+        obs.append(A.rounded_box(f"wall{k}", size, 0.0, [plaster]))
+        obs[-1].location = loc
     # the sky behind the windows: painted later (S1, S2), a glowing backdrop for now
     sky, nt, out = _nodes("sky")
     em = nt.nodes.new("ShaderNodeEmission")
     em.inputs["Color"].default_value = m.srgb("#D6E4F2" if dawn else "#0E1630")
     em.inputs["Strength"].default_value = 2.5 if dawn else 0.4
     nt.links.new(em.outputs[0], out.inputs["Surface"])
-    A.rounded_box("sky", (L + 40, 0.1, 30), 0.0, [sky]).location = (L / 2, WD / 2 + 4.0, 10)
+    backdrop = A.rounded_box("sky", (L + 40, 0.1, 30), 0.0, [sky])
+    backdrop.location = (L / 2, WD / 2 + 4.0, 10)
+    return dict(walls=obs, sky=backdrop, sky_emission=em, water=water, plaster=plaster)
 
 
 def _piece(aid, pick=None):
@@ -197,17 +203,20 @@ def _copies(ob, locs):
 
 
 def lamps():
-    """Industrial lamps hanging from the ceiling between the rows, two to a row; lit by LAMPS, else off."""
+    """Industrial lamps hanging from the ceiling between the rows, two to a row; lit by LAMPS, else off.
+    Returns the bulbs (a point light under each lamp, with its full energy) and the lamps' emission inputs."""
     ob, lo, hi = _piece("hanging_industrial_lamp")
+    glow = []
     for slot in ob.material_slots:
         for n in slot.material.node_tree.nodes if slot.material and slot.material.node_tree else []:
             if n.type == "BSDF_PRINCIPLED":
                 n.inputs["Emission Strength"].default_value = 6.0 * LAMPS
+                glow.append(n.inputs["Emission Strength"])
     spots = [(x + 2.0, y) for x in ROWS for y in (-3.2, 3.2)]
     _copies(ob, [(x - (lo.x + hi.x) / 2, y - (lo.y + hi.y) / 2, H - hi.z) for x, y in spots])
-    if LAMPS > 0:
-        for k, (x, y) in enumerate(spots):
-            cyc.point_light(f"lamp{k}", (x, y, H - (hi.z - lo.z) - 0.15), 4200, 400 * LAMPS, radius=0.12)
+    bulbs = [cyc.point_light(f"lamp{k}", (x, y, H - (hi.z - lo.z) - 0.15), 4200, 400 * LAMPS, radius=0.12)
+             for k, (x, y) in enumerate(spots)]
+    return [(b, 400.0) for b in bulbs], glow
 
 
 def pipes():
@@ -239,37 +248,49 @@ def hang():
     return prints
 
 
-def light(dawn, prints):
-    if dawn:
-        sun = bpy.data.lights.new("sun", "SUN")
-        sun.energy = 10.0
-        sun.angle = math.radians(0.6)
-        sun.color = A.kelvin(7600)
-        ob = bpy.data.objects.new("sun", sun)
-        m._link(ob)
-        ob.rotation_mode = "QUATERNION"
-        # across the hall from the high windows, low enough to reach the dark wall; the beams are seen side on,
-        # so the haze scatters sideways more than forwards
-        ob.rotation_quaternion = Vector((0.15, -0.85, -0.5)).normalized().to_track_quat("-Z", "Y")
-        cyc.area_light("bounce", (L / 2, 0, 0.6), (L / 2, 0, 5), 20, 7000, 400, size_y=8)   # light off the water
-        cyc.area_light("skylight", (L / 2, WD / 2 - 0.3, 8.25), (L / 2, -WD / 2, 3.0), 40, 9500, 2500, size_y=4.5)
-        cyc.haze("haze", (L + 10, WD, H), (L / 2, 0, H / 2), 0.01, color="#E4ECF4", anisotropy=0.25)
-        return
+def dawn_light():
+    """表: a cold sun through the high windows, the sky through them, light off the water. Each light with its
+    full energy."""
+    sun = bpy.data.lights.new("sun", "SUN")
+    sun.energy = 10.0
+    sun.angle = math.radians(0.6)
+    sun.color = A.kelvin(7600)
+    ob = bpy.data.objects.new("sun", sun)
+    m._link(ob)
+    ob.rotation_mode = "QUATERNION"
+    # across the hall from the high windows, low enough to reach the dark wall; the beams are seen side on,
+    # so the haze scatters sideways more than forwards
+    ob.rotation_quaternion = Vector((0.15, -0.85, -0.5)).normalized().to_track_quat("-Z", "Y")
+    bounce = cyc.area_light("bounce", (L / 2, 0, 0.6), (L / 2, 0, 5), 20, 7000, 400, size_y=8)   # off the water
+    sky = cyc.area_light("skylight", (L / 2, WD / 2 - 0.3, 8.25), (L / 2, -WD / 2, 3.0), 40, 9500, 2500, size_y=4.5)
+    return [(ob, 10.0), (bounce, 400.0), (sky, 2500.0)]
+
+
+def rose_light(prints):
+    """裏: a rose lamp behind every print, and cold light on the fronts from the near end, so her 表 still reads
+    while the 裏 glows through it. Returns {print name: (lamp, energy)} and the cold lights with theirs."""
+    behind = {}
     for p in prints:
-        x = p.data.vertices[0].co.x
-        y = sum(v.co.y for v in p.data.vertices) / len(p.data.vertices)
+        x, y = p.location.x, p.location.y
         lamp = cyc.area_light(f"behind_{p.name}", (x + 0.9, y, TOP - SHEET_H / 2), (x, y, TOP - SHEET_H / 2),
                               2.0, 2000, 200, size_y=3.6, color=ROSE)
         lamp.visible_glossy = False
-    # cold light on the fronts from the near end, so her 表 still reads while the 裏 glows through it
-    cyc.area_light("fill", (L / 2, 0, H - 0.5), (L / 2, 0, 0), 30, 9000, 300, size_y=10, color="#5A78FF")
-    cyc.area_light("front", (-6.0, 0, 4.0), (L / 2, 0, 2.5), 14, 9000, 450, size_y=6, color="#7C94FF")
-    cyc.haze("haze", (L + 10, WD, H), (L / 2, 0, H / 2), 0.0035, color="#F2D8E0", anisotropy=0.4)
+        behind[p.name] = (lamp, 200.0)
+    fill = cyc.area_light("fill", (L / 2, 0, H - 0.5), (L / 2, 0, 0), 30, 9000, 300, size_y=10, color="#5A78FF")
+    front = cyc.area_light("front", (-6.0, 0, 4.0), (L / 2, 0, 2.5), 14, 9000, 450, size_y=6, color="#7C94FF")
+    return behind, [(fill, 300.0), (front, 450.0)]
+
+
+def haze(dawn):
+    if dawn:
+        return cyc.haze("haze", (L + 10, WD, H), (L / 2, 0, H / 2), 0.01, color="#E4ECF4", anisotropy=0.25)
+    return cyc.haze("haze", (L + 10, WD, H), (L / 2, 0, H / 2), 0.0035, color="#F2D8E0", anisotropy=0.4)
 
 
 def main():
-    dawn = all(s.endswith("dawn") for s in SHOTS)
-    if not dawn and any(s.endswith("dawn") for s in SHOTS):
+    out, shots = cyc.args(os.path.join(C.RENDERS, "v4_hall"), ["aisle_dawn", "aisle_rose", "front_rose"])
+    dawn = all(s.endswith("dawn") for s in shots)
+    if not dawn and any(s.endswith("dawn") for s in shots):
         sys.exit("dawn and rose shots need separate runs (the lights differ)")
     m.reset()
     cyc.cycles(bounces=8)
@@ -278,16 +299,21 @@ def main():
     lamps()
     pipes()
     prints = hang()
-    light(dawn, prints)
+    if dawn:
+        dawn_light()
+    else:
+        rose_light(prints)
+    haze(dawn)
     cyc.post(bloom=0.35 if dawn else 0.6, threshold=1.0 if dawn else 0.75)
     kv = (ROWS[0], 0.0, TOP - SHEET_H / 2)
     cams = {"aisle_dawn": cyc.camera("aisle_dawn", (-1.0, -3.8, 0.75), (20.0, 0.8, 3.0), 24, 4.0),
             "aisle_rose": cyc.camera("aisle_rose", (-1.0, -3.8, 0.75), (20.0, 0.8, 3.0), 24, 4.0),
             "front_rose": cyc.camera("front_rose", (-4.6, 0.0, 2.95), (ROWS[0], 0.0, 2.95), 28, 5.6)}
-    cams = {k: v for k, v in cams.items() if k in SHOTS}
-    cyc.render_shots(cams, SHOTS, OUT, "hall", focus={k: kv for k in cams},
+    cams = {k: v for k, v in cams.items() if k in shots}
+    cyc.render_shots(cams, shots, out, "hall", focus={k: kv for k in cams},
                      samples={k: (128 if k.endswith("dawn") else 160) for k in cams}, exposure={"aisle_dawn": 1.5},
                      blend="hall_dawn.blend" if dawn else "hall_rose.blend")
 
 
-main()
+if __name__ == "__main__":
+    main()
