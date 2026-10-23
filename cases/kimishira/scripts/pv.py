@@ -418,8 +418,10 @@ def build():
     sky = np.load(os.path.join(PREP, "sky.npy"))
     op.meteors(pic, pick_meteors(pic, cam, sky), FPS)
 
-    # 月光光束：只从月亮和外圈的频谱发出（遮罩跟着月亮走），跟低音的心跳一起亮；开了 streak 还有月亮的水平光条
-    tree, beam, bmask, streak, moonmask = op.compositor(streak="streak" in FX)
+    # 月光光束：只从月亮（和 RING=bars 的外圈频谱）发出，跟低音的心跳一起亮；开了 streak 还有月亮的水平光条。
+    # 光源单独渲一层，只有天空那层（和细柱）：花瓣、虚焦光斑、流星飘到月亮附近时不会背着月亮拖出一道光
+    src = op.beam_source({"far"} | ({"ring"} if RING == "bars" else set()))
+    tree, beam, bmask, streak, moonmask = op.compositor(streak="streak" in FX, beam_layer=src)
     mu, mv, mr = pic.meta["moon"]
     moon = pic.point(mu, mv, pic.y_sky)
     edge = moon + op.Vector((mr * pic.sx * pic.y_sky, 0, 0))
