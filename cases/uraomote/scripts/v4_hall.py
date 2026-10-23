@@ -262,7 +262,7 @@ def light(dawn, prints):
         lamp.visible_glossy = False
     # cold light on the fronts from the near end, so her 表 still reads while the 裏 glows through it
     cyc.area_light("fill", (L / 2, 0, H - 0.5), (L / 2, 0, 0), 30, 9000, 300, size_y=10, color="#5A78FF")
-    cyc.area_light("front", (-6.0, 0, 4.0), (L / 2, 0, 2.5), 14, 9000, 3000, size_y=6, color="#7C94FF")
+    cyc.area_light("front", (-6.0, 0, 4.0), (L / 2, 0, 2.5), 14, 9000, 700, size_y=6, color="#7C94FF")
     cyc.haze("haze", (L + 10, WD, H), (L / 2, 0, H / 2), 0.0035, color="#F2D8E0", anisotropy=0.4)
 
 
@@ -285,7 +285,7 @@ def main():
             "front_rose": cyc.camera("front_rose", (-4.6, 0.0, 2.95), (ROWS[0], 0.0, 2.95), 28, 5.6)}
     cams = {k: v for k, v in cams.items() if k in SHOTS}
     cyc.render_shots(cams, SHOTS, OUT, "hall", focus={k: kv for k in cams},
-                     samples={k: (128 if k.endswith("dawn") else 160) for k in cams}, exposure={"aisle_dawn": 1.0},
+                     samples={k: (128 if k.endswith("dawn") else 160) for k in cams}, exposure={"aisle_dawn": 2.0},
                      blend="hall_dawn.blend" if dawn else "hall_rose.blend")
 
 
