@@ -754,12 +754,22 @@ class Canvas:
     def light(self, glow=(0.8, 0.5)):
         """着色相加，加两层辉光，缩回 1 倍；月亮圆盘里压暗（月亮本身的亮度由贴图决定）。返回 float32 RGB。"""
         cv2 = self.cv2
-        rgb = np.zeros((self.S, self.S, 3), np.float32)
+        # 每张遮罩只算有东西的那块（外接框，模糊的再四周留出高斯核的半径 4σ），三个通道分开累加；空的跳过。
+        # disc 的画布大、遮罩多，整张整张地加要 30 多秒一帧
+        rgb = [np.zeros((self.S, self.S), np.float32) for _ in range(3)]
         for m, color, gain, blur in self.layers:
-            x = m.astype(np.float32) / 255.0
+            ys, xs = np.flatnonzero(m.any(1)), np.flatnonzero(m.any(0))
+            if len(ys) == 0:
+                continue
+            pad = int(math.ceil(4 * blur * self.R * SS)) + 1 if blur > 0 else 0
+            y0, y1 = max(ys[0] - pad, 0), min(ys[-1] + 1 + pad, self.S)
+            x0, x1 = max(xs[0] - pad, 0), min(xs[-1] + 1 + pad, self.S)
+            x = m[y0:y1, x0:x1].astype(np.float32) / 255.0
             if blur > 0:
                 x = cv2.GaussianBlur(x, (0, 0), blur * self.R * SS)
-            rgb += x[..., None] * (np.array(color, np.float32) * gain)
+            for c in range(3):
+                rgb[c][y0:y1, x0:x1] += x * np.float32(color[c] * gain)
+        rgb = cv2.merge(rgb)
         s1, s2 = 0.04 * self.R * SS, 0.16 * self.R * SS
         rgb = rgb + glow[0] * cv2.GaussianBlur(rgb, (0, 0), s1) + glow[1] * cv2.GaussianBlur(rgb, (0, 0), s2)
         yy, xx = np.mgrid[0:self.S, 0:self.S]
@@ -1123,6 +1133,8 @@ G = {}
 
 
 def setup(a):
+    import cv2
+    cv2.setNumThreads(1)        # 并行靠进程池；每个进程再按整机的核数开线程池，在 18 核的配额里互相挤
     G["a"] = a
     G["song"] = Song(a.bands, a.f0)
     G["moon"] = np.load(a.moon)
