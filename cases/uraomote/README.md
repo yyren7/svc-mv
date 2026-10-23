@@ -43,6 +43,7 @@ Style frames (the 2D side): ![](renders/frame_A_post.png) ![](renders/frame_B_po
 | `scripts/sample.py` | 15-second kinetic sample of the chorus |
 | `scripts/animatic.py` | The whole PV at low resolution: every set's shots moving to the song, cut on the downbeats |
 | `scripts/animatic_cut.py` | Joins the animatic's frames with the song into an MP4 |
+| `scripts/animatic_v4.py` | v4: the picture animatic. Section 5 of script v4 cut on the downbeats, round 2's illustrations in the 2D shots and stand-ins in the 3D ones (her prints in a row over black water, a sky, the hall's stills), every frame labelled with its section, shot, bar and the sung line |
 | `scripts/v4_hall.py` | v4: the hall's look, stills at dawn and in rose light, the prints carrying the v4 pictures. First look on the server at RES=50 SAMPLES=64 (`renders/v4_hall/`, dawn and rose in separate runs): at dawn the hall is underexposed and its walls and windows don't read; in rose light front and back mix into one red, with vertical stripes. Still on round 1's pictures and procedural plaster, not the manifest's textures |
 
 The sets show each other's pictures as prints: S1's polaroids are the S3 stills, and the style frames hang in
@@ -50,7 +51,8 @@ S1, S2, S3, S4 and S5. Render the style frames and S3 before the others.
 
 ## Running
 
-From the repository root. `audio/` holds `urao_mix.m4a`, `urao_vocal.wav`, `urao_lines.jsonl` (not in git).
+From the repository root. `audio/` holds `urao_mix.m4a`, `urao_vocal.wav`, `urao_lines.jsonl` (not in git), and
+`urao_lyrics.json`, the speech recognition of the cover's lyrics, mistakes and all (no real lyric text yet).
 
 ```sh
 B=D:/tools/blender-5.2.2-windows-x64/blender.exe
@@ -65,6 +67,15 @@ FPS=12 SAMPLES=24 WIDTH=640 $B -b --factory-startup -P $C/scripts/animatic.py --
 ```
 
 The animatic's parts are `title s1 s2 s3 s4 s5_omote s5_ura s6`. They can run side by side into the same folder.
+
+The v4 picture animatic runs on the server, where ComfyUI's venv has PIL (about two minutes for the whole song;
+`STEP=12` draws one frame a second, `animatic_v4.py <dir> 35 47` only bars 35–47):
+
+```sh
+P=/root/autodl-tmp/ComfyUI/venv/bin/python
+$P $C/scripts/animatic_v4.py $C/renders/animatic_v4/frames
+$P $C/scripts/animatic_cut.py $C/renders/animatic_v4/frames $C/audio/urao_mix.m4a $C/renders/animatic_v4/animatic_v4.mp4 12
+```
 
 ## Illustrations
 
