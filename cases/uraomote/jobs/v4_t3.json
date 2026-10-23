@@ -1,7 +1,7 @@
 [
  {
   "model": "qwen",
-  "name": "v4_kvu_211_62",
+  "name": "v4_kvu_211_n62",
   "seed": 221,
   "w": 928,
   "h": 1664,
@@ -9,12 +9,12 @@
   "ref": [
    "ref_urao_sheet.png"
   ],
-  "init": "v4_kv_211_00001_.png",
+  "init": "v4_kv_211_night.png",
   "denoise": 0.62
  },
  {
   "model": "qwen",
-  "name": "v4_kvu_211_75",
+  "name": "v4_kvu_211_n75",
   "seed": 221,
   "w": 928,
   "h": 1664,
@@ -22,12 +22,12 @@
   "ref": [
    "ref_urao_sheet.png"
   ],
-  "init": "v4_kv_211_00001_.png",
+  "init": "v4_kv_211_night.png",
   "denoise": 0.75
  },
  {
   "model": "qwen",
-  "name": "v4_kvu_213_62",
+  "name": "v4_kvu_213_n62",
   "seed": 221,
   "w": 928,
   "h": 1664,
@@ -35,12 +35,12 @@
   "ref": [
    "ref_urao_sheet.png"
   ],
-  "init": "v4_kv_213_00001_.png",
+  "init": "v4_kv_213_night.png",
   "denoise": 0.62
  },
  {
   "model": "qwen",
-  "name": "v4_kvu_213_75",
+  "name": "v4_kvu_213_n75",
   "seed": 221,
   "w": 928,
   "h": 1664,
@@ -48,7 +48,7 @@
   "ref": [
    "ref_urao_sheet.png"
   ],
-  "init": "v4_kv_213_00001_.png",
+  "init": "v4_kv_213_night.png",
   "denoise": 0.75
  }
 ]
