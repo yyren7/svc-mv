@@ -29,8 +29,8 @@
             闭合的圆留到 END_HOLD，乐队最后一下之后光点减速，最后一个和弦停在正上方。亮度跟 pv.py 段落表的 ring 列
     $PY scripts/ring_lab.py draw <帧目录> <输出目录> --style melody2 --bands <bands.npz> --moon <场景>_moon.npz \
         --f0 <melody.npz> [--pv cases/kimishira/scripts/pv.py]
-    orbit   环绕的星群：ORBIT_N 颗星各在一条略扁、略斜的轨道上绕月亮顺时针转，拖着尾巴；里圈快、外圈慢，响的时候
-            一起转快一点。每颗星管一段频谱（里圈低频、外圈高频），那段越响越亮、尾巴越长，很响时带四芒光。
+    orbit   环绕的星群：ORBIT_N 颗星各在一条略扁、略斜的轨道上绕月亮顺时针转，拖着长尾巴；转得慢（里圈四小节一圈），
+            每颗星快慢略有不同、还各自慢慢起伏，响的时候一起转快一点。每颗星管一段频谱（里圈低频、外圈高频），那段越响越亮、尾巴越长，很响时带四芒光。
             星的多少跟整体响度走：每颗星有自己的门槛（还慢慢上下漂），响度过了门槛就淡入，回落就熄灭
 帧文件名是 60 fps 的场景帧号（f_03960.png），间隔取帧（30 fps）也行。"""
 import argparse
@@ -469,8 +469,10 @@ class Orbits:
         self.b = self.a * rng.uniform(0.82, 1.0, n)         # 半短轴：略扁，像斜着看的圆轨道
         self.tilt = rng.uniform(0, np.pi, n)
         self.phase = rng.uniform(0, 2 * np.pi, n)
-        # 里圈两小节一圈，往外按开普勒变慢
-        self.omega = 2 * np.pi / (8 * BEAT) * (1.3 / self.a) ** 1.5 * rng.uniform(0.85, 1.15, n)
+        # 里圈四小节一圈，往外只慢一点；每颗星快慢差几个百分点，转速还各自慢慢起伏（转角上 ±0.12 弧度）
+        self.omega = 2 * np.pi / (16 * BEAT) * (1.3 / self.a) ** 0.5 * rng.uniform(0.93, 1.07, n)
+        self.sway_p = rng.uniform(5, 11, n)
+        self.sway_ph = rng.uniform(0, 2 * np.pi, n)
         nb = song.spec.shape[1]
         self.band = np.clip(np.round(u ** 0.8 * (nb - 1) + rng.normal(0, 3, n)), 1, nb - 2).astype(int)
         self.h = rng.random(n)                              # 出现的门槛
@@ -485,7 +487,8 @@ class Orbits:
 
     def xy(self, i, g):
         """第 i 颗星在第 g 帧（可以是数组）的位置，R 单位，x 朝右、y 朝下；θ 减小是顺时针。"""
-        th = self.phase[i] - self.omega[i] * self.A[g]
+        th = (self.phase[i] - self.omega[i] * self.A[g]
+              + 0.12 * np.sin(2 * np.pi * np.asarray(g) / FPS / self.sway_p[i] + self.sway_ph[i]))
         X, Y = self.a[i] * np.sin(th), self.b[i] * np.cos(th)
         c, s = math.cos(self.tilt[i]), math.sin(self.tilt[i])
         return X * c - Y * s, X * s + Y * c
@@ -783,8 +786,8 @@ def draw_orbit(cv, song, f, ob):
         e = float(song.spec[f, ob.band[i] - 1:ob.band[i] + 2].mean())
         v = float(alive[i]) * (0.3 + 0.7 * e ** 1.2)
         m = layers[bool(ob.warm[i])]
-        # 尾巴：0.25–0.7 秒走过的弧，越往后越暗越细
-        g = np.arange(max(f - int((0.25 + 0.45 * e) * FPS), 0), f + 1, 2)
+        # 尾巴：1.0–2.4 秒走过的弧，越往后越暗越细
+        g = np.arange(max(f - int((1.0 + 1.4 * e) * FPS), 0), f + 1, 2)
         if g[-1] != f:
             g = np.append(g, f)
         p = cv.px(*ob.xy(i, g)).tolist()
