@@ -29,6 +29,19 @@ URA = ("Low-key night lighting in two colours: a strong vivid rose-red light fro
 INK = ("The ink behaves like real ink dropped into water: billowing translucent veils and thin silky curling filaments, "
        "layered and catching the light, not smoke and not fire.")
 
+# from round 2 on, Qwen draws her from her design sheet (round 1's pick)
+SHEET = "v4_sheet_201_00001_.png"
+REF = ["ref_urao_sheet.png"]   # the whole sheet; its close-ups are startled and crying, so no face crop
+
+KEEP = ("The girl from the reference picture: keep her face, her straight glossy black hair with blunt bangs and its "
+        "hidden rose-red underlayer, her white short-sleeved sailor uniform with the black collar edged by one thin "
+        "white line, the black neckerchief tie and the black pleated skirt exactly as in the reference picture.")
+HIDDEN = "Her hair hangs calm and straight and the rose-red underlayer is hidden; only a thin line of it shows at the ends."
+LOOSE = "Her hair flies loose and the rose-red underlayer is fully revealed, glowing."
+WET = "Her wet hair clings to her cheeks and neck, and the rose-red underlayer shows in dark wet strands."
+SPLIT = ("Half of her is lit by cold white-blue light from the left and half by vivid rose-red light from the right, "
+         "deep shadow between.")
+
 WIDE, TALL = (1664, 928), (928, 1664)
 
 

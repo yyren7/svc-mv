@@ -36,6 +36,8 @@ MANIFEST = {
         # rooms: wallpaper, floors, the desk
         "decrepit_wallpaper", "oak_veneer_01", "laminate_floor", "plywood", "painted_concrete", "dirty_carpet",
         "book_pattern",
+        # 裏表ラバーズ v4: the drying hall's walls, the floor under its water, the ceiling
+        "worn_plaster_wall", "hangar_concrete_floor", "concrete_slab_wall",
     ],
     "hdris": [
         "belfast_sunset_puresky", "bloem_train_track_clear", "industrial_sunset",   # S5 omote
@@ -53,6 +55,8 @@ MANIFEST = {
         "vintage_day_bed", "painted_wooden_chair_01", "small_wooden_table_01", "side_table_01", "wall_clock",
         # the alley
         "metal_trash_can", "trashbag", "street_lamp_02", "wooden_crate_02", "plastic_crate_01",
+        # 裏表ラバーズ v4: the drying hall
+        "hanging_industrial_lamp", "modular_industrial_pipes_01",
     ],
 }
 

@@ -1,0 +1,54 @@
+[
+ {
+  "model": "qwen",
+  "name": "v4_kvu_211_62",
+  "seed": 221,
+  "w": 928,
+  "h": 1664,
+  "prompt": "The girl from the reference picture: keep her face, her straight glossy black hair with blunt bangs and its hidden rose-red underlayer, her white short-sleeved sailor uniform with the black collar edged by one thin white line, the black neckerchief tie and the black pleated skirt exactly as in the reference picture. The same picture turned to its hidden side: keep the composition, her pose, the framing and the window exactly as in the input picture, but it is night. The window behind her is dark with cold blue night, and a strong rose-red light from behind her sets her hair and outline glowing. She still looks over her shoulder at the viewer, but her eyes are wide and feverish, glistening, lips parted, a flush on her cheeks. Her hair flies loose and the rose-red underlayer is fully revealed, glowing. A breathtaking high-end anime key visual for a music video, refined and elegant rather than cute: delicate clean lineart, finely detailed eyes with layered highlights, meticulous glossy hair with fine strands catching the light, painterly soft shading with subtle colour gradients, luminous light with gentle bloom, cinematic composition and colour grading, shallow depth of field, subtle paper grain. No text, no letters, no logo, no signature. Low-key night lighting in two colours: a strong vivid rose-red light from behind sets her hair and edges glowing, and a faint cold blue light from above keeps her face readable; deep velvety blacks, glossy highlights, cinematic contrast.",
+  "ref": [
+   "ref_urao_sheet.png"
+  ],
+  "init": "v4_kv_211_00001_.png",
+  "denoise": 0.62
+ },
+ {
+  "model": "qwen",
+  "name": "v4_kvu_211_75",
+  "seed": 221,
+  "w": 928,
+  "h": 1664,
+  "prompt": "The girl from the reference picture: keep her face, her straight glossy black hair with blunt bangs and its hidden rose-red underlayer, her white short-sleeved sailor uniform with the black collar edged by one thin white line, the black neckerchief tie and the black pleated skirt exactly as in the reference picture. The same picture turned to its hidden side: keep the composition, her pose, the framing and the window exactly as in the input picture, but it is night. The window behind her is dark with cold blue night, and a strong rose-red light from behind her sets her hair and outline glowing. She still looks over her shoulder at the viewer, but her eyes are wide and feverish, glistening, lips parted, a flush on her cheeks. Her hair flies loose and the rose-red underlayer is fully revealed, glowing. A breathtaking high-end anime key visual for a music video, refined and elegant rather than cute: delicate clean lineart, finely detailed eyes with layered highlights, meticulous glossy hair with fine strands catching the light, painterly soft shading with subtle colour gradients, luminous light with gentle bloom, cinematic composition and colour grading, shallow depth of field, subtle paper grain. No text, no letters, no logo, no signature. Low-key night lighting in two colours: a strong vivid rose-red light from behind sets her hair and edges glowing, and a faint cold blue light from above keeps her face readable; deep velvety blacks, glossy highlights, cinematic contrast.",
+  "ref": [
+   "ref_urao_sheet.png"
+  ],
+  "init": "v4_kv_211_00001_.png",
+  "denoise": 0.75
+ },
+ {
+  "model": "qwen",
+  "name": "v4_kvu_213_62",
+  "seed": 221,
+  "w": 928,
+  "h": 1664,
+  "prompt": "The girl from the reference picture: keep her face, her straight glossy black hair with blunt bangs and its hidden rose-red underlayer, her white short-sleeved sailor uniform with the black collar edged by one thin white line, the black neckerchief tie and the black pleated skirt exactly as in the reference picture. The same picture turned to its hidden side: keep the composition, her pose, the framing and the window exactly as in the input picture, but it is night. The window behind her is dark with cold blue night, and a strong rose-red light from behind her sets her hair and outline glowing. She still looks over her shoulder at the viewer, but her eyes are wide and feverish, glistening, lips parted, a flush on her cheeks. Her hair flies loose and the rose-red underlayer is fully revealed, glowing. A breathtaking high-end anime key visual for a music video, refined and elegant rather than cute: delicate clean lineart, finely detailed eyes with layered highlights, meticulous glossy hair with fine strands catching the light, painterly soft shading with subtle colour gradients, luminous light with gentle bloom, cinematic composition and colour grading, shallow depth of field, subtle paper grain. No text, no letters, no logo, no signature. Low-key night lighting in two colours: a strong vivid rose-red light from behind sets her hair and edges glowing, and a faint cold blue light from above keeps her face readable; deep velvety blacks, glossy highlights, cinematic contrast.",
+  "ref": [
+   "ref_urao_sheet.png"
+  ],
+  "init": "v4_kv_213_00001_.png",
+  "denoise": 0.62
+ },
+ {
+  "model": "qwen",
+  "name": "v4_kvu_213_75",
+  "seed": 221,
+  "w": 928,
+  "h": 1664,
+  "prompt": "The girl from the reference picture: keep her face, her straight glossy black hair with blunt bangs and its hidden rose-red underlayer, her white short-sleeved sailor uniform with the black collar edged by one thin white line, the black neckerchief tie and the black pleated skirt exactly as in the reference picture. The same picture turned to its hidden side: keep the composition, her pose, the framing and the window exactly as in the input picture, but it is night. The window behind her is dark with cold blue night, and a strong rose-red light from behind her sets her hair and outline glowing. She still looks over her shoulder at the viewer, but her eyes are wide and feverish, glistening, lips parted, a flush on her cheeks. Her hair flies loose and the rose-red underlayer is fully revealed, glowing. A breathtaking high-end anime key visual for a music video, refined and elegant rather than cute: delicate clean lineart, finely detailed eyes with layered highlights, meticulous glossy hair with fine strands catching the light, painterly soft shading with subtle colour gradients, luminous light with gentle bloom, cinematic composition and colour grading, shallow depth of field, subtle paper grain. No text, no letters, no logo, no signature. Low-key night lighting in two colours: a strong vivid rose-red light from behind sets her hair and edges glowing, and a faint cold blue light from above keeps her face readable; deep velvety blacks, glossy highlights, cinematic contrast.",
+  "ref": [
+   "ref_urao_sheet.png"
+  ],
+  "init": "v4_kv_213_00001_.png",
+  "denoise": 0.75
+ }
+]
