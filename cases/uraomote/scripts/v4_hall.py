@@ -13,7 +13,8 @@ the paper lets through: dry paper about 0.15, wet paper 0.7. The KV's back is KV
 print carries round 2's pictures, a 表 one in front and a 裏 one of another composition behind.
 The walls, the ceiling and the floor under the water are Poly Haven textures, the lamps and the pipes Poly Haven
 models (scripts/fetch_assets.py). `LAMPS` lights the ceiling lamps (1 is about right; 0, the default, leaves them
-off). Below about 128 samples the denoiser draws fine vertical stripes over everything.
+off). In rose light a print whose front gets no light of its own shows only the dark lines of its 表 (the window
+frames of A1-A4) over the 裏 glowing through, which reads as stripes; the cold front light keeps the 表 there.
 """
 import math
 import os
@@ -154,7 +155,7 @@ def hall(dawn):
     bed.location = (L / 2, 0, -0.08)
     water, b = A._principled("water", **{"Base Color": (0.03, 0.03, 0.035, 1.0), "Roughness": 0.015, "IOR": 1.33,
                                          "Transmission Weight": 1.0})
-    A._bump(water, b, 0.35, 0.05, detail=2.0, distance=0.03)
+    A._bump(water, b, 0.35, 0.015, detail=2.0, distance=0.03)      # still water: a mirror, not a mosaic
     A.rounded_box("water", (L + 20, WD, 0.03), 0.0, [water]).location = (L / 2, 0, -0.015)
     t = 0.4
     A.rounded_box("ceiling", (L + 20, WD + 2 * t, t), 0.0, [slab]).location = (L / 2, 0, H + t / 2)
@@ -259,8 +260,9 @@ def light(dawn, prints):
         lamp = cyc.area_light(f"behind_{p.name}", (x + 0.9, y, TOP - SHEET_H / 2), (x, y, TOP - SHEET_H / 2),
                               2.0, 2000, 200, size_y=3.6, color=ROSE)
         lamp.visible_glossy = False
-    # a cold light from above, so her 表 still reads on the front while the 裏 shows through it
-    cyc.area_light("fill", (L / 2, 0, H - 0.5), (L / 2, 0, 0), 30, 9000, 500, size_y=10, color="#5A78FF")
+    # cold light on the fronts from the near end, so her 表 still reads while the 裏 glows through it
+    cyc.area_light("fill", (L / 2, 0, H - 0.5), (L / 2, 0, 0), 30, 9000, 300, size_y=10, color="#5A78FF")
+    cyc.area_light("front", (-6.0, 0, 4.0), (L / 2, 0, 2.5), 14, 9000, 3000, size_y=6, color="#7C94FF")
     cyc.haze("haze", (L + 10, WD, H), (L / 2, 0, H / 2), 0.0035, color="#F2D8E0", anisotropy=0.4)
 
 
@@ -283,7 +285,8 @@ def main():
             "front_rose": cyc.camera("front_rose", (-4.6, 0.0, 2.95), (ROWS[0], 0.0, 2.95), 28, 5.6)}
     cams = {k: v for k, v in cams.items() if k in SHOTS}
     cyc.render_shots(cams, SHOTS, OUT, "hall", focus={k: kv for k in cams},
-                     samples={k: (128 if k.endswith("dawn") else 160) for k in cams}, blend="hall_dawn.blend" if dawn else "hall_rose.blend")
+                     samples={k: (128 if k.endswith("dawn") else 160) for k in cams}, exposure={"aisle_dawn": 1.0},
+                     blend="hall_dawn.blend" if dawn else "hall_rose.blend")
 
 
 main()
