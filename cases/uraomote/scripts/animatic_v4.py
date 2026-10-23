@@ -435,13 +435,19 @@ def letters(kv):
     glow = _emission_mat("letter_lamp", ROSE, 6.0)[0]
     for k, (ch, z) in enumerate((("表", -1.05), ("裏", -1.95))):
         cu = bpy.data.curves.new(f"letter{k}", "FONT")
-        cu.body, cu.font, cu.size, cu.extrude = ch, font, 0.78, 0.25
+        cu.body, cu.font, cu.size, cu.extrude = ch, font, 1.0, 0.25
         cu.align_x, cu.align_y = "CENTER", "CENTER"
         tmp = bpy.data.objects.new(cu.name, cu)
         m._link(tmp)
         tmp.matrix_world = kv.matrix_world @ Matrix.Translation((0.0, 0.78, z)) @ turn
-        bpy.context.view_layer.update()
-        me = bpy.data.meshes.new_from_object(tmp.evaluated_get(bpy.context.evaluated_depsgraph_get()))
+        for _ in range(2):                           # the glyph's height depends on the font: measure, then size it
+            bpy.context.view_layer.update()
+            me = bpy.data.meshes.new_from_object(tmp.evaluated_get(bpy.context.evaluated_depsgraph_get()))
+            ys = [v.co.y for v in me.vertices]
+            if abs(max(ys) - min(ys) - 0.72) < 0.02:
+                break
+            cu.size *= 0.72 / (max(ys) - min(ys))
+            bpy.data.meshes.remove(me)
         cutter = bpy.data.objects.new(f"cut{k}", me)
         m._link(cutter)
         cutter.matrix_world = tmp.matrix_world
