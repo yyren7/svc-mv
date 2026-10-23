@@ -242,17 +242,18 @@ def hang():
 def light(dawn, prints):
     if dawn:
         sun = bpy.data.lights.new("sun", "SUN")
-        sun.energy = 6.0
+        sun.energy = 10.0
         sun.angle = math.radians(0.6)
         sun.color = A.kelvin(7600)
         ob = bpy.data.objects.new("sun", sun)
         m._link(ob)
         ob.rotation_mode = "QUATERNION"
-        # low enough that the beams cross the whole hall to the dark wall
-        ob.rotation_quaternion = Vector((0.35, -0.8, -0.45)).normalized().to_track_quat("-Z", "Y")
+        # across the hall from the high windows, low enough to reach the dark wall; the beams are seen side on,
+        # so the haze scatters sideways more than forwards
+        ob.rotation_quaternion = Vector((0.15, -0.85, -0.5)).normalized().to_track_quat("-Z", "Y")
         cyc.area_light("bounce", (L / 2, 0, 0.6), (L / 2, 0, 5), 20, 7000, 400, size_y=8)   # light off the water
         cyc.area_light("skylight", (L / 2, WD / 2 - 0.3, 8.25), (L / 2, -WD / 2, 3.0), 40, 9500, 2500, size_y=4.5)
-        cyc.haze("haze", (L + 10, WD, H), (L / 2, 0, H / 2), 0.006, color="#E4ECF4", anisotropy=0.55)
+        cyc.haze("haze", (L + 10, WD, H), (L / 2, 0, H / 2), 0.01, color="#E4ECF4", anisotropy=0.25)
         return
     for p in prints:
         x = p.data.vertices[0].co.x
@@ -262,7 +263,7 @@ def light(dawn, prints):
         lamp.visible_glossy = False
     # cold light on the fronts from the near end, so her 表 still reads while the 裏 glows through it
     cyc.area_light("fill", (L / 2, 0, H - 0.5), (L / 2, 0, 0), 30, 9000, 300, size_y=10, color="#5A78FF")
-    cyc.area_light("front", (-6.0, 0, 4.0), (L / 2, 0, 2.5), 14, 9000, 700, size_y=6, color="#7C94FF")
+    cyc.area_light("front", (-6.0, 0, 4.0), (L / 2, 0, 2.5), 14, 9000, 450, size_y=6, color="#7C94FF")
     cyc.haze("haze", (L + 10, WD, H), (L / 2, 0, H / 2), 0.0035, color="#F2D8E0", anisotropy=0.4)
 
 
@@ -285,7 +286,7 @@ def main():
             "front_rose": cyc.camera("front_rose", (-4.6, 0.0, 2.95), (ROWS[0], 0.0, 2.95), 28, 5.6)}
     cams = {k: v for k, v in cams.items() if k in SHOTS}
     cyc.render_shots(cams, SHOTS, OUT, "hall", focus={k: kv for k in cams},
-                     samples={k: (128 if k.endswith("dawn") else 160) for k in cams}, exposure={"aisle_dawn": 2.0},
+                     samples={k: (128 if k.endswith("dawn") else 160) for k in cams}, exposure={"aisle_dawn": 1.5},
                      blend="hall_dawn.blend" if dawn else "hall_rose.blend")
 
 
