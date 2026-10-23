@@ -23,6 +23,12 @@
     melody  旋律：一颗光点每两小节顺时针绕月亮一圈（每隔一个小节线回到正上方），离月亮的远近是人声的音高，
             画出来的旋律线像唱片的纹路，转一圈后淡掉；圈上 8 个刻度是这两小节的 8 拍，拍子到时亮一下
     halo+ripple  光环和涟漪叠在一起
+    melody2 精修的旋律盘：整首的 RMVPE 音高（--f0 给 f0 --method rmvpe 的 npz），165 BPM 网格上每两小节一圈、正上方
+            对着 TOP_BEATS 的小节线；刻度按网格的拍子亮，小节第一拍更亮；每句开头留一颗句星；「あれがデネブ、アルタイル、
+            ベガ」唱到哪颗，画里那颗星就亮，「夏の大三角」时按唱名的顺序连成三角形，旋律盘让一点；最后的长音画成一个
+            闭合的圆留到 END_HOLD，乐队最后一下之后光点减速，最后一个和弦停在正上方。亮度跟 pv.py 段落表的 ring 列
+    $PY scripts/ring_lab.py draw <帧目录> <输出目录> --style melody2 --bands <bands.npz> --moon <场景>_moon.npz \
+        --f0 <melody.npz> [--pv cases/kimishira/scripts/pv.py]
 帧文件名是 60 fps 的场景帧号（f_03960.png），间隔取帧（30 fps）也行。"""
 import argparse
 import glob
@@ -387,17 +393,76 @@ class Melody:
         return 1.20 + 0.42 * np.clip((m - self.lo) / max(self.hi - self.lo, 1), -0.1, 1.1)
 
 
+def smoothstep(x):
+    x = np.clip(x, 0.0, 1.0)
+    return x * x * (3 - 2 * x)
+
+
+def ramp(t, t0, t1):
+    """t0 以前 0，t1 以后 1，中间 smoothstep。"""
+    return float(smoothstep((t - t0) / max(t1 - t0, 1e-6)))
+
+
+class Melody2:
+    """melody2 的数据：f0 rmvpe 的 npz（100 fps，midi 里不发声的帧是 NaN），角度按 165 BPM 网格，每两小节一圈。"""
+
+    def __init__(self, npz, pv, n):
+        d = np.load(npz)
+        self.fps = float(d["fps"])
+        self.midi = d["midi"]
+        self.g = d["g"]
+        self.bridge = d["bridge"]
+        ok = np.isfinite(self.midi) & d["voiced"]
+        self.lo, self.hi = np.percentile(self.midi[ok], [5, 95])
+        self.T = 8 * BEAT                                   # 一圈两小节
+        self.lines = [s for s in d["line_starts"] if min(abs(s - x) for x in NO_LINE_STAR) > 0.05]
+        a, b = self.i(FINAL_NOTE[0]), self.i(FINAL_NOTE[1])
+        self.r_final = float(self.radius(np.nanmedian(self.midi[a:b])))
+        self.ring = section_col(pv, n)
+        # 尾声：乐队最后一下（BAND_HIT）起，转速按 (1 − x)^p 降到 0，到最后一个和弦（LAST_CHORD）正好停在正上方。
+        # 剩下的圈数取最接近匀减速（p = 1）的那个：剩到下一个正上方的零头 + 整数圈
+        self.D = LAST_CHORD - BAND_HIT
+        self.u_hit = self.turns(BAND_HIT)
+        frac = math.ceil(self.u_hit) - self.u_hit
+        left = min((frac + k for k in range(4)), key=lambda x: abs(x - self.D / (2 * self.T)))
+        self.p1 = self.D / (self.T * left)                  # p + 1
+
+    def i(self, t):
+        return int(round(t * self.fps))
+
+    def turns(self, t):
+        """从正上方起转过的圈数（不含尾声的减速）。"""
+        return (np.asarray(t, np.float64) - t_top(t)) / self.T
+
+    def theta(self, t):
+        """顺时针，θ = π 是正上方。BAND_HIT 以后按减速走。"""
+        t = np.asarray(t, np.float64)
+        x = np.clip((t - BAND_HIT) / self.D, 0, 1)
+        late = self.u_hit + self.D / self.T * (1 - (1 - x) ** self.p1) / self.p1
+        return np.pi - 2 * np.pi * np.where(t > BAND_HIT, late, self.turns(t))
+
+    def radius(self, m):
+        return 1.20 + 0.50 * np.clip((m - self.lo) / max(self.hi - self.lo, 1), -0.1, 1.1)
+
+    def at(self, t):
+        """t 秒的 midi，不发声是 NaN。"""
+        j = self.i(t)
+        return self.midi[j] if 0 <= j < len(self.midi) else np.nan
+
+
 # ---------------------------------------------------------------- 画
 
 class Canvas:
-    """以月亮为中心的方形画布，长度单位是 R；每组元素一张 8 位遮罩（cv2 的抗锯齿只对 8 位图有效），最后着色相加。"""
+    """以月亮为中心的方形画布，长度单位是 R；每组元素一张 8 位遮罩（cv2 的抗锯齿只对 8 位图有效），最后着色相加。
+    off 是月亮中心相对画布正中的亚像素偏移（输出像素），画布贴回画面时按整像素对齐，这样星位才准。"""
 
-    def __init__(self, R):
+    def __init__(self, R, half=HALF, off=(0.0, 0.0)):
         import cv2
         self.cv2 = cv2
         self.R = R
-        self.S = int(math.ceil(2 * HALF * R * SS))
-        self.c = self.S / 2
+        self.n = int(math.ceil(2 * half * R))
+        self.S = self.n * SS
+        self.c = np.array([(self.n / 2 + off[0]) * SS - 0.5, (self.n / 2 + off[1]) * SS - 0.5])
         self.layers = []
 
     def layer(self, color, gain):
@@ -407,7 +472,7 @@ class Canvas:
 
     def px(self, x, y):
         """R 单位的点（x 朝右、y 朝下，月亮中心为原点）-> cv2 的定点坐标（shift=4）。"""
-        return np.round(np.stack([self.c + np.asarray(x) * self.R * SS, self.c + np.asarray(y) * self.R * SS], -1)
+        return np.round(np.stack([self.c[0] + np.asarray(x) * self.R * SS, self.c[1] + np.asarray(y) * self.R * SS], -1)
                         * 16).astype(np.int32)
 
     def width(self, w):
@@ -431,6 +496,20 @@ class Canvas:
         p = self.px(*self.polar(th, r)).tolist()
         self.cv2.circle(m, tuple(p), int(round(rad * self.R * SS * 16)), int(value * 255), -1, self.cv2.LINE_AA, 4)
 
+    def dot_xy(self, m, x, y, rad, value):
+        p = self.px(x, y).tolist()
+        self.cv2.circle(m, tuple(p), int(round(rad * self.R * SS * 16)), int(value * 255), -1, self.cv2.LINE_AA, 4)
+
+    def line_xy(self, m, p0, p1, value, w):
+        a, b = self.px(*np.array([p0, p1], np.float64).T).tolist()
+        self.cv2.line(m, tuple(a), tuple(b), int(value * 255), self.width(w), self.cv2.LINE_AA, 4)
+
+    def sparkle(self, m, x, y, rad, arm, value, w=0.006):
+        """一颗四芒星：圆点加横竖两道细光芒。"""
+        self.dot_xy(m, x, y, rad, value)
+        for dx, dy in ((arm, 0), (0, arm)):
+            self.line_xy(m, (x - dx, y - dy), (x + dx, y + dy), value * 0.8, w)
+
     def light(self, glow=(0.8, 0.5)):
         """着色相加，加两层辉光，缩回 1 倍；月亮圆盘里压暗（月亮本身的亮度由贴图决定）。返回 float32 RGB。"""
         cv2 = self.cv2
@@ -440,10 +519,9 @@ class Canvas:
         s1, s2 = 0.04 * self.R * SS, 0.16 * self.R * SS
         rgb = rgb + glow[0] * cv2.GaussianBlur(rgb, (0, 0), s1) + glow[1] * cv2.GaussianBlur(rgb, (0, 0), s2)
         yy, xx = np.mgrid[0:self.S, 0:self.S]
-        d = np.hypot(xx - self.c, yy - self.c) / (self.R * SS)
+        d = np.hypot(xx - self.c[0], yy - self.c[1]) / (self.R * SS)
         rgb *= np.clip((d - 0.95) / 0.12, 0.2, 1.0)[..., None]
-        n = int(round(self.S / SS))
-        return cv2.resize(rgb, (n, n), interpolation=cv2.INTER_AREA)
+        return cv2.resize(rgb, (self.n, self.n), interpolation=cv2.INTER_AREA)
 
 
 def draw_bars(cv, song, f, pk):
@@ -547,6 +625,113 @@ def draw_melody(cv, song, f, mel):
         cv.dot(head, mel.theta(t), mel.radius(m), 0.032 * (0.75 + 0.5 * float(song.voice[f])), 1.0)
 
 
+def draw_melody2(cv, song, f, mel):
+    t = f / FPS + VIS_LEAD
+    yd = ramp(t, DIAL_YIELD[0] - 0.25, DIAL_YIELD[0] + 0.25) * (1 - ramp(t, DIAL_YIELD[1] - 0.25, DIAL_YIELD[1] + 0.25))
+    gain = (0.6 + 0.4 * float(mel.ring[min(f, len(mel.ring) - 1)])) * (1 - 0.2 * yd)
+    guide = cv.layer(MOON, 0.16 * gain)
+    cv.curve(guide, np.linspace(0, 2 * np.pi, 241), np.full(241, 1.12), 1.0, 0.008)
+    # 刻度：一圈 8 拍，网格上的拍子到时亮一下（0.35 秒衰减，小节第一拍更亮）；尾声减速以后淡掉
+    tg = 1 - ramp(t, BAND_HIT, BAND_HIT + 1.5)
+    if tg > 0:
+        ticks = cv.layer(MOON, 0.9 * gain * tg)
+        val = np.full(8, 0.22)
+        for k in range(int(math.floor((t - 1.0 - BEAT_PHI) / BEAT)), int(math.floor((t - BEAT_PHI) / BEAT)) + 1):
+            tb = float(beat_time(k))
+            if tb > t or k < 0:
+                continue
+            j = int(round(float(mel.turns(tb)) * 8)) % 8
+            down = k % 4 == int(bar_phase(tb)[0])
+            val[j] += (0.8 if down else 0.5) * math.exp(-(t - tb) / 0.35)
+        for j in range(8):
+            cv.line(ticks, np.pi - 2 * np.pi * j / 8, 1.07, 1.19 if j == 0 else 1.17 if j % 4 == 0 else 1.15,
+                    min(val[j], 1.0), 0.012)
+    # 旋律线：最近 0.9 圈，不唱的地方断开，越旧越暗越细；补缝处暗一点。最后的长音不随时间变旧，闭成一个圆留到 END_HOLD
+    trail = cv.layer(MOON, gain)
+    j1 = mel.i(t)
+    j0 = mel.i(t - 0.9 * mel.T)
+    fa, fb = mel.i(FINAL_NOTE[0]), mel.i(FINAL_NOTE[1])
+    hold = 1 - ramp(t, END_HOLD, BAND_HIT)
+    js = set(range(max(j0, 0), j1))
+    if hold > 0 and j1 > fa:
+        js |= set(range(fa, min(fb, j1)))
+    for j in sorted(js):
+        if j + 1 >= len(mel.midi) or not (np.isfinite(mel.midi[j]) and np.isfinite(mel.midi[j + 1])):
+            continue
+        tj = (j + 1) / mel.fps
+        g = float(mel.g[j])
+        if fa <= j < fb:
+            age, g, k = 0.0, max(g, 0.7), hold
+        else:
+            age, k = (t - tj) / (0.9 * mel.T), 1.0
+            if age >= 1:
+                continue
+        k *= 0.7 if mel.bridge[j] else 1.0
+        cv.curve(trail, mel.theta(np.array([j / mel.fps, tj])), mel.radius(mel.midi[j:j + 2]),
+                 0.95 * (1 - age) ** 1.2 * (0.5 + 0.5 * g) * k, 0.005 + 0.016 * (1 - age), closed=False)
+    # 句星：每句开头留一颗，闪一下，两圈里淡掉
+    stars = cv.layer(WARM, gain)
+    for s in mel.lines:
+        if not s <= t < s + 2 * mel.T:
+            continue
+        seg = mel.midi[mel.i(s):mel.i(s + 0.3)]
+        seg = seg[np.isfinite(seg)]
+        r = float(mel.radius(seg[0])) if len(seg) else 1.12
+        flash = math.exp(-(t - s) / 0.4)
+        th = float(mel.theta(s))
+        cv.sparkle(stars, math.sin(th) * r, math.cos(th) * r, 0.02, 0.06 + 0.12 * flash,
+                   min(1.0, 0.45 + 0.55 * flash) * (1 - (t - s) / (2 * mel.T)) ** 1.5)
+    # 光点：唱的时候在音高上；不唱时是导引圈上一颗暗的；最后的长音以后留在那个圆上，最后一个和弦停在正上方闪一下
+    head = cv.layer(WARM, gain)
+    m = mel.at(t)
+    th = float(mel.theta(t))
+    if np.isfinite(m):
+        g = float(mel.g[min(mel.i(t), len(mel.g) - 1)])
+        cv.dot(head, th, float(mel.radius(m)), 0.032 * (0.75 + 0.5 * g), 1.0)
+    elif t > FINAL_NOTE[1]:
+        # 拖着 0.6 秒的尾巴：减速时尾巴跟着缩短，停下就收成一个点
+        tt = t - 0.6 * np.linspace(1, 0, 31)
+        for a in range(30):
+            x = (a + 1) / 30
+            cv.curve(trail, mel.theta(tt[a:a + 2]), np.full(2, mel.r_final), 0.8 * x ** 1.5, 0.006 + 0.012 * x,
+                     closed=False)
+        cv.dot(head, th, mel.r_final, 0.045, 0.95)
+        if t >= LAST_CHORD:
+            flash = math.exp(-(t - LAST_CHORD) / 0.8)
+            cv.sparkle(head, math.sin(th) * mel.r_final, math.cos(th) * mel.r_final, 0.03, 0.12 + 0.35 * flash,
+                       0.6 + 0.4 * flash, 0.008)
+    else:
+        cv.dot(head, th, 1.12, 0.018, 0.3)
+    # 夏季大三角：唱到哪颗星，画里那颗就亮；「夏の大三角」时按唱名的顺序连线，「見る」时淡出；之后三颗星暗回去
+    if ARE_GA - 1 < t < TRI_DIM[1] + 5:
+        tri = cv.layer(MOON, 1.0)
+        dim = (1 - 0.65 * ramp(t, *TRI_DIM)) * (1 - ramp(t, TRI_DIM[1] + 2, TRI_DIM[1] + 5))
+        for name, tk in STAR_NAMES:
+            on = ramp(t, tk - 0.02, tk + 0.10)
+            if on <= 0:
+                continue
+            flash = math.exp(-(t - tk) / 0.5) if t >= tk else 0.0
+            if name == "Vega" and t >= VEGA_GA:
+                flash += 0.5 * math.exp(-(t - VEGA_GA) / 0.4)
+            x, y = TRI_STARS[name]
+            cv.sparkle(tri, x, y, 0.035, (0.14 + 0.30 * min(flash, 1.0)) * on,
+                       min(1.0, on * dim * (0.7 + 0.3 * min(flash, 1.0))))
+        fade = 1 - ramp(t, *TRI_FADE)
+        for a, b, e0, e1 in TRI_EDGES:
+            p = ramp(t, e0, e1)
+            if p <= 0 or fade <= 0:
+                continue
+            A, B = np.array(TRI_STARS[a]), np.array(TRI_STARS[b])
+            L = float(np.linalg.norm(B - A))
+            u = (B - A) / L
+            gap = 0.15
+            p0 = A + u * gap
+            p1 = p0 + u * (L - 2 * gap) * p
+            cv.line_xy(tri, p0, p1, 0.6 * fade, 0.007)
+            if p < 1:
+                cv.dot_xy(tri, p1[0], p1[1], 0.02, 0.9 * fade)
+
+
 # ---------------------------------------------------------------- 合成
 
 G = {}
@@ -558,6 +743,8 @@ def setup(a):
     G["moon"] = np.load(a.moon)
     if a.style == "melody":
         G["mel"] = Melody(G["song"].f0, G["song"])
+    if a.style == "melody2":
+        G["mel"] = Melody2(a.f0, a.pv, G["song"].n)
     if a.style == "bars":
         G["pk"] = peaks(G["song"], a.f_end, 32)
 
@@ -574,7 +761,10 @@ def draw_one(path):
     H, W = img.shape[:2]
     q, r = G["moon"]["pos"][f], float(G["moon"]["r"][f])
     cx, cy, R = q[0] * W, (1 - q[1]) * H, r * W
-    cv = Canvas(R)
+    half = 5.6 if a.style == "melody2" else HALF          # melody2 要画到大三角：天津四在 5.1 R
+    n = int(math.ceil(2 * half * R))
+    x0, y0 = int(round(cx - n / 2)), int(round(cy - n / 2))
+    cv = Canvas(R, half, (cx - x0 - n / 2, cy - y0 - n / 2))
     for st in a.style.split("+"):
         if st == "bars":
             draw_bars(cv, song, f, G["pk"])
@@ -584,9 +774,9 @@ def draw_one(path):
             draw_ripple(cv, song, f)
         elif st == "melody":
             draw_melody(cv, song, f, G["mel"])
+        elif st == "melody2":
+            draw_melody2(cv, song, f, G["mel"])
     light = cv.light()
-    n = light.shape[0]
-    x0, y0 = int(round(cx - n / 2)), int(round(cy - n / 2))
     sx0, sy0, sx1, sy1 = max(x0, 0), max(y0, 0), min(x0 + n, W), min(y0 + n, H)
     sub = light[sy0 - y0:sy1 - y0, sx0 - x0:sx1 - x0] * a.gain
     reg = img[sy0:sy1, sx0:sx1]
@@ -906,6 +1096,7 @@ def main():
     p.add_argument("--bands", required=True)
     p.add_argument("--moon", required=True)
     p.add_argument("--f0")
+    p.add_argument("--pv", default="cases/kimishira/scripts/pv.py", help="melody2：读段落表 ring 列的 pv.py")
     p.add_argument("--gain", type=float, default=1.0, help="整体亮度")
     p.add_argument("--procs", type=int, default=16)
     p = sub.add_parser("grid")
