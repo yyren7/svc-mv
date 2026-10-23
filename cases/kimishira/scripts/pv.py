@@ -6,7 +6,7 @@
     $B -b cases/kimishira/renders/scene.blend -P cases/kimishira/scripts/pv.py -- stills 5 20 70   # 这几秒的静帧
     bash cases/kimishira/scripts/render.sh                                              # 分段渲染、合成成片
 可选的特效用环境变量 FX 开，逗号隔开（FX=bokeh,rim,kick,streak,glint）：
-    bokeh   镜头前的虚焦光斑        rim     月亮那一侧她的轮廓光，跟着心跳
+    bokeh   镜头前的虚焦花瓣        rim     月亮那一侧她的轮廓光，跟着心跳
     kick    重拍上镜头轻推 0.4%     streak  月亮的水平光条          glint   发饰上偶尔闪一下的四芒星
 月亮外圈的频谱环用 RING 选：bars（默认，场景里的细柱）或 none（不放，scripts/ring_lab.py 在画面上另画样式比较时用）。
 BLEND 换场景文件的路径，两份场景可以同时搭、同时渲。几秒的 PNG 小样（30 fps，RES 默认 50 即 1080p）：
@@ -389,11 +389,12 @@ def build():
     op.drift("motes", mote, audio, 320, (-9.0, 2.0, -0.35), (18.0, 22.0, 1.3), (0.02, -0.02, 0.05), 0.006,
              seed=2, size_var=0.5, flutter=0.08, rate=0.5, spin=0.0, density="motes", tilt=-0.12)
     if "bokeh" in FX:
-        # 镜头前 0.5~1.3 米的虚焦光斑：几十个，慢慢飘、慢慢明灭，镜头一动它们的视差最大
-        orb = op.ico("bokeh_src", 1.0, 3)
-        orb.data.materials.append(op.bokeh_mat())
-        op.drift("bokeh", orb, audio, 40, (-0.85, 0.5, -0.5), (1.7, 0.8, 1.0), (0.025, 0.0, 0.035), 0.016,
-                 seed=5, size_var=0.5, flutter=0.03, rate=0.35, spin=0.0, density="motes", edge=0.12)
+        # 镜头前 0.5~1.3 米的虚焦花瓣：二十几片，是飘着的花瓣的 2.5 倍大（5–9 厘米），半透明、边上软，慢慢翻、
+        # 慢慢明灭，镜头一动它们的视差最大。原来是圆的光斑，和满屏的花瓣不搭
+        bp = op.petal_mesh("bokeh_src")
+        bp.data.materials.append(op.bokeh_petal_mat())
+        op.drift("bokeh", bp, audio, 26, (-0.85, 0.5, -0.5), (1.7, 0.8, 1.0), (0.025, 0.0, 0.035), 2.5,
+                 seed=5, size_var=0.35, flutter=0.03, rate=0.35, spin=0.5, density="motes", edge=0.12)
     # 旋律盘就是月亮：外圈的频谱，低音来时整圈像心跳一样鼓起来。朝右下（人物那边）的柱子拉长到 1.3 倍，像月光
     # 斜着照出来的；左上只压到 0.85 倍（压到 0.4 太短，不压又显得挤）。正上方的柱子软压在 v = 0.035 以下，
     # 整首不出画框（镜头最高到 v ≈ -0.013），辉光也留得下

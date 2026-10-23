@@ -515,9 +515,8 @@ def petal_mesh(name="petal_src", length=0.026, width=0.016, cup=0.25, segs=14):
     return ob
 
 
-def petal_mat(name="petal", inner=(0.50, 0.80, 1.0), outer=(0.90, 0.97, 1.0), strength=1.45):
-    """插画里那种发亮的淡蓝花瓣：中心偏青、边缘发白，正对镜头时更亮一点。"""
-    mt, g, out = material(name)
+def petal_color(g, inner, outer):
+    """花瓣的颜色（petal_mesh 的 UV）：中心偏青 inner、往边上发白 outer。返回 (颜色, 离中心的距离 r)。"""
     uv = g.node("ShaderNodeUVMap").outputs[0]
     x, y, _ = g.sep(uv)
     r = g.v("LENGTH", g.xyz(g.m("MULTIPLY", g.m("SUBTRACT", x, 0.5), 2.0), g.m("SUBTRACT", y, 0.45), 0))
@@ -526,6 +525,13 @@ def petal_mat(name="petal", inner=(0.50, 0.80, 1.0), outer=(0.90, 0.97, 1.0), st
     g.link(g.m("POWER", g.m("MINIMUM", r, 1.0), 1.5), kit.sock(mix.inputs, "Factor", "VALUE"))
     kit.sock(mix.inputs, "A", "RGBA").default_value = (*inner, 1)
     kit.sock(mix.inputs, "B", "RGBA").default_value = (*outer, 1)
+    return kit.sock(mix.outputs, "Result", "RGBA"), r
+
+
+def petal_mat(name="petal", inner=(0.50, 0.80, 1.0), outer=(0.90, 0.97, 1.0), strength=1.45):
+    """插画里那种发亮的淡蓝花瓣：中心偏青、边缘发白，正对镜头时更亮一点。"""
+    mt, g, out = material(name)
+    color, _ = petal_color(g, inner, outer)
     lw = g.node("ShaderNodeLayerWeight")
     lw.inputs["Blend"].default_value = 0.4
     k = g.m("MULTIPLY_ADD", g.m("SUBTRACT", 1.0, lw.outputs["Facing"]), 0.5, strength * 0.75)
@@ -534,9 +540,29 @@ def petal_mat(name="petal", inner=(0.50, 0.80, 1.0), outer=(0.90, 0.97, 1.0), st
     a.attribute_name = "rnd"
     k = g.m("MULTIPLY", k, g.m("MULTIPLY_ADD", a.outputs["Fac"], 0.5, 0.75))
     em = g.node("ShaderNodeEmission")
-    g.link(kit.sock(mix.outputs, "Result", "RGBA"), em.inputs["Color"])
+    g.link(color, em.inputs["Color"])
     g.link(k, em.inputs["Strength"])
     g.link(em.outputs[0], out.inputs["Surface"])
+    return mt
+
+
+def bokeh_petal_mat(name="bokeh_petal", inner=(0.50, 0.80, 1.0), outer=(0.90, 0.97, 1.0), strength=0.8):
+    """镜头前虚焦的花瓣（petal_mesh）：颜色同 petal_mat，边上软软地淡掉，像 bokeh_mat 一样叠加在后面的东西上
+    （透明 + 发光），亮度乘实例的 flick（慢慢明灭）。虚焦交给景深。"""
+    mt, g, out = material(name, "BLENDED")
+    color, r = petal_color(g, inner, outer)
+    soft = g.m("SUBTRACT", 1.0, g.m("POWER", g.m("MINIMUM", r, 1.0), 3.0))
+    a = g.node("ShaderNodeAttribute")
+    a.attribute_type = "INSTANCER"
+    a.attribute_name = "flick"
+    k = g.m("MULTIPLY", soft, g.m("MULTIPLY", g.m("MULTIPLY_ADD", a.outputs["Fac"], 0.6, 0.4), strength))
+    em = g.node("ShaderNodeEmission")
+    g.link(color, em.inputs["Color"])
+    g.link(k, em.inputs["Strength"])
+    add = g.node("ShaderNodeAddShader")
+    g.link(g.node("ShaderNodeBsdfTransparent").outputs[0], add.inputs[0])
+    g.link(em.outputs[0], add.inputs[1])
+    g.link(add.outputs[0], out.inputs["Surface"])
     return mt
 
 
