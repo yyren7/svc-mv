@@ -514,7 +514,7 @@ def props():
     board()
     al = cyc.area_light
     S.lights = {
-        "sweep": (al("sweep", (1.2, 2.3, 5.0), (2.0, 1.15, 4.7), 0.6, 9000, 6, spread_deg=40), 6.0),
+        "sweep": (al("sweep", (1.0, 1.5, 5.0), (2.0, 1.0, 4.7), 1.5, 9000, 8, size_y=0.06, spread_deg=12), 8.0),
         "q_cold": (al("q_cold", QC + Vector((-3.0, -1.5, 0.7)), QC, 2.0, 9000, 300, color="#7C94FF"), 300.0),
         "q_rose": (al("q_rose", QC + Vector((3.0, 1.5, 0.1)), QC, 2.0, 2000, 400, color=ROSE), 400.0),
         "c1_rose": (al("c1_rose", C1C + Vector((0.9, 0, 0.3)), C1C + Vector((0, 0, 0.3)), 2.0, 2000, 260, size_y=3.6,
@@ -668,6 +668,14 @@ def setup():
     S.kv = S.prints["print_0_+0.0"]
     S.dawn = V.dawn_light()
     S.behind, S.cold = V.rose_light(prints)
+    # the cold light from the near end stops at the first row: at night every print has its own, in front
+    S.fronts = []
+    for p in prints:
+        x, y = p.location.x, p.location.y
+        lamp = cyc.area_light(f"front_{p.name}", (x - 1.5, y, V.TOP - 1.2), (x, y, V.TOP - 2.1), 1.6, 9000, 35,
+                              color="#7C94FF")
+        lamp.visible_glossy = False
+        S.fronts.append((lamp, 35.0))
     S.haze = V.haze(True)
     S.haze_vol = next(n for n in S.haze.data.materials[0].node_tree.nodes if n.type == "PRINCIPLED_VOLUME")
     sky_images(h)
@@ -682,13 +690,13 @@ def setup():
     crack_material()
     S.cracks = {}
     for k, x in enumerate((7.0, 15.0)):                               # P2: on the high windows' glass
-        crack(f"win{k}", 40 + k, (x - 0.3, V.WD / 2 - 0.02, 8.4), (1, 0, 0), (0, 0, 1), 1.8)
+        crack(f"win{k}", 40 + k, (x - 0.3, V.WD / 2 - 0.02, 8.4), (1, 0, 0), (0, 0, 1), 1.8, width=0.025)
     for k, name in enumerate(("print_2_+3.2", "print_4_-3.2")):      # P2: across the prints
         crack(f"print{k}", 50 + k, (-0.02, 0.9, -1.4), (0, -1, 0), (0, 0, -0.35), 1.9, parent=S.prints[name])
     crack("face", 60, (-0.02, 0.62, -1.55), (0, -1, 0), (0, 0, -0.25), 1.3, width=0.006, parent=S.float_print)
     for k in range(4):                                                 # P7.4: one window giving way
         crack(f"win7_{k}", 70 + k, (11.0, V.WD / 2 - 0.02, 8.3), (math.cos(k * 1.6), 0, math.sin(k * 1.6)),
-              (-math.sin(k * 1.6), 0, math.cos(k * 1.6)), 1.6)
+              (-math.sin(k * 1.6), 0, math.cos(k * 1.6)), 1.6, width=0.025)
     S.halves = {name: halves(S.prints[name]) for name in PATH}
     rain()
     confetti()
@@ -700,7 +708,7 @@ def setup():
              for p in list(S.prints.values()) + [S.q_print, S.c1_print, S.float_print]}
     S.home = {ob.name: (ob.location.copy(), ob.rotation_euler.copy())
               for ob in list(S.prints.values()) + S.panels + [S.kv]}
-    S.everything_lit = S.dawn + S.cold + S.bulbs + list(S.behind.values()) + list(S.lights.values())
+    S.everything_lit = S.dawn + S.cold + S.fronts + S.bulbs + list(S.behind.values()) + list(S.lights.values())
     S.hidden = [S.rain, S.conf, S.drop, S.zero, S.ink["ob"], S.burst["ob"], S.glass_ink["ob"]] + \
         [s["ob"] for s in S.shards] + [ob for hv in S.halves.values() for ob, _ in hv] + \
         [ob for ob, _ in S.card_halves] + getattr(S, "letter_lamps", [])
@@ -765,7 +773,7 @@ def dawn(a=1.0, sky_key="s1"):
 def night(cold=1.0, rose=0.0, sky_key="s2", density=0.0035, red=0.0):
     """裏: cold light on the fronts by `cold`, the rose lamp behind each print by `rose` (a number, or a function of
     the print's name); `red` turns the haze from pink to rose."""
-    for ob, e in S.cold:
+    for ob, e in S.cold + S.fronts:
         ob.data.energy = e * cold
     for name, (ob, e) in S.behind.items():
         ob.data.energy = e * (rose(name) if callable(rose) else rose)
@@ -856,7 +864,9 @@ def card(key, zoom=1.0, cx=0.5, cy=0.5, seep=0.0, gap=0.0, tint=None, tint_a=0.0
     scene.view_settings.exposure = 0.0
     S.glare.default_value = 0.1
     S.cam.data.dof.use_dof = False                   # the card sits a metre from the lens
-    if gap <= 0 and alone:                           # nothing of the 3D scene shows: one sample is enough
+    if gap <= 0 and alone:                           # nothing of the 3D scene shows: one sample is enough,
+        S.cam.matrix_world = Matrix.Translation((16.0, 0.0, 40.0))   # and nothing (glass, haze) before the card
+        S.haze.hide_render = True
         scene.cycles.samples = 1
         scene.cycles.use_denoising = False
 
@@ -885,11 +895,11 @@ def lift(p, a):
 
 def p0_paper(u, t, b):
     S.kv.rotation_euler.z = 0.012 * math.sin(2 * math.pi * t / 2.6)          # the sheet breathing
-    lt, e = S.lights["sweep"]
+    lt, e = S.lights["sweep"]                                                   # a band of cold light down the paper
     lt.data.energy = e
-    z = 5.6 - 2.4 * u
-    cyc._aim(lt, (1.2, 2.3, z), (2.0, 1.15, z - 0.3))
-    look((1.25, 0.95, 4.55), (2.02, 1.2, 4.35), lens=90, fstop=2.0)
+    z = 5.4 - 1.6 * u
+    cyc._aim(lt, (1.0, 1.5, z), (2.0, 1.0, z))
+    look((0.9, 0.7, 4.5), (2.03, 1.15, 4.3), lens=60, fstop=2.8)
 
 
 def p0_lights(u, t, b):
@@ -946,6 +956,7 @@ def p1_eyes(u, t, b):
 def p1_drop(u, t, b):
     dawn()
     bpy.context.scene.cycles.samples = 4 * SAMPLES                              # glass in glass in water
+    bpy.context.scene.view_settings.exposure = 0.6                              # the window behind not blown out
     g, t15 = S.glass_at, at(15)
     if t15 - 0.35 <= t < t15:
         S.drop.hide_render = False
@@ -969,8 +980,8 @@ def p1_seep(u, t, b):
 
 
 def p1_top(u, t, b):
-    dawn(0.9)
-    light("float_sun")
+    dawn(0.4)                                                                   # the water black, not the lit ceiling
+    light("float_sun", 1.5)
     v = ease((b - 20) / 4)
     ink(S.ink, FLOAT_C + Vector((0, 0, -0.015)), (2.2 + 1.8 * v, 2.2 + 1.8 * v, 0.014), 0.6 + 0.8 * v, 0.2)
     ripple(last_beat(t), FLOAT_C.x, FLOAT_C.y, 0.7)
