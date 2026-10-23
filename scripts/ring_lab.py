@@ -465,7 +465,7 @@ class Orbits:
         rng = np.random.default_rng(seed)
         n = ORBIT_N
         u = rng.random(n)
-        self.a = 1.22 + 1.45 * u ** 0.8                     # 半长轴（R）
+        self.a = 1.45 + 2.6 * u ** 0.9                      # 半长轴（R）：1.45–4.05，星之间留得开
         self.b = self.a * rng.uniform(0.82, 1.0, n)         # 半短轴：略扁，像斜着看的圆轨道
         self.tilt = rng.uniform(0, np.pi, n)
         self.phase = rng.uniform(0, 2 * np.pi, n)
@@ -474,7 +474,7 @@ class Orbits:
         self.sway_p = rng.uniform(5, 11, n)
         self.sway_ph = rng.uniform(0, 2 * np.pi, n)
         nb = song.spec.shape[1]
-        self.band = np.clip(np.round(u ** 0.8 * (nb - 1) + rng.normal(0, 3, n)), 1, nb - 2).astype(int)
+        self.band = np.clip(np.round(u ** 0.9 * (nb - 1) + rng.normal(0, 3, n)), 1, nb - 2).astype(int)
         self.h = rng.random(n)                              # 出现的门槛
         self.wob_p = rng.uniform(6, 14, n)                  # 门槛上下漂的周期（秒）：响度不变时也有星生灭
         self.wob_ph = rng.uniform(0, 2 * np.pi, n)
@@ -832,7 +832,8 @@ def draw_one(path):
     H, W = img.shape[:2]
     q, r = G["moon"]["pos"][f], float(G["moon"]["r"][f])
     cx, cy, R = q[0] * W, (1 - q[1]) * H, r * W
-    half = 5.6 if a.style == "melody2" else HALF          # melody2 要画到大三角：天津四在 5.1 R
+    # melody2 要画到大三角（天津四在 5.1 R），orbit 的外圈到 4.05 R
+    half = {"melody2": 5.6, "orbit": 4.6}.get(a.style, HALF)
     n = int(math.ceil(2 * half * R))
     x0, y0 = int(round(cx - n / 2)), int(round(cy - n / 2))
     cv = Canvas(R, half, (cx - x0 - n / 2, cy - y0 - n / 2))
