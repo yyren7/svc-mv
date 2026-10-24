@@ -20,10 +20,15 @@ export R=$C/renders
 N=${1:-4}
 mkdir -p $R/chunks $R/logs
 
-# 左下角的歌名、进度条和时间（旋律盘是画面里月亮外圈的频谱）：透明 PNG 序列，和渲染同时画（吃 CPU，不占 GPU）
-$PY scripts/onepic_player.py $C/audio/bands.npz $R/player_2160 \
-    --title "君の知らない物語" --sub "supercell · cover 小铃久绘（DDSP-SVC）" --fps 60 --height 2160 --show $SHOW > $R/logs/player.log 2>&1 &
-PLAYER=$!
+# 左下角的歌名、进度条和时间（旋律盘是画面里月亮外圈的频谱）：透明 PNG 序列，和渲染同时画（吃 CPU，不占 GPU）。
+# RESUME 时上次画完了（有 region.json）就不重画，免得又和 Blender 抢 CPU
+if [ -n "${RESUME:-}" ] && [ -f $R/player_2160/region.json ]; then
+    PLAYER=
+else
+    $PY scripts/onepic_player.py $C/audio/bands.npz $R/player_2160 \
+        --title "君の知らない物語" --sub "supercell · cover 小铃久绘（DDSP-SVC）" --fps 60 --height 2160 --show $SHOW > $R/logs/player.log 2>&1 &
+    PLAYER=$!
+fi
 
 if [ -z "${SKIP_RENDER:-}" ]; then
     if [ -z "${RESUME:-}" ]; then
@@ -50,7 +55,7 @@ if [ -z "${SKIP_RENDER:-}" ]; then
     fi
 fi
 
-wait $PLAYER
+[ -n "$PLAYER" ] && wait $PLAYER
 ARGS=()
 [ -f $C/audio/lyrics.lrc ] && ARGS+=(--lrc $C/audio/lyrics.lrc)
 [ -f $C/audio/lyrics_cn.lrc ] && ARGS+=(--tlrc $C/audio/lyrics_cn.lrc)
