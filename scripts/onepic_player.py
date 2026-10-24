@@ -8,6 +8,7 @@ onepic_finish.py 用 --overlay 叠到视频上。在 AutoDL 上跑（ComfyUI ven
 - 频谱：bands.npz 的 spec，72 根柱子绕盘一圈，左右对称（低频在下）。
 - 文字：歌名、副标题、进度条和时间。
 不给 --art 就不画唱片和频谱（画面里已经有旋律盘，比如月亮外圈的频谱），只留一条窄的歌名、进度条和时间。
+--show t0 t1 只在这段时间里显示（前后淡入淡出），给开头的大标题和结尾的制作信息让开，同一时间画面上只有一处歌名。
 尺寸按 1080p 设计，--height 等比缩放；输出 o_00000.png ...（第 k 张是 k / fps 秒），和 region.json（叠放的位置）。
 """
 import argparse
@@ -97,9 +98,23 @@ def setup_bar(a, k):
     G["tf"] = ImageFont.truetype(os.path.join(FONTS, "DINNextLTPro-Light.ttf"), int(20 * k))
 
 
+def shown(t):
+    """--show 的出现程度，0..1：t0 起淡入、t1 淡出完，淡入淡出各 --fade 秒（smoothstep）。"""
+    a = G["a"]
+    if not a.show:
+        return 1.0
+    x = min((t - a.show[0]) / a.fade, (a.show[1] - t) / a.fade, 1.0)
+    return 0.0 if x <= 0 else x * x * (3 - 2 * x)
+
+
 def frame(i):
     a, k = G["a"], G["k"]
     t = i / a.fps
+    s = shown(t)
+    path = os.path.join(a.out, f"o_{i:05d}.png")
+    if s <= 0:
+        Image.new("RGBA", (G["static"].width // SS, G["static"].height // SS)).save(path, compress_level=1)
+        return
     f0 = min(int(round(t * G["fps0"])), len(G["bass"]) - 1)
     spec, bass = G["spec"][f0], float(G["bass"][f0])
     pulse = bass ** 2
@@ -118,7 +133,9 @@ def frame(i):
     tw = d.textlength(txt, font=G["tf"])
     d.text((x1 - tw, G["time_y"]), txt, font=G["tf"], fill=(230, 238, 255, 210))
     out = img.resize((img.width // SS, img.height // SS), Image.LANCZOS)
-    out.save(os.path.join(a.out, f"o_{i:05d}.png"), compress_level=1)
+    if s < 1:
+        out.putalpha(out.getchannel("A").point(lambda v: int(v * s + 0.5)))
+    out.save(path, compress_level=1)
 
 
 def disc_frame(img, t, spec, pulse):
@@ -175,6 +192,9 @@ def main():
     ap.add_argument("--y", type=float, help="默认贴底，离下边 26")
     ap.add_argument("--procs", type=int, default=64)
     ap.add_argument("--seconds", type=float, help="只画前这么多秒（预览用）；进度条和时间仍按整首算")
+    ap.add_argument("--show", type=float, nargs=2, metavar=("T0", "T1"),
+                    help="只在这段时间里显示：t0 起淡入、t1 淡出完（开头的大标题、结尾的制作信息时让开）；不给就一直在")
+    ap.add_argument("--fade", type=float, default=1.5, help="--show 的淡入淡出秒数")
     a = ap.parse_args()
     if a.y is None:
         a.y = 1080 - (H0 if a.art else H1) - 26

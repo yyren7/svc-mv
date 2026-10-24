@@ -9,6 +9,10 @@ B=/root/autodl-tmp/tools/blender-5.2.2-linux-x64/blender
 PY=/root/autodl-tmp/ComfyUI/venv/bin/python
 cd /root/autodl-tmp/svc-mv
 C=cases/kimishira
+# 三处歌名轮流出：开头竖排的大标题（pv.py 的 title()，0–11.6 秒）-> 左下角的歌名栏（前奏第一个重拍 15.3 秒淡入，
+# 最后一句唱完后 320 秒淡出完）-> 右下角的制作信息（尾奏的重拍 321.65 秒起）
+SHOW="15.30 320"
+CREDITS_AT="321.65 334"
 R=$C/renders
 P=$R/preview
 LEN=${LEN:-40}
@@ -19,7 +23,7 @@ rm -f $P/*
 
 # 左下角的歌名、进度条和时间（旋律盘是画面里月亮外圈的频谱）：透明 PNG 序列，和渲染同时画（吃 CPU，不占 GPU）
 $PY scripts/onepic_player.py $C/audio/bands.npz $R/player_540 \
-    --title "君の知らない物語" --sub "supercell · cover 旬夏" --fps 30 --height 540 --seconds $LEN > $R/logs/player.log 2>&1 &
+    --title "君の知らない物語" --sub "supercell · cover 旬夏" --fps 30 --height 540 --seconds $LEN --show $SHOW > $R/logs/player.log 2>&1 &
 $B -b --factory-startup -P $C/scripts/pv.py -- build > $R/logs/build.log 2>&1
 grep -E "camera out" $R/logs/build.log || true
 F1=$(($($PY -c "import numpy as np; print(len(np.load('$C/audio/bands.npz')['loud']))") - 1))
@@ -34,6 +38,6 @@ wait          # Blender 的 4 段和左下角的 PNG 都画完
 ARGS=()
 [ -f $C/audio/lyrics.lrc ] && ARGS+=(--lrc $C/audio/lyrics.lrc)
 [ -f $C/audio/lyrics_cn.lrc ] && ARGS+=(--tlrc $C/audio/lyrics_cn.lrc)
-$PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "${LYRICS_OFFSET:-0.15}" --credits $C/credits.txt --credits-at 322 334 --lift 150
+$PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "${LYRICS_OFFSET:-0.15}" --credits $C/credits.txt --credits-at $CREDITS_AT --lift 150
 $PY scripts/onepic_finish.py $P $C/audio/kimishira_sakura_shunka_mix.wav $OUT \
     --ass $R/subs.ass --overlay $R/player_540 --crf 20 --preset fast --fade-out $([ "$LEN" -gt 0 ] && echo 1 || echo 4)
