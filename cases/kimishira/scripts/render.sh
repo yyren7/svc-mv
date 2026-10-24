@@ -6,7 +6,7 @@
 #   SKIP_RENDER=1 bash cases/kimishira/scripts/render.sh             # 只重做字幕和成片（改了歌词、制作信息时）
 #   HEIGHT=2160 bash cases/kimishira/scripts/render.sh               # 4K60（默认 1080p60）；成片 renders/kimishira_pv_<高>p.mp4
 # 4K 时一个 Blender 进程约占 3.4 GB 显存、9.5 GB 内存；容器内存上限 64 GB，N=6 时会被 OOM 杀掉。
-# 4 个进程 GPU 就满了，再多也不会更快。
+# 4 个进程时 18 核的 CPU 配额就满了（读回整帧、合成、编码都在 CPU 上），再多也不会更快。
 # 歌词：把 LRC 放在 audio/lyrics.lrc（译文可以在同一个文件里同时间戳的第二行，或 audio/lyrics_cn.lrc）。
 set -euo pipefail
 export B=/root/autodl-tmp/tools/blender-5.2.2-linux-x64/blender
