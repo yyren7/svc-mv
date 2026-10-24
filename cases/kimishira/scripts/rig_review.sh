@@ -3,7 +3,7 @@
 # -> 每个部位渲一段只有它动的小样（pv.py 的 review：镜头定住、只渲插画几层）-> 每段拼成三栏：
 #    渲出来的画面 | 这个部位的热力图 | 每个像素动了多少（和都不动的那一帧相减，放大 6 倍），配上那一段的歌。
 #   bash cases/kimishira/scripts/rig_review.sh [起始秒 70] [秒数 10] [部位 ...]   # 部位默认 hair tail dress breath mouth
-#   SKIP_RIG=1 不重算权重图，SKIP_BUILD=1 不重搭场景（只换了时间段、部位时）
+#   SKIP_RIG=1 不重算权重图，SKIP_BUILD=1 不重搭场景（只换了时间段、部位时），SKIP_RENDER=1 只重新拼视频
 # 部位：hair tail ear dress mouth breath，逗号连起来是一起动（hair,tail）。
 # 结果在 renders/rig_review/：<部位>.mp4；maps/ 是权重图：<部位>.png 灰度（白 = 动满，黑 = 不动），改好放进
 # case 的 rig_paint/ 再跑一遍；<部位>_heat.png 热力图；ref_char.png 同尺寸的人物，画图时垫在下面对位置。
@@ -34,12 +34,14 @@ if [ -z "${SKIP_BUILD:-}" ]; then
 fi
 
 # 都不动的那一帧，和每个部位只有它动的一段，同时渲
-rm -rf $R/clips/rr_*
-$B -b $BL -P $C/scripts/pv.py -s $F0 -e $F0 -a -- review none $F0 rr_rest > $R/logs/rr_rest.log 2>&1 &
-for p in $PARTS; do
-    $B -b $BL -P $C/scripts/pv.py -s $F0 -e $F1 -j 2 -a -- review $p $F0 rr_$p > $R/logs/rr_$p.log 2>&1 &
-done
-wait
+if [ -z "${SKIP_RENDER:-}" ]; then
+    rm -rf $R/clips/rr_*
+    $B -b $BL -P $C/scripts/pv.py -s $F0 -e $F0 -a -- review none $F0 rr_rest > $R/logs/rr_rest.log 2>&1 &
+    for p in $PARTS; do
+        $B -b $BL -P $C/scripts/pv.py -s $F0 -e $F1 -j 2 -a -- review $p $F0 rr_$p > $R/logs/rr_$p.log 2>&1 &
+    done
+    wait
+fi
 REST=$(ls $R/clips/rr_rest/*.png | head -1)
 
 # 三栏：人物那一块（1160×1020）各缩到 0.9
@@ -47,14 +49,14 @@ CROP="crop=1160:1020:660:40,scale=1044:918"
 label() { echo "drawtext=fontfile=$FONT:text='$1':x=24:y=18:fontsize=34:fontcolor=white:borderw=3"; }
 for p in $PARTS; do
     heat=$O/maps/${p%%,*}_heat.png
-    ffmpeg -v error -y -framerate 30 -pattern_type glob -i "$R/clips/rr_$p/f_*.png" -loop 1 -i $REST -loop 1 -i $heat \
+    ffmpeg -v error -y -framerate 30 -pattern_type glob -i "$R/clips/rr_$p/f_*.png" -loop 1 -framerate 30 -i $REST -loop 1 -framerate 30 -i $heat \
         -ss $T0 -t $LEN -i $C/audio/kimishira_sakura_shunka_mix.wav -filter_complex "
         [0:v]format=gbrp,split[v0][v1];
         [1:v]format=gbrp[r];
         [v0]$CROP,$(label "只有 ${p//,/+} 在动")[a];
         [v1][r]blend=all_mode=difference:shortest=1,lutrgb=r='min(255,val*6)':g='min(255,val*6)':b='min(255,val*6)',$CROP,$(label '动了多少（×6）')[d];
         [2:v]format=gbrp,$CROP,$(label "${p%%,*} 的热力图")[h];
-        [a][h][d]hstack=inputs=3:shortest=1,format=yuv420p[v]" \
+        [a][h][d]hstack=inputs=3:shortest=1,fps=30,format=yuv420p[v]" \
         -map "[v]" -map 3:a -shortest -c:v libx264 -crf 18 -preset fast -c:a aac -b:a 192k $O/${p//,/+}.mp4
     echo "$O/${p//,/+}.mp4"
 done
