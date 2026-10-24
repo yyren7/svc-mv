@@ -1,10 +1,10 @@
 """月亮外圈的星环：月亮是唱片中间的标签，外面 15 道看不见的正圆轨道，光点沿着轨道顺时针转，拖着细尾巴。
 只用 numpy（Blender 里由 onepic.star_ring() 搭成场景，外面也能单独算）；逐帧的值全由帧号算出来，任意一段帧都能单独渲染。
 
-- 每道轨道一段频率（里低外高）。亮着的光点颗数跟这段频率的响度走，但哪颗、什么时候出现（落在拍子上）、
-  什么时候熄灭是随机的（固定种子），不会一起亮一起灭。
-- 每道轨道各有基准转速（2 到 14 小节一圈），同一道上的光点快慢拉开（0.6–1.6 倍），快的追过慢的；响的时候一起转快一点。
-- 每颗光点按自己的周期明灭（4–12 拍，相位随机），这段频率再调亮暗一些，经过朝她和对面那两段（唱片的反光）亮一点。
+- 每道轨道一段频率（里低外高）。亮着的光点颗数跟这段频率的响度（3 秒的滑动平均）慢慢走，但哪颗、什么时候出现
+  （落在拍子上）是随机的（固定种子），不会一起亮一起灭。每次出现亮 LIFE 秒；被追着的会早一点熄灭让路。
+- 每道轨道各有基准转速（2 到 14 小节一圈），同一道上的光点快慢拉开（0.6–1.6 倍）；响的时候一起转快一点。
+- 每颗光点按自己的周期明灭（4–12 拍，相位随机，最暗 0.4），这段频率再调亮暗一些，经过朝她和对面那两段（唱片的反光）亮一点。
 - 尾巴是一段定长的弧（原来的 TAIL 倍）。同一道上快的追上慢的就慢下来跟在后面，光头不进别人的尾巴；新出现的光点
   放在这道上最大的空当里，放不下就不出，所以一道上最多亮几颗按一圈放得下几条整尾巴算。
 - 颜色从里圈暖白到外圈冰蓝，个别几颗是金、红、粉的点缀。
@@ -26,6 +26,8 @@ ACCENTS = (((1.00, 0.76, 0.36), 9), ((1.00, 0.40, 0.34), 7), ((1.00, 0.64, 0.80)
 SHEEN = math.radians(78)        # 唱片上的反光朝她（θ = 78°，右下），对面也有一道
 TAIL = 1.6                      # 尾巴比最早定的样式（57°–97° 的弧）长这么多倍
 FOLLOW = 1.05                   # 跟在后面的光点，光头离前面那颗至少它尾巴的这么多倍（尾梢本来就淡，留出的空当看得清）
+LIFE = (20, 45)                 # 每次出现亮这么多秒（这个范围里随机）才熄灭
+CHASED = 12.0                   # 被追着的另外平均这么多秒就熄灭，给后面快的让路
 
 
 def smooth(x, k):
@@ -58,20 +60,21 @@ def envelopes(rng, raw, fps):
     return np.stack([np.concatenate([np.full(k, env[i, 0]), env[i, :F - k]]) for i, k in enumerate(lag)])
 
 
-def lifecycle(rng, F, group, target, beat_frames, beat, fps, per_beat=2, tick=None, place=None):
+def lifecycle(rng, F, group, target, beat_frames, beat, fps, per_beat=2, life=(8, 20), drop=2.5, protect=0.0,
+              tick=None, place=None):
     """光点的生灭 -> 每颗逐帧的出现程度 (n, F)，0..1。group 是每颗属于哪一组，target (组数, F) 是每组逐帧应亮着的
     颗数；颗数跟着 target 走，但哪颗、什么时候是随机的：
     - 出现只落在拍子上（beat_frames，拍长 beat 秒），按各组缺的颗数以 2.5 秒的时间常数补，全部加起来一拍最多 per_beat 颗，
       先补缺得多的组；淡入 0.4–0.9 秒；
-    - 每颗亮着时平均 8–20 秒自己熄灭（由别的补上，响度不变时也在轮换）；一组比目标多时按 2.5 秒的时间常数多灭一些；
-      淡出 1.0–2.5 秒，淡出完再过 1 秒才能再出现。
-    给了 tick(帧, 看得见的) 就每帧先调一次（看得见的 = 亮着的和还在淡出的），在里面走这一帧；给了
-    place(帧, 组, 候选, 看得见的)，组里出哪颗、出在哪由它定，返回 None 是这组放不下了，这一拍不再补它；不给就随机挑一颗。
-    整首按固定种子模拟一遍，每次算出来都一样。"""
+    - 每次出现亮 life 秒（这个范围里随机）就熄灭，由别的补上，响度不变时也在轮换；一组比目标多时按 drop 秒的时间常数
+      多灭一些，刚出现不到 protect 秒的不灭；淡出 1.0–2.5 秒，淡出完再过 1 秒才能再出现。
+    给了 tick(帧, 看得见的) 就每帧先调一次（看得见的 = 亮着的和还在淡出的），在里面走这一帧；它返回的 (n,) 数组是这一帧
+    每颗另外熄灭的概率。给了 place(帧, 组, 候选, 看得见的)，组里出哪颗、出在哪由它定，返回 None 是这组放不下了，
+    这一拍不再补它；不给就随机挑一颗。整首按固定种子模拟一遍，每次算出来都一样。"""
     n, G = len(group), len(target)
     on_beat = np.zeros(F, bool)
     on_beat[beat_frames[(beat_frames >= 0) & (beat_frames < F)]] = True
-    life = rng.uniform(8, 20, n) * fps                      # 帧
+    end = np.full(n, np.inf)                                # 这次出现到哪一帧为止
     on = np.zeros(n, bool)
     free = np.zeros(n)                                      # 能再出现的帧
     gone = np.zeros(n)                                      # 淡出完的帧
@@ -85,18 +88,18 @@ def lifecycle(rng, F, group, target, beat_frames, beat, fps, per_beat=2, tick=No
         return place(f, g, cand, on | (gone > f)) if place else rng.choice(cand)
 
     for f in range(F):
-        if tick:
-            tick(f, on | (gone > f))
+        extra = tick(f, on | (gone > f)) if tick else None
         if f == 0:                                          # 开头就亮着的
             for g in range(G):
                 for _ in range(int(round(target[g, 0]))):
                     i = pick(0, g, np.flatnonzero(~on & (group == g)))
                     if i is None:
                         break
-                    on[i] = True
+                    on[i], end[i] = True, rng.uniform(0.2, 1.0) * rng.uniform(*life) * fps     # 开头的错开着灭
         k = np.bincount(group[on], minlength=G)
-        over = np.maximum(k - target[:, f], 0) / (2.5 * fps * np.maximum(k, 1))
-        for i in np.flatnonzero(on & (rng.random(n) < 1 / life + over[group])):
+        over = np.maximum(k - target[:, f], 0) / (drop * fps * np.maximum(k, 1))
+        hazard = over[group] * (f - t_on >= protect * fps) + (0 if extra is None else extra)
+        for i in np.flatnonzero(on & ((f >= end) | (rng.random(n) < hazard))):
             fout = rng.uniform(1.0, 2.5) * fps
             spans.append((i, t_on[i], fin[i], f, fout))
             on[i] = False
@@ -116,6 +119,7 @@ def lifecycle(rng, F, group, target, beat_frames, beat, fps, per_beat=2, tick=No
                 short[g] = 0
                 continue
             on[i], t_on[i], fin[i] = True, f, rng.uniform(0.4, 0.9) * fps
+            end[i] = f + rng.uniform(*life) * fps
             short[g] -= 1
     for i in np.flatnonzero(on):
         spans.append((i, t_on[i], fin[i], F + 1e9, 1.0))
@@ -167,7 +171,7 @@ class Ring:
         nb = spec.shape[1]
         edges = np.round(np.linspace(0, nb, K + 1)).astype(int)
         raw = np.stack([spec[:, edges[k]:edges[k + 1]].mean(1) for k in range(K)])
-        lvl = np.stack([smooth(x, 0.5 * fps) for x in raw])
+        lvl = np.stack([smooth(x, 3.0 * fps) for x in raw])
         lo, hi = np.percentile(lvl, 10, axis=1)[:, None], np.percentile(lvl, 95, axis=1)[:, None]
         level = np.clip(0.12 + 0.88 * (lvl - lo) / (hi - lo), 0.05, 1.0)      # 每道轨道的响度 (K, F)
         speed = 0.7 + 0.6 * smooth(loud, 1.0 * fps)        # 响的时候一起转快一点
@@ -178,7 +182,8 @@ class Ring:
         beat_frames = np.round((beat0 + beat * np.arange(int((F / fps - beat0) / beat) + 1)) * fps).astype(int)
 
         # 逐帧走：θ 减小是顺时针。同一道上看得见的光点，后面那颗的光头离前面那颗不到它尾巴的 FOLLOW 倍时就慢下来，
-        # 按 1 秒的时间常数贴到这个距离、跟前面那颗一样快，不会追进别人的尾巴；看不见的照自己的速度走
+        # 按 1 秒的时间常数贴到这个距离、跟前面那颗一样快，不会追进别人的尾巴；看不见的照自己的速度走。
+        # 被追着的（后面有一颗因为它慢下来）平均 CHASED 秒就熄灭让路，没被追着的亮得久（LIFE 秒）
         TAU = 2 * np.pi
         self.th = th = np.empty((n, F))
         self.step = step = np.zeros((n, F))               # 每帧走的角度
@@ -199,6 +204,9 @@ class Ring:
             go = np.where(vis & np.isfinite(gap), np.clip(limit, 0, want[:, f - 1]), want[:, f - 1])
             step[:, f] = go
             th[:, f] = p - go
+            chased = np.zeros(n)
+            chased[lead[vis & np.isfinite(gap) & (go < 0.9 * want[:, f - 1])]] = 1 / (CHASED * fps)
+            return chased
 
         def place(f, g, cand, vis):
             """新出现的一颗放进这道上最大的空当：离前面那颗至少它尾巴的 FOLLOW 倍，离后面那颗至少自己尾巴的 FOLLOW 倍，
@@ -220,7 +228,7 @@ class Ring:
             return i
 
         self.alive = lifecycle(rng, F, self.track, 0.3 + (cmax[:, None] - 0.3) * level, beat_frames, beat, fps,
-                               per_beat=4, tick=tick, place=place)
+                               per_beat=4, life=LIFE, drop=20.0, protect=10.0, tick=tick, place=place)
 
     def tail_frames(self):
         """每颗光点逐帧的尾巴往前几帧 (n, F)：往前走过 L 那么长的弧要几帧；不往前超过这次出现的那一帧。"""
@@ -234,11 +242,11 @@ class Ring:
         return np.minimum(out, fr[None, :] - last)
 
     def tables(self):
-        """逐帧的 (θ, 亮度, 响度, 反光, 尾巴往前的帧数)，各是 (n, F) 的 float32。亮度：明灭的周期从 0.15 到满，
-        这段频率再调亮暗一些，经过反光处亮一点，0..1。"""
+        """逐帧的 (θ, 亮度, 响度, 反光, 尾巴往前的帧数)，各是 (n, F) 的 float32。亮度：明灭的周期从 0.4 到满（暗到 0.15
+        时连尾巴一起像灭了一样），这段频率再调亮暗一些，经过反光处亮一点，0..1。"""
         t = np.arange(self.F) / self.fps
         th = self.th
         blink = 0.5 + 0.5 * np.sin(2 * np.pi * t[None, :] / self.blink_p[:, None] + self.blink_ph[:, None])
         sh = sheen(th)
-        br = np.clip(self.alive * 1.15 * (0.15 + 0.85 * blink) * (0.65 + 0.35 * self.env ** 1.2) * (1 + 0.3 * sh), 0, 1)
+        br = np.clip(self.alive * 1.15 * (0.4 + 0.6 * blink) * (0.65 + 0.35 * self.env ** 1.2) * (1 + 0.3 * sh), 0, 1)
         return tuple(a.astype(np.float32) for a in (th, br, self.env, sh, self.tail_frames()))
