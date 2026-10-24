@@ -695,23 +695,32 @@ def deform(ob, pic, audio, prep=None, amp=None):
     - 嘴：以嘴为中心上下伸缩、嘴角横向跟一点，伸缩量是 audio 的 mouth 列（负的是合一点）；
     - 呼吸：胸口和肩膀按 rig 的 breath 权重，随 audio 的 breath 列（0..1，1 是吸满，0.5 是插画本来的样子）抬起、
       落下，头几乎不动。没有这列或这张权重图就不动。整个人一起伸缩会连头一起上下晃，看着假。
-    位移在插画坐标里算，再按顶点的距离换成米（u 方向 sx·Y，v 方向 sz·Y）。"""
+    位移在插画坐标里算，再按顶点的距离换成米（u 方向 sx·Y，v 方向 sz·Y）。
+    每个部位的位移再乘节点组里一个叫 gain_<部位> 的 Value 节点（hair、tail、ear、dress、mouth、breath，默认 1），
+    存好的场景里改它就能只看某一个部位动（pv.py 的 review）。"""
     prep = prep or pic.dir
     A = dict(DEFORM, **(amp or {}))
-    rig = np.load(os.path.join(prep, "rig.npz"))
+    rig = dict(np.load(os.path.join(prep, "rig.npz")))
+    if "tail_s" in rig:         # 旧的 rig.npz：尾巴是范围和沿尾巴的位置两张
+        rig["tail"] = rig["tail"] * rig.pop("tail_s") ** 1.2
     info = json.load(open(os.path.join(prep, "rig.json")))
-    breathe = "breath" in rig.files and "breath" in audio.col
+    breathe = "breath" in rig and "breath" in audio.col
     me = ob.data
     pu = np.empty(len(me.vertices), np.float32)
     pv = np.empty(len(me.vertices), np.float32)
     me.attributes["pu"].data.foreach_get("value", pu)
     me.attributes["pv"].data.foreach_get("value", pv)
-    for key in ("hair", "ear_l", "ear_r", "tail", "tail_s", "dress", "mouth") + (("breath",) if breathe else ()):
+    for key in ("hair", "ear_l", "ear_r", "tail", "dress", "mouth") + (("breath",) if breathe else ()):
         at = me.attributes.new("w_" + key, "FLOAT", "POINT")
         at.data.foreach_set("value", sample(rig[key], np.clip(pu, 0, 1), np.clip(pv, 0, 1)).astype(np.float32))
 
     ng, g, gi, go = new_group("deform", "GeometryNodeTree", inputs=[("Geometry", "NodeSocketGeometry", None)],
                               outputs=[("Geometry", "NodeSocketGeometry", None)])
+
+    def gain(part):
+        n = g.node("ShaderNodeValue", name="gain_" + part, label="gain_" + part)
+        n.outputs[0].default_value = 1.0
+        return n.outputs[0]
 
     def attr(name):
         n = g.node("GeometryNodeInputNamedAttribute")
@@ -729,21 +738,22 @@ def deform(ob, pic, audio, prep=None, amp=None):
     u, v = attr("pu"), attr("pv")
     # 头发：两条传播的正弦叠加，发梢落后于发根
     f1, f2 = A["hair_freq"]
-    wh = g.m("MULTIPLY", g.m("MULTIPLY", attr("w_hair"), A["hair"]), sway)
+    wh = g.m("MULTIPLY", g.m("MULTIPLY", g.m("MULTIPLY", attr("w_hair"), A["hair"]), sway), gain("hair"))
     du = g.m("MULTIPLY", wh, g.m("ADD", g.m("MULTIPLY", wave(tau, f1, 7.0), 0.65),
                                   g.m("MULTIPLY", wave(tau, f2, 11.0, 1.7), 0.35)))
     dv = g.m("MULTIPLY", wh, g.m("MULTIPLY", wave(tau, (f1 + f2) / 1.6, 9.0, 0.6), 0.25))
     # 耳朵
-    el = g.m("MULTIPLY", attr("w_ear_l"), audio.at_gn(g, "earl"))
-    er = g.m("MULTIPLY", attr("w_ear_r"), audio.at_gn(g, "earr"))
+    ge = gain("ear")
+    el = g.m("MULTIPLY", g.m("MULTIPLY", attr("w_ear_l"), audio.at_gn(g, "earl")), ge)
+    er = g.m("MULTIPLY", g.m("MULTIPLY", attr("w_ear_r"), audio.at_gn(g, "earr")), ge)
     du = g.m("MULTIPLY_ADD", g.m("SUBTRACT", er, el), A["ear"], du)
     dv = g.m("MULTIPLY_ADD", g.m("ADD", el, er), -0.3 * A["ear"], dv)
-    # 尾巴：绕根部转（在等比的坐标里转，再换回 u）
+    # 尾巴：绕根部转（在等比的坐标里转，再换回 u），转的角度按 w_tail（根 0、尖 1）
     bu, bv = info["tail_base"]
     p1, p2 = A["tail_period"]
     swing = g.m("ADD", g.m("MULTIPLY", g.m("SINE", g.m("MULTIPLY", t, TAU / p1)), A["tail"][0]),
                 g.m("MULTIPLY", g.m("SINE", g.m("ADD", g.m("MULTIPLY", t, TAU / p2), 1.1)), A["tail"][1]))
-    alpha = g.m("MULTIPLY", g.m("MULTIPLY", attr("w_tail"), g.m("POWER", attr("w_tail_s"), 1.2)),
+    alpha = g.m("MULTIPLY", g.m("MULTIPLY", attr("w_tail"), gain("tail")),
                 g.m("MULTIPLY", swing, g.m("MULTIPLY_ADD", sway, 0.4, 0.8)))
     x = g.m("MULTIPLY", g.m("SUBTRACT", u, bu), pic.aspect)
     y = g.m("SUBTRACT", v, bv)
@@ -753,17 +763,17 @@ def deform(ob, pic, audio, prep=None, amp=None):
     du = g.m("ADD", du, g.m("DIVIDE", g.m("SUBTRACT", xr, x), pic.aspect))
     dv = g.m("ADD", dv, g.m("SUBTRACT", yr, y))
     # 裙摆
-    du = g.m("ADD", du, g.m("MULTIPLY", g.m("MULTIPLY", attr("w_dress"), A["dress"]),
+    du = g.m("ADD", du, g.m("MULTIPLY", g.m("MULTIPLY", g.m("MULTIPLY", attr("w_dress"), A["dress"]), gain("dress")),
                             g.m("MULTIPLY", sway, g.m("SINE", g.m("SUBTRACT", g.m("MULTIPLY", tau, TAU * 0.25),
                                                                      g.m("MULTIPLY", u, 9.0))))))
     # 嘴
     mu, mv = info["mouth"]
-    mo = g.m("MULTIPLY", attr("w_mouth"), audio.at_gn(g, "mouth"))
+    mo = g.m("MULTIPLY", g.m("MULTIPLY", attr("w_mouth"), audio.at_gn(g, "mouth")), gain("mouth"))
     du = g.m("ADD", du, g.m("MULTIPLY", g.m("MULTIPLY", mo, A["mouth_x"]), g.m("SUBTRACT", u, mu)))
     dv = g.m("ADD", dv, g.m("MULTIPLY", mo, g.m("SUBTRACT", v, mv)))
     # 呼吸：吸气时往上（v 变小）
     if breathe:
-        br = g.m("MULTIPLY", g.m("SUBTRACT", audio.at_gn(g, "breath"), 0.5), A["breath"])
+        br = g.m("MULTIPLY", g.m("MULTIPLY", g.m("SUBTRACT", audio.at_gn(g, "breath"), 0.5), A["breath"]), gain("breath"))
         dv = g.m("SUBTRACT", dv, g.m("MULTIPLY", attr("w_breath"), br))
     # 插画坐标的位移 -> 米：u 方向 sx·Y，v 方向（向下）-sz·Y
     py = g.sep(g.node("GeometryNodeInputPosition").outputs[0])[1]

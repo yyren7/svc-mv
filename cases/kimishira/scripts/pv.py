@@ -12,7 +12,10 @@
 或 none（不放）。
 BLEND 换场景文件的路径，两份场景可以同时搭、同时渲。几秒的 PNG 小样（30 fps，RES 默认 50 即 1080p）：
     $B -b $BLEND -P cases/kimishira/scripts/pv.py -s 3960 -e 4320 -j 2 -a -- clip <名字>   # -> renders/clips/<名字>/
+看人物某个部位怎么动（只留它动、镜头定住、只渲插画几层；rig_review.sh 一次渲完各部位、拼成对比视频）：
+    $B -b $BLEND -P cases/kimishira/scripts/pv.py -s 4200 -e 4799 -j 2 -a -- review hair 4200 <名字>
 """
+import json
 import os
 import re
 import sys
@@ -188,6 +191,16 @@ def kicks(n, downbeats):
     return out
 
 
+def mouth_moves(n, seed=4):
+    """嘴的伸缩量（负的是合一点，0 是插画本来的样子）：周期 3.3 秒和 5.1 秒的两条慢正弦叠加（相位随机），在
+    -0.24..0.04 之间慢慢变小变大，不会一下一下地开合。原来跟人声的快包络走，唱歌时人声几乎不断，嘴就一直张着。"""
+    rng = np.random.default_rng(seed)
+    t = np.arange(n) / FPS
+    s = (0.6 * np.sin(op.TAU * t / 3.3 + rng.uniform(0, op.TAU))
+         + 0.4 * np.sin(op.TAU * t / 5.1 + rng.uniform(0, op.TAU)))
+    return (-0.10 + 0.14 * s).astype(np.float32)
+
+
 def breathing(n):
     """呼吸（0..1，1 是吸满）：每句歌词开唱前 0.5 秒很快吸一口，唱的时候慢慢呼出去；不唱的时候（间奏）按 4.6 秒
     一次平静地起伏。句子的起止取 lyrics.lrc：一句唱到下一个时间标签（空行标的是间奏开始），最长 6 秒。"""
@@ -250,8 +263,7 @@ def section_arrays(n, d):
         "halo": 0.06 + 0.04 * cols["energy"] + 0.08 * pulse * (0.4 + 0.6 * cols["energy"]),
         "energy_glow": 0.5 + 0.7 * cols["energy"] + 0.15 * bass,
         "sway": 0.6 + 0.6 * cols["energy"],                    # 头发、裙摆、尾巴摆动的幅度
-        # 嘴：人声快包络 -> 伸缩量；不唱的时候合一点（-0.28），唱得响时再张开一点（+0.18）
-        "mouth": -0.28 + 0.46 * np.clip((d["voice"][:n] - 0.30) / 0.6, 0, 1),
+        "mouth": mouth_moves(n),
         "earl": earl,
         "earr": earr,
         "breath": breathing(n),
@@ -498,6 +510,33 @@ def clip(name):
     s.render.filepath = os.path.join(C.RENDERS, "clips", name, "f_#####")
 
 
+PARTS = ("hair", "tail", "ear", "dress", "mouth", "breath")     # onepic.deform() 的 gain_<部位>
+
+
+def review(parts, frame, name):
+    """看摆动的小样：只有 parts（逗号隔开，none 是都不动）这几个部位动；镜头定在第 frame 帧的位置（不平移、不变焦，
+    画面上动的就只有人物）；花瓣、光点、星环、流星、标题都不渲，只留插画的几层。设置同 clip()，到 renders/clips/<name>/。"""
+    s = bpy.context.scene
+    keep = set(parts.split(",")) - {"none"}
+    ng = bpy.data.node_groups["deform"]
+    for p in PARTS:
+        ng.nodes["gain_" + p].outputs[0].default_value = 1.0 if p in keep else 0.0
+    layers = {L["name"] for L in json.load(open(os.path.join(PREP, "meta.json"))).get("layers", [])} or {"bg", "girl"}
+    for ob in s.objects:
+        if ob.type != "CAMERA" and ob.name not in layers:
+            ob.hide_render = True
+    s.frame_set(int(frame))
+    cam = s.camera
+    held = [(cam, "location"), (cam, "rotation_euler"), (cam.data, "lens"), (cam.data.dof, "focus_distance"),
+            (cam.data.dof, "aperture_fstop")]
+    vals = [tuple(getattr(o, a)) if hasattr(getattr(o, a), "__len__") else getattr(o, a) for o, a in held]
+    cam.animation_data_clear()
+    cam.data.animation_data_clear()
+    for (o, a), v in zip(held, vals):
+        setattr(o, a, v)
+    clip(name)
+
+
 def preview():
     """快速预览：960×540、30 fps（每隔一帧渲一帧）、8 采样。只改设置，渲染由命令行后面的 -s -e -j 2 -a 来做：
         $B -b scene.blend -P pv.py -s 0 -e 5059 -j 2 -a -- preview"""
@@ -517,5 +556,7 @@ if __name__ == "__main__":
         preview()
     elif argv and argv[0] == "clip":
         clip(argv[1])
+    elif argv and argv[0] == "review":
+        review(argv[1], argv[2], argv[3])
     else:
         build()

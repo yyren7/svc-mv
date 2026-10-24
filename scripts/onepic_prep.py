@@ -310,7 +310,7 @@ def rig(char_path, spec_path, out):
     hair          头发和丝带：按颜色（紫红、粉、浅蓝）取，离头中心越远权重越大（hair_reach 两个距离之间从 0 到 1）
     ear_l, ear_r  两只耳朵：框里的人物像素，从耳根（框底）到耳尖从 0 到 1；ears_still 的框里白的、浅蓝的像素
                   （头顶的蝴蝶结，两边的翼伸进耳朵的框）不动
-    tail, tail_s  尾巴：框里的紫色像素；tail_s 是沿尾巴从根（0）到尖（1）的位置，按绕拱心的角度算
+    tail          尾巴的转动量：框里的紫色像素 × 沿尾巴从根（0）到尖（1）的位置^1.2（位置按绕拱心的角度算）
     dress         裙摆：白色、在 dress 的 v 范围里，越往下越大
     mouth         嘴：以嘴为中心的圆形衰减（嘴的位置按颜色在给定位置附近修正）
     breath        呼吸（rig.json 有 breath 才有）：v 是下巴、肩线、胸口、腰四条线，肩线到胸口为 1，往上到下巴降到
@@ -318,6 +318,8 @@ def rig(char_path, spec_path, out):
                   0.06 内放开到 0；尾巴不动
     皮肤、话筒、话筒线、颈带附近（加上 rigid 折线画的一条带子），头发、裙摆、嘴的权重都压到 0；
     sleeves 的多边形里头发也是 0；距离都以画面高为单位。
+    case 目录下 rig_paint/<部位>.png（手改的灰度图）有的话，整张换掉算出来的那张。每张图另存到 rig_maps/
+    （灰度和热力图，export_maps()），拿去改。
     最后 solidify() 把人物内部半透明的地方补满（translucent 的框里不动）。"""
     spec = json.load(open(spec_path, encoding="utf-8"))
     meta = json.load(open(os.path.join(out, "meta.json")))
@@ -420,19 +422,49 @@ def rig(char_path, spec_path, out):
     mouth = (1 - ramp(dist((mu, mv)), mr * 0.45, mr)) * (1 - smooth(cv2.dilate(big.astype(np.uint8), np.ones((5, 5), np.uint8)), 2)) \
         * (1 - hard)
 
-    np.savez_compressed(os.path.join(out, "rig.npz"), hair=hair, ear_l=ears[0], ear_r=ears[1], tail=tail,
-                        tail_s=tail_s.astype(np.float32), dress=dress, mouth=mouth.astype(np.float32), breath=breath)
+    # 尾巴存的是转动量：尾巴的范围 × 沿尾巴的位置^1.2（根不动、尖转得最多），和别的部位一样，图上多亮就动多少
+    maps = dict(hair=hair, ear_l=ears[0], ear_r=ears[1], tail=tail * tail_s ** 1.2, dress=dress, mouth=mouth,
+                breath=breath)
+    # 手改的权重图：case 的 rig_paint/<部位>.png（灰度，白 = 动满，黑 = 不动）整张换掉算出来的那张
+    paint = os.path.join(os.path.dirname(os.path.abspath(spec_path)), "rig_paint")
+    for key in maps:
+        p = os.path.join(paint, key + ".png")
+        if os.path.exists(p):
+            maps[key] = resize(cv2.imread(p, cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255, w, h, cv2.INTER_LINEAR)
+            print("rig: painted", key, flush=True)
+    maps = {k: np.clip(v, 0, 1).astype(np.float32) for k, v in maps.items()}
+    np.savez_compressed(os.path.join(out, "rig.npz"), **maps)
     info = {"mouth": [mu, mv], "tail_base": T["base"], "head": spec["head"]}
     json.dump(info, open(os.path.join(out, "rig.json"), "w"), indent=1)
     print("rig", json.dumps(info), flush=True)
     solidify(out, spec.get("translucent", []))
 
     base = cv2.cvtColor(img[..., :3], cv2.COLOR_BGR2RGB).astype(np.float32) / 255 * alpha[..., None] * 0.6
-    colors = [(hair, (1, 0.2, 0.2)), (ears[0] + ears[1], (0.2, 1, 0.2)), (tail * (0.3 + 0.7 * tail_s), (0.3, 0.5, 1)),
-              (dress, (1, 1, 0.2)), (mouth, (0.2, 1, 1))]
+    colors = [(maps["hair"], (1, 0.2, 0.2)), (maps["ear_l"] + maps["ear_r"], (0.2, 1, 0.2)), (maps["tail"], (0.3, 0.5, 1)),
+              (maps["dress"], (1, 1, 0.2)), (maps["mouth"], (0.2, 1, 1))]
     for m, c in colors:
         base = base * (1 - m[..., None] * 0.7) + m[..., None] * 0.7 * np.array(c, np.float32)
     imwrite(os.path.join(out, "rig_check.png"), base)
+    export_maps(maps, img, alpha, os.path.join(out, "rig_maps"))
+
+
+def export_maps(maps, img, alpha, dst):
+    """每张权重图存两份，拿去手改：<部位>.png 是灰度（0..255 = 权重 0..1，改好放进 case 的 rig_paint/），
+    <部位>_heat.png 是热力图（人物压暗成灰，权重按 turbo 色标盖上去，不动的地方不上色）；ref_char.png 是同尺寸的人物，
+    画图软件里垫在灰度图下面对位置用。"""
+    os.makedirs(dst, exist_ok=True)
+    rgb = img[..., :3].astype(np.float32) / 255
+    gray = (rgb @ np.array([0.114, 0.587, 0.299], np.float32))[..., None] * alpha[..., None]
+    dim = np.repeat(0.15 + 0.55 * gray, 3, axis=2)
+    cv2.imwrite(os.path.join(dst, "ref_char.png"), img)
+    for key, m in list(maps.items()) + [("ear", np.maximum(maps["ear_l"], maps["ear_r"]))]:
+        q = (m * 255 + 0.5).astype(np.uint8)
+        if key != "ear":            # 两只耳朵合起来的那张只给看
+            cv2.imwrite(os.path.join(dst, key + ".png"), q)
+        heat = cv2.applyColorMap(q, cv2.COLORMAP_TURBO).astype(np.float32) / 255
+        k = np.clip(m * 4, 0, 0.85)[..., None]
+        cv2.imwrite(os.path.join(dst, key + "_heat.png"), ((dim * (1 - k) + heat * k) * 255 + 0.5).astype(np.uint8))
+    print("rig maps ->", dst, flush=True)
 
 
 def solidify(out, keep):

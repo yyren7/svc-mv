@@ -51,7 +51,8 @@
   后来又改回抽动，只是慢一半。
   头顶的蝴蝶结两边伸进耳朵的框里，`rig.json` 的 `ears_still` 框里白的、浅蓝的像素不跟耳朵动
 - 裙摆：横向的慢波
-- 嘴：跟主唱的快包络上下伸缩（−28%…+18%），嘴角横向跟一点；不唱时合一点
+- 嘴：两条慢正弦（周期 3.3、5.1 秒）叠加，在 −24%…+4% 之间慢慢变小变大，嘴角横向跟一点（`mouth_moves()`）。
+  原来跟主唱的快包络走，唱歌时人声几乎不断，嘴一直张着
 - 呼吸：胸口和肩膀起伏，头几乎不动（`rig.json` 的 `breath`：`v` 是下巴、肩线、胸口、腰四条线，`u` 是左右范围）。
   每句歌词开唱前半秒吸一口，唱的时候慢慢呼出去，句子之间平静地起伏（`breathing()`，句子的起止取 `audio/lyrics.lrc`）。
   整个人以下边为轴伸缩的呼吸试过，头跟着一点一点的，像假的
@@ -65,6 +66,11 @@
 分层抠出来的人物，尾巴和右边几缕头发是半透明的（尾巴约 0.9，右边那截 0.6–0.85），渲染时后面的花透出来，
 看着像尾巴糊了。`rig` 最后把人物内部的 alpha 补满（写 `art/prep/layer_char_solid.png`），离边缘几个像素的抗锯齿边和细发丝不动；
 `rig.json` 的 `translucent` 是本来就该透的地方（右下透出花的裙边），也不动。
+
+权重图可以手改。`rig` 把每张图存到 `art/prep/rig_maps/`：`<部位>.png` 是灰度（白 = 动满，黑 = 不动，尾巴是转动量），
+`<部位>_heat.png` 是盖在人物上的热力图，`ref_char.png` 是同尺寸的人物。改好的灰度图放进 `rig_paint/<部位>.png`
+（进仓库），再跑 `rig` 就整张换掉算出来的那张。看改得对不对用 `scripts/rig_review.sh`：每个部位渲一段只有它动、
+镜头定住的小样，和热力图、"每个像素动了多少"拼成三栏，到 `renders/rig_review/`。
 
 ## 修图
 
@@ -165,7 +171,9 @@ bash scripts/onepic_setup.sh
 $PY scripts/onepic_prep.py $C/art/kue_pv_stars_103_4k_00001_.png $C/art/prep
 UPSCALER2=/root/autodl-tmp/ComfyUI/models/upscale_models/2x-AnimeSharpV4_RCAN.safetensors \
     $PY scripts/onepic_prep.py layers /root/autodl-tmp/layers/kue_stars_103 $C/art/prep
-$PY scripts/onepic_prep.py rig /root/autodl-tmp/layers/kue_stars_103/char.png $C/rig.json $C/art/prep
+$PY scripts/onepic_prep.py rig $C/art/prep/layer_char.png $C/rig.json $C/art/prep     # 修过图的人物层；rig_paint/ 有手改的就用它
+# 各部位单独动的小样（重算权重图、搭一份 1080p 场景、每部位 10 秒）-> renders/rig_review/
+bash $C/scripts/rig_review.sh 70 10 hair tail dress breath mouth
 # 修图（ComfyUI 由 comfy_batch.sh 起停），挑好的放进 art/prep，再重跑上面的 rig
 CLIENT="env PYTHONPATH=/root/autodl-tmp/pv/pylib $PY /root/autodl-tmp/svc-mv/scripts/retouch.py" \
     bash scripts/comfy_batch.sh $C/jobs/retouch_hands_a.json       # 它会 cd 到 ComfyUI，CLIENT 里的脚本给绝对路径
