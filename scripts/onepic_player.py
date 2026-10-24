@@ -2,7 +2,7 @@
 onepic_finish.py 用 --overlay 叠到视频上。在 AutoDL 上跑（ComfyUI venv 有 PIL / numpy），多进程：
 
     python onepic_player.py <bands.npz> <输出目录> --art <唱片图> --art-uv 0.179 0.142 0.06 \
-        --title 君の知らない物語 --sub "supercell · cover 旬夏" --fps 30 --height 540
+        --title 君の知らない物語 --sub "supercell · cover 小铃久绘（DDSP-SVC）" --fps 30 --height 540
 
 - 唱片：从图里按 --art-uv（中心 u、v，半径按画面宽的比例）裁一个圆，慢慢转；低音来时整个盘和光晕像心跳一样鼓一下。
 - 频谱：bands.npz 的 spec，72 根柱子绕盘一圈，左右对称（低频在下）。
@@ -82,28 +82,30 @@ def setup(a):
 
 def setup_bar(a, k):
     """不画唱片：歌名、副标题（右边是时间）、进度条，垫一块柔边的深色底板。底板有两块（只存 alpha）：整块的跟着歌名
-    淡入淡出，只垫副标题那一行和进度条的一直在；两块取较深的那个，不会叠出一道更深的缝。"""
-    size = (int(W1 * k), int(H1 * k))
+    淡入淡出，只垫副标题那一行和进度条的一直在；两块取较深的那个，不会叠出一道更深的缝。
+    副标题长的时候整条往右加宽，右边的时间离副标题至少 40（1080p 下）。"""
+    tf = ImageFont.truetype(os.path.join(FONTS, "yumindb.ttf"), int(38 * k))
+    sf = ImageFont.truetype(NOTO, int(21 * k))
+    G["tf"] = ImageFont.truetype(os.path.join(FONTS, "DINNextLTPro-Light.ttf"), int(20 * k))
+    grow = max(0.0, (sf.getlength(a.sub) + G["tf"].getlength("0:00 / 0:00")) / k + 40 - (560 - 64))
+    size = (int((W1 + grow) * k), int(H1 * k))
 
     def plate(top, radius):
         sh = Image.new("L", size, 0)
-        ImageDraw.Draw(sh).rounded_rectangle([22 * k, top * k, 600 * k, 134 * k], radius=radius * k, fill=100)
+        ImageDraw.Draw(sh).rounded_rectangle([22 * k, top * k, (600 + grow) * k, 134 * k], radius=radius * k, fill=100)
         return np.asarray(sh.filter(ImageFilter.GaussianBlur(16 * k)), np.float32)
 
     G["plate"], G["plate_bar"] = plate(16, 50), plate(66, 34)
     G["static"] = Image.new("RGBA", size, (6, 10, 28, 0))
     label = Image.new("RGBA", size, (0, 0, 0, 0))
     sd = ImageDraw.Draw(label)
-    tf = ImageFont.truetype(os.path.join(FONTS, "yumindb.ttf"), int(38 * k))
-    sf = ImageFont.truetype(NOTO, int(21 * k))
     x0 = 64 * k
     for dx, dy, col in ((2, 2, (0, 0, 0, 120)), (0, 0, (244, 248, 255, 240))):
         sd.text((x0 + dx * k, 22 * k + dy * k), a.title, font=tf, fill=col)
         sd.text((x0 + dx * k, 76 * k + dy * k), a.sub, font=sf, fill=col[:3] + (int(col[3] * 0.85),))
     G["label"] = label
-    G["bar"] = (x0, 120 * k, 560 * k)
+    G["bar"] = (x0, 120 * k, (560 + grow) * k)
     G["time_y"] = 80 * k              # 时间在副标题那一行、右对齐
-    G["tf"] = ImageFont.truetype(os.path.join(FONTS, "DINNextLTPro-Light.ttf"), int(20 * k))
 
 
 def shown(t):

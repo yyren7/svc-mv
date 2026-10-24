@@ -6,7 +6,7 @@
 
 | | |
 |---|---|
-| 歌 | supercell「君の知らない物語」，旬夏的 AI 翻唱（DDSP-SVC），`audio/kimishira_sakura_shunka_mix.wav` |
+| 歌 | supercell「君の知らない物語」，小铃久绘的 AI 翻唱（DDSP-SVC），`audio/kimishira_sakura_shunka_mix.wav` |
 | 画 | kue 的星空花田插画，4K 精修版 `characters/kue/art/kue_pv_stars_103_4k_00001_.png`；分层（远景 / 中景 / 近景 / 人物，被挡住的部分 Qwen 补画）在 `characters/kue/art/layers/stars_103/` |
 | 预览 | `renders/kimishira_preview_540p_40s.mp4`：960×540、30 fps、8 采样，默认只出前 40 秒（约 1 分半）；`LEN=0` 出整首 `renders/kimishira_preview_540p.mp4`（约 8 分钟） |
 | 成片 | `renders/kimishira_pv.mp4`：3840×2160、60 fps、H.264 High + AAC 320k，5 分 37 秒 |
@@ -131,7 +131,7 @@ rim、streak 试过不要：streak 照现在的强度在画面上几乎没有变
 | `streak` | 月亮的水平光条 |
 | `glint` | 发夹的花、丝带上的花、头顶蝴蝶结偶尔闪一下四芒星 |
 
-左下角只留一条窄的歌名、"supercell · cover 旬夏"、进度条和时间（`scripts/onepic_player.py` 不给 `--art`），
+左下角只留一条窄的歌名、"supercell · cover 小铃久绘（DDSP-SVC）"、进度条和时间（`scripts/onepic_player.py` 不给 `--art`），
 逐帧画成透明 PNG，最后叠上去；歌词在它上面。歌名一次只在一处：开头竖排的大标题（0–11.6 秒）走了，
 左下角的歌名和副标题才在前奏第一个重拍（15.3 秒）淡入，最后一句唱完后淡出（320 秒淡完），尾奏的重拍（321.65 秒）起
 是右下角的制作信息（`render.sh`、`preview.sh` 里的 `SHOW`、`CREDITS_AT`）。进度条和时间不算标题，从头到尾都在，
@@ -194,11 +194,11 @@ $PY $C/scripts/cover.py $C/renders/stills/t_070.00.png $C/renders/cover
 
 草稿（按需改）：
 
-- 标题：`【旬夏】君の知らない物語【AI翻唱 · 一图流 4K60】`
+- 标题：`【小铃久绘】君の知らない物語【AI翻唱 · 一图流 4K60】`
 - 简介：
   ```
   原曲：supercell「君の知らない物語」（《化物语》ED）
-  翻唱：旬夏（DDSP-SVC 转换的 AI 歌声）
+  翻唱：小铃久绘（DDSP-SVC 转换的 AI 歌声）
   画面：一张 AI 插画在 Blender 里拆层做成 2.5D，人物随风摆动、跟着歌声张口，花瓣、流星、旋律盘都跟着歌走
   4K 60 帧，建议调到最高画质观看
   ```

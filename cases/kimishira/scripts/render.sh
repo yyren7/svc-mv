@@ -22,7 +22,7 @@ mkdir -p $R/chunks $R/logs
 
 # 左下角的歌名、进度条和时间（旋律盘是画面里月亮外圈的频谱）：透明 PNG 序列，和渲染同时画（吃 CPU，不占 GPU）
 $PY scripts/onepic_player.py $C/audio/bands.npz $R/player_2160 \
-    --title "君の知らない物語" --sub "supercell · cover 旬夏" --fps 60 --height 2160 --show $SHOW > $R/logs/player.log 2>&1 &
+    --title "君の知らない物語" --sub "supercell · cover 小铃久绘（DDSP-SVC）" --fps 60 --height 2160 --show $SHOW > $R/logs/player.log 2>&1 &
 PLAYER=$!
 
 if [ -z "${SKIP_RENDER:-}" ]; then
