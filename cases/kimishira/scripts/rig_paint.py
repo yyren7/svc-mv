@@ -136,6 +136,8 @@ away = (1 - blur(cv2.dilate(tail_m, disk(10)), 4))
 for b in spec["ears"]:
     away *= 1 - blur(box(b), 4)
 center = blur((U > 0.525) & (U < 0.705) & (Y > 0.60), 8)    # 裙子正面和手：上面偏粉的反光不算头发
+# 尾巴根（右下那头）一带和右下角的裙边没有头发，尾巴外面那圈光、裙边的淡紫会被当成发丝
+away *= (1 - blur(box((0.86, 0.82, 1.0, 1.0)), 4)) * (1 - blur(box((0.76, 0.92, 1.0, 1.0)), 4))
 lo, hi = spec["hair_reach"]
 # 先往外长 5 px 再模糊：1–2 px 的细发丝直接模糊会被稀释到 0.1 以下，几乎不动（长出去的是透明处，不影响）
 hair_w = blur(cv2.dilate(hair_m, disk(5)), 2) * ramp(dist(spec["head"]), lo, hi) * away * (1 - center)
