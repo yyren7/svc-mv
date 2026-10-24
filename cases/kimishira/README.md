@@ -9,7 +9,7 @@
 | 歌 | supercell「君の知らない物語」，小铃久绘的 AI 翻唱（DDSP-SVC），`audio/kimishira_sakura_shunka_mix.wav` |
 | 画 | kue 的星空花田插画，4K 精修版 `characters/kue/art/kue_pv_stars_103_4k_00001_.png`；分层（远景 / 中景 / 近景 / 人物，被挡住的部分 Qwen 补画）在 `characters/kue/art/layers/stars_103/` |
 | 预览 | `renders/kimishira_preview_540p_40s.mp4`：960×540、30 fps、8 采样，默认只出前 40 秒（约 1 分半）；`LEN=0` 出整首 `renders/kimishira_preview_540p.mp4`（约 8 分钟） |
-| 成片 | `renders/kimishira_pv.mp4`：1920×1080、60 fps、H.264 High + AAC 320k，5 分 37 秒（`HEIGHT=2160` 出 4K） |
+| 成片 | `renders/kimishira_pv_1080p.mp4`：1920×1080、60 fps、H.264 High + AAC 320k，5 分 37 秒；`HEIGHT=2160` 出 4K 的 `kimishira_pv_2160p.mp4` |
 | 封面 | `renders/cover_16x9.jpg`（1920×1080）、`renders/cover_4x3.jpg`（手机端裁切） |
 
 通用的做法和踩过的坑在 [docs/onepic.md](../../docs/onepic.md)，这里只记这首歌的部分。
@@ -190,7 +190,7 @@ $PY $C/scripts/cover.py $C/renders/stills/t_070.00.png $C/renders/cover
 - 作者声明勾选"使用 AI 合成技术"：歌声是 DDSP-SVC 转换的，插画是 AI 画的。
 - 插画（Qwen-Image-2.1 画的）和放大、深度模型都是非商用许可，不开充电、不接商单。Qwen 的许可严格说只许研究和评估用，
   见 [docs/models.md](../../docs/models.md)。
-- 上传 `renders/kimishira_pv.mp4` 原文件即可。
+- 上传 `renders/kimishira_pv_2160p.mp4`（或 1080p 的）原文件即可。
 
 草稿（按需改）：
 

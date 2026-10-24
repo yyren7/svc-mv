@@ -4,7 +4,7 @@
 #   bash cases/kimishira/scripts/render.sh [N=4] [起始帧 结束帧]     # 给了帧范围就只渲那一段（试渲用）
 #   RESUME=1 bash cases/kimishira/scripts/render.sh                  # 不重建场景，跳过已完成的段
 #   SKIP_RENDER=1 bash cases/kimishira/scripts/render.sh             # 只重做字幕和成片（改了歌词、制作信息时）
-#   HEIGHT=2160 bash cases/kimishira/scripts/render.sh               # 4K60（默认 1080p60）
+#   HEIGHT=2160 bash cases/kimishira/scripts/render.sh               # 4K60（默认 1080p60）；成片 renders/kimishira_pv_<高>p.mp4
 # 4K 时一个 Blender 进程约占 3.4 GB 显存、9.5 GB 内存；容器内存上限 64 GB，N=6 时会被 OOM 杀掉。
 # 4 个进程 GPU 就满了，再多也不会更快。
 # 歌词：把 LRC 放在 audio/lyrics.lrc（译文可以在同一个文件里同时间戳的第二行，或 audio/lyrics_cn.lrc）。
@@ -66,5 +66,5 @@ ARGS=()
 [ -f $C/audio/lyrics_cn.lrc ] && ARGS+=(--tlrc $C/audio/lyrics_cn.lrc)
 $PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "${LYRICS_OFFSET:-0.15}" --credits $C/credits.txt --credits-at $CREDITS_AT --lift 150 \
     --res $((HEIGHT * 16 / 9)) $HEIGHT
-$PY scripts/onepic_finish.py $R/chunks $C/audio/kimishira_sakura_shunka_mix.wav $R/kimishira_pv.mp4 --ass $R/subs.ass --overlay $P
+$PY scripts/onepic_finish.py $R/chunks $C/audio/kimishira_sakura_shunka_mix.wav $R/kimishira_pv_${HEIGHT}p.mp4 --ass $R/subs.ass --overlay $P
 touch $R/render_done
