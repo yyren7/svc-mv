@@ -4,7 +4,8 @@
 #   bash cases/kimishira/scripts/render.sh [N=4] [起始帧 结束帧]     # 给了帧范围就只渲那一段（试渲用）
 #   RESUME=1 bash cases/kimishira/scripts/render.sh                  # 不重建场景，跳过已完成的段
 #   SKIP_RENDER=1 bash cases/kimishira/scripts/render.sh             # 只重做字幕和成片（改了歌词、制作信息时）
-# 一个 Blender 进程约占 3.4 GB 显存、9.5 GB 内存；容器内存上限 64 GB，N=6 时会被 OOM 杀掉。
+#   HEIGHT=2160 bash cases/kimishira/scripts/render.sh               # 4K60（默认 1080p60）
+# 4K 时一个 Blender 进程约占 3.4 GB 显存、9.5 GB 内存；容器内存上限 64 GB，N=6 时会被 OOM 杀掉。
 # 4 个进程 GPU 就满了，再多也不会更快。
 # 歌词：把 LRC 放在 audio/lyrics.lrc（译文可以在同一个文件里同时间戳的第二行，或 audio/lyrics_cn.lrc）。
 set -euo pipefail
@@ -18,16 +19,19 @@ SHOW="15.30 320"
 CREDITS_AT="321.65 334"
 export R=$C/renders
 N=${1:-4}
+HEIGHT=${HEIGHT:-1080}
+export RES=$((HEIGHT * 100 / 2160))       # 场景按 3840×2160 搭，onepic.scene() 按 RES 的百分比出图
+P=$R/player_$HEIGHT
 mkdir -p $R/chunks $R/logs
 
 # 左下角的歌名、进度条和时间（旋律盘是画面里月亮外圈的频谱）：透明 PNG 序列，和渲染同时画（吃 CPU，不占 GPU；nice 19，
 # Blender 每帧算几何节点、变形也要 CPU，别抢它的）。
 # RESUME 时上次画完了（有 region.json）就不重画，免得又和 Blender 抢 CPU
-if [ -n "${RESUME:-}" ] && [ -f $R/player_2160/region.json ]; then
+if [ -n "${RESUME:-}" ] && [ -f $P/region.json ]; then
     PLAYER=
 else
-    nice -n 19 $PY scripts/onepic_player.py $C/audio/bands.npz $R/player_2160 \
-        --title "君の知らない物語" --sub "supercell · cover 小铃久绘（DDSP-SVC）" --fps 60 --height 2160 --show $SHOW > $R/logs/player.log 2>&1 &
+    nice -n 19 $PY scripts/onepic_player.py $C/audio/bands.npz $P \
+        --title "君の知らない物語" --sub "supercell · cover 小铃久绘（DDSP-SVC）" --fps 60 --height $HEIGHT --show $SHOW > $R/logs/player.log 2>&1 &
     PLAYER=$!
 fi
 
@@ -60,6 +64,7 @@ fi
 ARGS=()
 [ -f $C/audio/lyrics.lrc ] && ARGS+=(--lrc $C/audio/lyrics.lrc)
 [ -f $C/audio/lyrics_cn.lrc ] && ARGS+=(--tlrc $C/audio/lyrics_cn.lrc)
-$PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "${LYRICS_OFFSET:-0.15}" --credits $C/credits.txt --credits-at $CREDITS_AT --lift 150
-$PY scripts/onepic_finish.py $R/chunks $C/audio/kimishira_sakura_shunka_mix.wav $R/kimishira_pv.mp4 --ass $R/subs.ass --overlay $R/player_2160
+$PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "${LYRICS_OFFSET:-0.15}" --credits $C/credits.txt --credits-at $CREDITS_AT --lift 150 \
+    --res $((HEIGHT * 16 / 9)) $HEIGHT
+$PY scripts/onepic_finish.py $R/chunks $C/audio/kimishira_sakura_shunka_mix.wav $R/kimishira_pv.mp4 --ass $R/subs.ass --overlay $P
 touch $R/render_done
