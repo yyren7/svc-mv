@@ -851,10 +851,10 @@ def spectrum_ring(pic, audio, bands, y=None, inner=1.3, length=(0.04, 0.6), widt
 def star_ring(pic, ring, y=None, tail_pts=40, gain=2.5, rows=4096):
     """月亮外圈的星环（star_ring.Ring）：光点沿看不见的正圆轨道绕月亮转，拖着细尾巴。摆在月亮的视线上、y 米处
     （默认天空的 0.97，和频谱环一样），人物、花瓣、近处的花田在它前面，会挡住它。
-    逐帧的 (θ, 亮度, 响度) 存成一张浮点贴图（每帧一行、每颗光点一列，帧数多时折成几块并排，同 Audio），
-    Geometry Nodes 按帧去查，网格只是骨架：
-    - 尾巴（stars_trail）：每颗光点一条沿轨道的细带，tail_pts 个点从尾梢到光头，每个点查它那一刻（往前 tail 秒以内）
-      的位置、亮度、响度；宽 1.1 × 星芯半径 ×（往尾梢变细、响时宽一点、经过反光处宽一点），亮度 × 0.85 q^1.8
+    逐帧的 (θ, 亮度, 响度, 尾巴长度系数) 存成一张浮点贴图的 RGBA（每帧一行、每颗光点一列，帧数多时折成几块并排，
+    同 Audio），Geometry Nodes 按帧去查，网格只是骨架：
+    - 尾巴（stars_trail）：每颗光点一条沿轨道的细带，tail_pts 个点从尾梢到光头，每个点查它那一刻（往前 tail × 这一帧的
+      长度系数秒以内）的位置、亮度、响度；宽 1.1 × 星芯半径 ×（往尾梢变细、响时宽一点、经过反光处宽一点），亮度 × 0.85 q^1.8
       （q 光头 1、尾梢 0）；带子两边多留 0.12 R，着色器在那里画一点辉光；
     - 光头（stars_head）：每颗一小片正方形，着色器画星芯（外圈半亮、中间一半半径全亮，颜色往白里调）、光晕（1.8 倍
       半径，0.3）和一点辉光。
@@ -865,18 +865,18 @@ def star_ring(pic, ring, y=None, tail_pts=40, gain=2.5, rows=4096):
     y = y or pic.y_sky * 0.97
     c = pic.point(mu, mv, y)
     Rm = mr * pic.sx * y                    # 月亮半径（米）
-    th, br, env, _ = ring.tables()
+    th, br, env, _, tk = ring.tables()
     n, F = br.shape
     K = int(math.ceil(F / rows))
     px = np.zeros((rows, n * K, 4), np.float32)
-    px[..., 3] = 1
     for b in range(K):
         blk = slice(b * rows, min((b + 1) * rows, F))
         m = blk.stop - blk.start
-        for ch, a in enumerate((th, br, env)):
+        for ch, a in enumerate((th, br, env, tk)):
             px[:m, b * n:(b + 1) * n, ch] = a[:, blk].T
-    img = bpy.data.images.new("star_ring", n * K, rows, alpha=False, float_buffer=True)
+    img = bpy.data.images.new("star_ring", n * K, rows, alpha=True, float_buffer=True)
     img.colorspace_settings.name = "Non-Color"
+    img.alpha_mode = "CHANNEL_PACKED"       # 四个通道各存各的数，颜色不被 alpha 预乘
     img.pixels.foreach_set(px.ravel())
     img.pack()
 
@@ -904,19 +904,27 @@ def star_ring(pic, ring, y=None, tail_pts=40, gain=2.5, rows=4096):
             a.inputs["Name"].default_value = nm
             return kit.sock(a.outputs, "Attribute")
 
+        def look(fs):
+            """这颗光点第 fs 帧那一行的贴图。"""
+            fs = g.m("MINIMUM", g.m("MAXIMUM", g.m("ROUND", fs), 0.0), float(F - 1))
+            block = g.m("FLOOR", g.m("DIVIDE", fs, float(rows)))
+            row = g.m("SUBTRACT", fs, g.m("MULTIPLY", block, float(rows)))
+            u = g.m("DIVIDE", g.m("ADD", g.m("MULTIPLY_ADD", block, float(n), attr("li")), 0.5), float(n * K))
+            v = g.m("DIVIDE", g.m("ADD", row, 0.5), float(rows))
+            t = g.node("GeometryNodeImageTexture")
+            t.interpolation = "Closest"
+            t.extension = "EXTEND"
+            t.inputs["Image"].default_value = img
+            g.link(g.xyz(u, v, 0), t.inputs["Vector"])
+            return t
+
         frame = g.node("GeometryNodeInputSceneTime").outputs["Frame"]
         q = None if head else attr("q")
-        fs = frame if head else g.m("SUBTRACT", frame, g.m("MULTIPLY", g.m("SUBTRACT", 1.0, q), attr("tailf")))
-        fs = g.m("MINIMUM", g.m("MAXIMUM", g.m("ROUND", fs), 0.0), float(F - 1))
-        block = g.m("FLOOR", g.m("DIVIDE", fs, float(rows)))
-        row = g.m("SUBTRACT", fs, g.m("MULTIPLY", block, float(rows)))
-        u = g.m("DIVIDE", g.m("ADD", g.m("MULTIPLY_ADD", block, float(n), attr("li")), 0.5), float(n * K))
-        v = g.m("DIVIDE", g.m("ADD", row, 0.5), float(rows))
-        t = g.node("GeometryNodeImageTexture")
-        t.interpolation = "Closest"
-        t.extension = "EXTEND"
-        t.inputs["Image"].default_value = img
-        g.link(g.xyz(u, v, 0), t.inputs["Vector"])
+        if head:
+            t = look(frame)
+        else:       # 尾巴有多长看这一帧的长度系数
+            tail = g.m("MULTIPLY", attr("tailf"), look(frame).outputs["Alpha"])
+            t = look(g.m("SUBTRACT", frame, g.m("MULTIPLY", g.m("SUBTRACT", 1.0, q), tail)))
         a, b_, e = g.sep(t.outputs["Color"])          # Separate XYZ 也能拆颜色：θ、亮度、响度
         sh = g.m("POWER", g.m("ABSOLUTE", g.m("COSINE", g.m("SUBTRACT", a, ring.sheen))), 4.0)     # star_ring.sheen()
         radial = g.xyz(g.m("SINE", a), 0.0, g.m("MULTIPLY", g.m("COSINE", a), -1.0))
