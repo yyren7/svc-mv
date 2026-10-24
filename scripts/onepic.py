@@ -848,13 +848,13 @@ def spectrum_ring(pic, audio, bands, y=None, inner=1.3, length=(0.04, 0.6), widt
 
 # ---------------------------------------------------------------- 月亮外圈的星环
 
-def star_ring(pic, ring, y=None, tail_pts=40, gain=2.5, rows=4096):
+def star_ring(pic, ring, y=None, tail_pts=64, gain=2.5, rows=4096):
     """月亮外圈的星环（star_ring.Ring）：光点沿看不见的正圆轨道绕月亮转，拖着细尾巴。摆在月亮的视线上、y 米处
     （默认天空的 0.97，和频谱环一样），人物、花瓣、近处的花田在它前面，会挡住它。
-    逐帧的 (θ, 亮度, 响度, 尾巴长度系数) 存成一张浮点贴图的 RGBA（每帧一行、每颗光点一列，帧数多时折成几块并排，
+    逐帧的 (θ, 亮度, 响度, 尾巴往前的帧数) 存成一张浮点贴图的 RGBA（每帧一行、每颗光点一列，帧数多时折成几块并排，
     同 Audio），Geometry Nodes 按帧去查，网格只是骨架：
-    - 尾巴（stars_trail）：每颗光点一条沿轨道的细带，tail_pts 个点从尾梢到光头，每个点查它那一刻（往前 tail × 这一帧的
-      长度系数秒以内）的位置、亮度、响度；宽 1.1 × 星芯半径 ×（往尾梢变细、响时宽一点、经过反光处宽一点），亮度 × 0.85 q^1.8
+    - 尾巴（stars_trail）：每颗光点一条沿轨道的细带，tail_pts 个点从尾梢到光头，每个点查它那一刻（往前那么多帧以内）
+      的位置、亮度、响度；宽 1.1 × 星芯半径 ×（往尾梢变细、响时宽一点、经过反光处宽一点），亮度 × 0.85 q^1.8
       （q 光头 1、尾梢 0）；带子两边多留 0.12 R，着色器在那里画一点辉光；
     - 光头（stars_head）：每颗一小片正方形，着色器画星芯（外圈半亮、中间一半半径全亮，颜色往白里调）、光晕（1.8 倍
       半径，0.3）和一点辉光。
@@ -881,13 +881,13 @@ def star_ring(pic, ring, y=None, tail_pts=40, gain=2.5, rows=4096):
     img.pack()
 
     def skeleton(name, verts_per, faces_per, extra):
-        """每颗光点 verts_per 个顶点的网格，带每颗光点的属性 li、r、rc、tailf、col 和 extra(顶点在这颗里的序号) 给的属性。"""
+        """每颗光点 verts_per 个顶点的网格，带每颗光点的属性 li、r、rc、col 和 extra(顶点在这颗里的序号) 给的属性。"""
         nv = n * verts_per
         faces = [tuple(i * verts_per + v for v in f) for i in range(n) for f in faces_per]
         ob = mesh_obj(name, np.zeros((nv, 3)), faces)
         me = ob.data
         li = np.repeat(np.arange(n), verts_per)
-        vals = dict(li=li, r=ring.r[li], rc=0.020 * ring.size[li], tailf=ring.tail[li] * ring.fps)
+        vals = dict(li=li, r=ring.r[li], rc=0.020 * ring.size[li])
         vals.update({k: np.tile(v, n) for k, v in extra.items()})
         for k, v in vals.items():
             me.attributes.new(k, "FLOAT", "POINT").data.foreach_set("value", np.asarray(v, np.float32))
@@ -922,8 +922,8 @@ def star_ring(pic, ring, y=None, tail_pts=40, gain=2.5, rows=4096):
         q = None if head else attr("q")
         if head:
             t = look(frame)
-        else:       # 尾巴有多长看这一帧的长度系数
-            tail = g.m("MULTIPLY", attr("tailf"), look(frame).outputs["Alpha"])
+        else:       # 尾巴往前几帧存在这一帧的 alpha 里
+            tail = look(frame).outputs["Alpha"]
             t = look(g.m("SUBTRACT", frame, g.m("MULTIPLY", g.m("SUBTRACT", 1.0, q), tail)))
         a, b_, e = g.sep(t.outputs["Color"])          # Separate XYZ 也能拆颜色：θ、亮度、响度
         sh = g.m("POWER", g.m("ABSOLUTE", g.m("COSINE", g.m("SUBTRACT", a, ring.sheen))), 4.0)     # star_ring.sheen()
