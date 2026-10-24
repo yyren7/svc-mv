@@ -21,8 +21,9 @@ OUT=$R/kimishira_preview_540p${TAG:+_$TAG}.mp4
 mkdir -p $P $R/logs
 rm -f $P/*
 
-# 左下角的歌名、进度条和时间（旋律盘是画面里月亮外圈的频谱）：透明 PNG 序列，和渲染同时画（吃 CPU，不占 GPU）
-$PY scripts/onepic_player.py $C/audio/bands.npz $R/player_540 \
+# 左下角的歌名、进度条和时间（旋律盘是画面里月亮外圈的频谱）：透明 PNG 序列，和渲染同时画（吃 CPU，不占 GPU；nice 19，
+# Blender 每帧算几何节点、变形也要 CPU，别抢它的）
+nice -n 19 $PY scripts/onepic_player.py $C/audio/bands.npz $R/player_540 \
     --title "君の知らない物語" --sub "supercell · cover 小铃久绘（DDSP-SVC）" --fps 30 --height 540 --seconds $LEN --show $SHOW > $R/logs/player.log 2>&1 &
 $B -b --factory-startup -P $C/scripts/pv.py -- build > $R/logs/build.log 2>&1
 grep -E "camera out" $R/logs/build.log || true
