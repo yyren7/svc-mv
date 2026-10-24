@@ -9,7 +9,7 @@
 | 歌 | supercell「君の知らない物語」，小铃久绘的 AI 翻唱（DDSP-SVC），`audio/kimishira_sakura_shunka_mix.wav` |
 | 画 | kue 的星空花田插画，4K 精修版 `characters/kue/art/kue_pv_stars_103_4k_00001_.png`；分层（远景 / 中景 / 近景 / 人物，被挡住的部分 Qwen 补画）在 `characters/kue/art/layers/stars_103/` |
 | 预览 | `renders/kimishira_preview_540p_40s.mp4`：960×540、30 fps、8 采样，默认只出前 40 秒（约 1 分半）；`LEN=0` 出整首 `renders/kimishira_preview_540p.mp4`（约 8 分钟） |
-| 成片 | `renders/kimishira_pv.mp4`：3840×2160、60 fps、H.264 High + AAC 320k，5 分 37 秒 |
+| 成片 | `renders/kimishira_pv.mp4`：1920×1080、60 fps、H.264 High + AAC 320k，5 分 37 秒（`HEIGHT=2160` 出 4K） |
 | 封面 | `renders/cover_16x9.jpg`（1920×1080）、`renders/cover_4x3.jpg`（手机端裁切） |
 
 通用的做法和踩过的坑在 [docs/onepic.md](../../docs/onepic.md)，这里只记这首歌的部分。
@@ -177,7 +177,7 @@ FX=bokeh,rim TAG=fx2 bash $C/scripts/preview.sh      # -> renders/kimishira_prev
 # 几秒的静帧（RES=50 是 1080p）
 $B -b --factory-startup -P $C/scripts/pv.py -- build
 RES=50 $B -b $C/renders/scene.blend -P $C/scripts/pv.py -- stills 3 20 35 210
-# 4K60 成片（4 个进程两个多小时，再加约 40 分钟编码；断了用 RESUME=1 续）
+# 1080p60 成片（4 个进程；断了用 RESUME=1 续）。HEIGHT=2160 出 4K60：4 个进程约 3.5 小时，再加约 40 分钟编码
 bash $C/scripts/render.sh 4
 # 封面：副歌里一张 4K 静帧（月亮的星环和光束都亮着），左边加竖排大标题
 RES=100 $B -b $C/renders/scene.blend -P $C/scripts/pv.py -- stills 70
@@ -190,16 +190,16 @@ $PY $C/scripts/cover.py $C/renders/stills/t_070.00.png $C/renders/cover
 - 作者声明勾选"使用 AI 合成技术"：歌声是 DDSP-SVC 转换的，插画是 AI 画的。
 - 插画（Qwen-Image-2.1 画的）和放大、深度模型都是非商用许可，不开充电、不接商单。Qwen 的许可严格说只许研究和评估用，
   见 [docs/models.md](../../docs/models.md)。
-- 上传 `renders/kimishira_pv.mp4` 原文件即可（B 站会按 4K 转码）。
+- 上传 `renders/kimishira_pv.mp4` 原文件即可。
 
 草稿（按需改）：
 
-- 标题：`【小铃久绘】君の知らない物語【AI翻唱 · 一图流 4K60】`
+- 标题：`【小铃久绘】君の知らない物語【AI翻唱 · 一图流 1080p60】`
 - 简介：
   ```
   原曲：supercell「君の知らない物語」（《化物语》ED）
   翻唱：小铃久绘（DDSP-SVC 转换的 AI 歌声）
   画面：一张 AI 插画在 Blender 里拆层做成 2.5D，人物随风摆动、跟着歌声张口，花瓣、流星、旋律盘都跟着歌走
-  4K 60 帧，建议调到最高画质观看
+  1080p 60 帧，建议调到最高画质观看
   ```
-- 标签：`君の知らない物語` `supercell` `化物语` `翻唱` `AI翻唱` `一图流` `4K` `Blender`
+- 标签：`君の知らない物語` `supercell` `化物语` `翻唱` `AI翻唱` `一图流` `Blender`

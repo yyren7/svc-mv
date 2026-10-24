@@ -15,7 +15,7 @@ jobs files.
 | Case | What it is |
 |---|---|
 | [cases/uraomote](cases/uraomote/) | The first experiment: six sets as stills, an animatic cut on the downbeats, a script for 2D and 3D invading each other |
-| [cases/kimishira](cases/kimishira/) | 一图流鉴赏 PV：一张插画拆层摆成 2.5D 场景，人物随风摆、跟着唱，粒子、月亮外圈的频谱跟着歌走，4K60 成片 |
+| [cases/kimishira](cases/kimishira/) | 一图流鉴赏 PV：一张插画拆层摆成 2.5D 场景，人物随风摆、跟着唱，粒子、月亮外圈的星环跟着歌走，1080p60 成片 |
 
 ## Shared scripts
 
