@@ -120,8 +120,9 @@ semi = alpha > 0.08
 skin_s = ((H >= 348) | (H <= 40)) & (S > 0.08) & (S < 0.6) & (V > 0.5) & semi & body
 white_s = (V > 0.70) & ((pinkish & (S < 0.18)) | (~pinkish & (S < 0.36))) & semi
 hair_raw = semi & ~skin_s & ~white_s & ~dark & (S > 0.12)
-# 两侧长发的外面（左边 u < 0.48、右边 u > 0.76，尾巴除外）除了头发没有别的，淡到看不出颜色的细发丝也算
-outer = (((U < 0.48) | (U > 0.76)) & (Y > 0.25) & (Y < 0.88) & (alpha > 0.06)
+# 脸和身体的左边、右边长发的外面（左边 u < 0.53、右边 u > 0.76，尾巴除外）除了头发没有别的，淡到看不出颜色、
+# 被当成白的浅粉细发丝也算；袖子（衣服）、肩膀（皮肤）后面另外压到 0
+outer = (((U < 0.53) | (U > 0.76)) & (Y > 0.25) & (Y < 0.88) & (alpha > 0.06)
          & ~cv2.dilate(tail_m, disk(6)).astype(bool))
 hair_raw = (hair_raw | outer).astype(np.uint8)
 hair_m = cv2.morphologyEx(hair_raw, cv2.MORPH_CLOSE, disk(4))
