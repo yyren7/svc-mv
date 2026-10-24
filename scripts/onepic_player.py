@@ -8,7 +8,8 @@ onepic_finish.py 用 --overlay 叠到视频上。在 AutoDL 上跑（ComfyUI ven
 - 频谱：bands.npz 的 spec，72 根柱子绕盘一圈，左右对称（低频在下）。
 - 文字：歌名、副标题、进度条和时间。
 不给 --art 就不画唱片和频谱（画面里已经有旋律盘，比如月亮外圈的频谱），只留一条窄的歌名、进度条和时间。
---show t0 t1 只在这段时间里显示（前后淡入淡出），给开头的大标题和结尾的制作信息让开，同一时间画面上只有一处歌名。
+--show t0 t1 让歌名和副标题只在这段时间里显示（前后淡入淡出），给开头的大标题和结尾的制作信息让开，同一时间画面上
+只有一处歌名；进度条和时间一直在，歌名不在时底板只垫进度条那一行。
 尺寸按 1080p 设计，--height 等比缩放；输出 o_00000.png ...（第 k 张是 k / fps 秒），和 region.json（叠放的位置）。
 """
 import argparse
@@ -49,9 +50,10 @@ def setup(a):
     disc = art.crop((int(cx - r), int(cy - r), int(cx + r), int(cy + r))).resize((int(2 * R0 * k),) * 2, Image.LANCZOS)
     G["disc"] = disc
     size = (int(W0 * k), int(H0 * k))
-    # 不变的部分：文字、进度条的底、唱片后面的暗底和光晕
+    # 不变的部分：进度条的底、唱片后面的暗底和光晕；文字另放一层（label），按 --show 淡入淡出
     static = Image.new("RGBA", size, (0, 0, 0, 0))
-    sd = ImageDraw.Draw(static)
+    label = Image.new("RGBA", size, (0, 0, 0, 0))
+    sd = ImageDraw.Draw(label)
     cx, cy = C0[0] * k, C0[1] * k
     # 暗底：整块柔边的半透明深色板，花田很亮时文字和进度条也看得清；唱片后面再深一点
     shade = Image.new("RGBA", size, (0, 0, 0, 0))
@@ -65,7 +67,7 @@ def setup(a):
     for dx, dy, col in ((2, 2, (0, 0, 0, 120)), (0, 0, (244, 248, 255, 240))):
         sd.text((x0 + dx * k, 44 * k + dy * k), a.title, font=tf, fill=col)
         sd.text((x0 + dx * k, 104 * k + dy * k), a.sub, font=sf, fill=col[:3] + (int(col[3] * 0.85),))
-    G["static"] = static
+    G["static"], G["label"] = static, label
     G["bar"] = (x0, 160 * k, 760 * k)
     G["time_y"] = 172 * k             # 时间在进度条下面、右对齐
     G["tf"] = ImageFont.truetype(os.path.join(FONTS, "DINNextLTPro-Light.ttf"), int(20 * k))
@@ -79,27 +81,33 @@ def setup(a):
 
 
 def setup_bar(a, k):
-    """不画唱片：歌名、副标题（右边是时间）、进度条，垫一块柔边的深色底板。"""
+    """不画唱片：歌名、副标题（右边是时间）、进度条，垫一块柔边的深色底板。底板有两块（只存 alpha）：整块的跟着歌名
+    淡入淡出，只垫副标题那一行和进度条的一直在；两块取较深的那个，不会叠出一道更深的缝。"""
     size = (int(W1 * k), int(H1 * k))
-    static = Image.new("RGBA", size, (0, 0, 0, 0))
-    shade = Image.new("RGBA", size, (0, 0, 0, 0))
-    ImageDraw.Draw(shade).rounded_rectangle([22 * k, 16 * k, 600 * k, 134 * k], radius=50 * k, fill=(6, 10, 28, 100))
-    static.alpha_composite(shade.filter(ImageFilter.GaussianBlur(16 * k)))
-    sd = ImageDraw.Draw(static)
+
+    def plate(top, radius):
+        sh = Image.new("L", size, 0)
+        ImageDraw.Draw(sh).rounded_rectangle([22 * k, top * k, 600 * k, 134 * k], radius=radius * k, fill=100)
+        return np.asarray(sh.filter(ImageFilter.GaussianBlur(16 * k)), np.float32)
+
+    G["plate"], G["plate_bar"] = plate(16, 50), plate(66, 34)
+    G["static"] = Image.new("RGBA", size, (6, 10, 28, 0))
+    label = Image.new("RGBA", size, (0, 0, 0, 0))
+    sd = ImageDraw.Draw(label)
     tf = ImageFont.truetype(os.path.join(FONTS, "yumindb.ttf"), int(38 * k))
     sf = ImageFont.truetype(NOTO, int(21 * k))
     x0 = 64 * k
     for dx, dy, col in ((2, 2, (0, 0, 0, 120)), (0, 0, (244, 248, 255, 240))):
         sd.text((x0 + dx * k, 22 * k + dy * k), a.title, font=tf, fill=col)
         sd.text((x0 + dx * k, 76 * k + dy * k), a.sub, font=sf, fill=col[:3] + (int(col[3] * 0.85),))
-    G["static"] = static
+    G["label"] = label
     G["bar"] = (x0, 120 * k, 560 * k)
     G["time_y"] = 80 * k              # 时间在副标题那一行、右对齐
     G["tf"] = ImageFont.truetype(os.path.join(FONTS, "DINNextLTPro-Light.ttf"), int(20 * k))
 
 
 def shown(t):
-    """--show 的出现程度，0..1：t0 起淡入、t1 淡出完，淡入淡出各 --fade 秒（smoothstep）。"""
+    """歌名的出现程度，0..1：--show 的 t0 起淡入、t1 淡出完，淡入淡出各 --fade 秒（smoothstep）。"""
     a = G["a"]
     if not a.show:
         return 1.0
@@ -111,14 +119,18 @@ def frame(i):
     a, k = G["a"], G["k"]
     t = i / a.fps
     s = shown(t)
-    path = os.path.join(a.out, f"o_{i:05d}.png")
-    if s <= 0:
-        Image.new("RGBA", (G["static"].width // SS, G["static"].height // SS)).save(path, compress_level=1)
-        return
     f0 = min(int(round(t * G["fps0"])), len(G["bass"]) - 1)
     spec, bass = G["spec"][f0], float(G["bass"][f0])
     pulse = bass ** 2
     img = G["static"].copy()
+    if "plate" in G:
+        img.putalpha(Image.fromarray(np.maximum(G["plate_bar"], G["plate"] * s).astype(np.uint8)))
+    if s > 0:
+        label = G["label"]
+        if s < 1:
+            label = label.copy()
+            label.putalpha(label.getchannel("A").point(lambda v: int(v * s + 0.5)))
+        img.alpha_composite(label)
     if "disc" in G:
         disc_frame(img, t, spec, pulse)
     d = ImageDraw.Draw(img)
@@ -133,9 +145,7 @@ def frame(i):
     tw = d.textlength(txt, font=G["tf"])
     d.text((x1 - tw, G["time_y"]), txt, font=G["tf"], fill=(230, 238, 255, 210))
     out = img.resize((img.width // SS, img.height // SS), Image.LANCZOS)
-    if s < 1:
-        out.putalpha(out.getchannel("A").point(lambda v: int(v * s + 0.5)))
-    out.save(path, compress_level=1)
+    out.save(os.path.join(a.out, f"o_{i:05d}.png"), compress_level=1)
 
 
 def disc_frame(img, t, spec, pulse):
@@ -193,7 +203,8 @@ def main():
     ap.add_argument("--procs", type=int, default=64)
     ap.add_argument("--seconds", type=float, help="只画前这么多秒（预览用）；进度条和时间仍按整首算")
     ap.add_argument("--show", type=float, nargs=2, metavar=("T0", "T1"),
-                    help="只在这段时间里显示：t0 起淡入、t1 淡出完（开头的大标题、结尾的制作信息时让开）；不给就一直在")
+                    help="歌名和副标题只在这段时间里显示：t0 起淡入、t1 淡出完（给开头的大标题、结尾的制作信息让开），"
+                         "进度条和时间一直在；不给就都一直在")
     ap.add_argument("--fade", type=float, default=1.5, help="--show 的淡入淡出秒数")
     a = ap.parse_args()
     if a.y is None:

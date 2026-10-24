@@ -9,8 +9,8 @@ B=/root/autodl-tmp/tools/blender-5.2.2-linux-x64/blender
 PY=/root/autodl-tmp/ComfyUI/venv/bin/python
 cd /root/autodl-tmp/svc-mv
 C=cases/kimishira
-# 三处歌名轮流出：开头竖排的大标题（pv.py 的 title()，0–11.6 秒）-> 左下角的歌名栏（前奏第一个重拍 15.3 秒淡入，
-# 最后一句唱完后 320 秒淡出完）-> 右下角的制作信息（尾奏的重拍 321.65 秒起）
+# 三处歌名轮流出：开头竖排的大标题（pv.py 的 title()，0–11.6 秒）-> 左下角的歌名（前奏第一个重拍 15.3 秒淡入，
+# 最后一句唱完后 320 秒淡出完；下面的进度条和时间一直在）-> 右下角的制作信息（尾奏的重拍 321.65 秒起）
 SHOW="15.30 320"
 CREDITS_AT="321.65 334"
 R=$C/renders
