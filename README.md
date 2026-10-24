@@ -65,10 +65,10 @@ One-picture PV, 一图流 (AutoDL):
 |---|---|
 | `scripts/onepic_setup.sh` | AutoDL 上一图流的环境：依赖装进单独的 pylib，下载模型 |
 | `scripts/onepic_prep.py` | 一图流的素材准备（AutoDL）：深度、人物遮罩、补全背景、天空、星点、月亮；接入另外做好的分层并放大 |
-| `scripts/onepic.py` | 一图流的 Blender 场景：按深度起伏的插画层、音频数据贴图、漂流粒子、频谱环、流星、立体标题、镜头、合成 |
+| `scripts/onepic.py` | 一图流的 Blender 场景：按深度起伏的插画层、音频数据贴图、漂流粒子、频谱环或星环、流星、立体标题、镜头、合成 |
+| `scripts/star_ring.py` | 月亮外圈的星环：光点沿看不见的轨道绕月亮转，出现、明灭、转速跟着歌（纯 numpy，`onepic.star_ring()` 搭进场景） |
 | `scripts/onepic_player.py` | 一图流左下角的歌名、进度条和时间，可选带唱片和一圈频谱的旋律盘，逐帧透明 PNG |
 | `scripts/onepic_finish.py` | 分段视频拼接，一次编码成片：颗粒、暗角、淡入淡出、字幕、音轨 |
-| `scripts/ring_lab.py` | 君の知らない物語（kimishira）月亮外圈旋律盘的样式实验：在渲染帧上画几种 2D 的光并排比较；目前只给这个 case 用 |
 
 Notes that apply to every case:
 

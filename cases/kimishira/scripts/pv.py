@@ -5,7 +5,7 @@
     $B -b --factory-startup -P cases/kimishira/scripts/pv.py -- build                    # 搭场景 -> renders/scene.blend
     $B -b cases/kimishira/renders/scene.blend -P cases/kimishira/scripts/pv.py -- stills 5 20 70   # 这几秒的静帧
     bash cases/kimishira/scripts/render.sh                                              # 分段渲染、合成成片
-可选的特效用环境变量 FX 开，逗号隔开（FX=bokeh,rim,kick,streak,glint）：
+可选的特效用环境变量 FX 选，逗号隔开（不给时只开 bokeh，FX= 全关；FX=bokeh,rim,kick,streak,glint 全开）：
     bokeh   镜头前的虚焦花瓣        rim     月亮那一侧她的轮廓光，跟着心跳
     kick    重拍上镜头轻推 0.4%     streak  月亮的水平光条          glint   发饰上偶尔闪一下的四芒星
 月亮外圈用 RING 选：stars（默认，星环：光点沿看不见的轨道绕月亮转，scripts/star_ring.py）、bars（原来的频谱细柱）
@@ -60,7 +60,7 @@ SECTIONS = [
     ("end",      330.00,  0.25, 0.12, 0.60, 0.6, 0.22),
 ]
 
-FX = {x for x in os.environ.get("FX", "").split(",") if x}
+FX = {x for x in os.environ.get("FX", "bokeh").split(",") if x}     # 定了只开 bokeh；rim、streak 试过不要
 RING = os.environ.get("RING", "stars")
 
 FACE = (0.620, 0.352)
@@ -433,21 +433,18 @@ def build():
     mu, mv, mr = pic.meta["moon"]
     moon = pic.point(mu, mv, pic.y_sky)
     edge = moon + op.Vector((mr * pic.sx * pic.y_sky, 0, 0))
-    pos, strength, size, ssize, sstr, msize, radius = [], [], [], [], [], [], []
+    pos, strength, size, ssize, sstr, msize = [], [], [], [], [], []
     for f in range(n):
         q, e = cam.project(f, moon), cam.project(f, edge)
         inside = q is not None and -0.1 < q[0] < 1.1 and -0.1 < q[1] < 1.1
         pos.append(q if q else (0.5, 0.5))
         r = (e[0] - q[0]) if inside and e else 0.0
-        radius.append(r)
         size.append(2 * BEAM_MASK * r)
         strength.append(BEAM_GAIN * beams[f] * (0.85 + 0.3 * float(cols["pulse"][f])) if inside else 0.0)
         ssize.append(2 * 1.25 * r)
         msize.append(2 * 1.08 * r)
         sstr.append(STREAK_GAIN * (0.3 + 0.7 * float(cols["energy"][f])) * (0.85 + 0.3 * float(cols["pulse"][f]))
                     if inside else 0.0)
-    # 每帧月亮在画面上的位置（0..1，左下为原点）和半径（画面宽的比例）：ring_lab.py 在画面上画频谱环样式时用
-    np.savez(os.path.splitext(BLEND)[0] + "_moon.npz", pos=np.array(pos, np.float32), r=np.array(radius, np.float32))
     fr = list(range(n))
 
     def key2(sock, vals):
