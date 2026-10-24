@@ -246,6 +246,8 @@ def section_arrays(n, d):
         cols[key] = np.convolve(np.pad(cols[key], (k // 2, k - k // 2 - 1), mode="edge"), np.ones(k) / k, "valid")
     loud, bass, high = d["loud"][:n], d["bass"][:n], d["high"][:n]
     speed = 0.55 + 1.1 * cols["energy"] + 0.35 * loud
+    # 头发、裙摆的风：夜里的微风，副歌也只快三成；幅度跟段落走一点，再乘 11 秒和 17 秒两条慢正弦的阵风
+    gust =0.85 + 0.15 * (0.6 * np.sin(op.TAU * t / 11.0 + 0.7) + 0.4 * np.sin(op.TAU * t / 17.3 + 2.9))
     earl, earr = ear_moves(n, 3)
     # 心跳的柔和版：低音的平方再 0.3 秒滑动平均，月晕和光束跟它，不闪
     k = int(0.3 * FPS) | 1
@@ -255,14 +257,15 @@ def section_arrays(n, d):
         "density": cols["petals"],
         "motes": cols["motes"],
         "ring": cols["ring"],
-        "wind": np.cumsum(speed) / FPS,                       # 风时间：风大时走得快
+        "wind": np.cumsum(speed) / FPS,                       # 风时间（花瓣、光点）：风大时走得快
+        "breeze": np.cumsum(0.85 + 0.3 * cols["energy"]) / FPS,   # 头发、裙摆的风时间
         "stars": 0.85 + 0.45 * high,
         # 心跳：低音的平方，旋律盘（月亮外圈的频谱）跟着鼓一点；月晕、光束跟柔和版的 pulse，幅度也小，亮度大体一致
         "heart": bass ** 2,
         "pulse": pulse,
         "halo": 0.06 + 0.04 * cols["energy"] + 0.08 * pulse * (0.4 + 0.6 * cols["energy"]),
         "energy_glow": 0.5 + 0.7 * cols["energy"] + 0.15 * bass,
-        "sway": 0.6 + 0.6 * cols["energy"],                    # 头发、裙摆、尾巴摆动的幅度
+        "sway": (0.75 + 0.3 * cols["energy"]) * gust,          # 头发、裙摆摆动的幅度（尾巴只带一点）
         "mouth": mouth_moves(n),
         "earl": earl,
         "earr": earr,
@@ -390,7 +393,7 @@ def build():
     audio = op.Audio(FPS, cols, spec=d["spec"].astype(np.float32))
 
     char = layers(pic, audio, moon_tex)
-    op.deform(char, pic, audio, amp={"ear": 0.010})      # 头发、尾巴、耳朵、裙摆、嘴、呼吸；耳朵动得慢，幅度给大一点
+    op.deform(char, pic, audio, amp={"ear": 0.010}, clock="breeze")   # 头发、尾巴、耳朵、裙摆、嘴、呼吸；耳朵动得慢，幅度给大一点
 
     # 粒子
     petal = op.petal_mesh()

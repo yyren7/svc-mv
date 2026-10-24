@@ -682,14 +682,19 @@ def drift(name, src, audio, count, box_min, box_size, wind, size, seed=0, size_v
 
 # ---------------------------------------------------------------- 人物的局部变形
 
-DEFORM = dict(hair=0.007, hair_freq=(0.30, 0.53), ear=0.008, tail=(0.22, 0.08), tail_period=(3.4, 1.9),
+# 头发：hair 是发梢最大的横向位移（插画宽的比例），hair_freq 是两条波每单位时钟的圈数（时钟走速 1 时就是 Hz），
+# hair_k 是沿发丝（v 方向，整幅画高 = 1）的相位差：发丝长约 0.6，2.2 只差 1/5 圈，整缕一起摆、发梢慢半拍；
+# 再大一缕头发上段往左下段往右，像蛇在扭。尾巴：tail 是尖的最大转角（弧度，两个周期叠加），tail_lag 是尖比根落后的相位。
+DEFORM = dict(hair=0.0045, hair_freq=(0.28, 0.47), hair_k=(2.2, 3.6), ear=0.008,
+              tail=(0.10, 0.03), tail_period=(5.2, 3.1), tail_lag=1.3,
               dress=0.0025, mouth_x=0.35, breath=0.004)
 
 
-def deform(ob, pic, audio, prep=None, amp=None):
+def deform(ob, pic, audio, prep=None, amp=None, clock="wind"):
     """人物层的网格按 onepic_prep.py rig 的权重图局部变形（像 Live2D），贴图跟着网格走：
-    - 头发、丝带：从发根往下传的波，跟着风时间（audio 的 wind 列）摆，幅度乘 sway 列；
-    - 尾巴：绕根部转，越往尖转得越多（tail_s），两个周期叠加；
+    - 头发、丝带：从发根往下传的慢波，跟着 audio 的 clock 列（风时间）摆，幅度乘 sway 列；左右差一点相位，
+      不是所有发丝齐步走；
+    - 尾巴：绕根部转，越往尖转得越多（w_tail），尖比根落后一点（甩的感觉），两个周期叠加；
     - 耳朵：audio 的 earl / earr 列（-1..1），正值是往外、往上张：左耳尖往左，右耳尖往右；
     - 裙摆：横向的慢波；
     - 嘴：以嘴为中心上下伸缩、嘴角横向跟一点，伸缩量是 audio 的 mouth 列（负的是合一点）；
@@ -729,32 +734,38 @@ def deform(ob, pic, audio, prep=None, amp=None):
         return kit.sock(n.outputs, "Attribute", "VALUE")
 
     def wave(phase_time, freq, k, offset=0.0):
-        return g.m("SINE", g.m("SUBTRACT", g.m("MULTIPLY", phase_time, TAU * freq),
-                                g.m("MULTIPLY_ADD", attr("pv"), k, -offset)))
+        # 相位：沿发丝 k·v，左右 1.2·u（风从一边吹过来，两边的头发差一点）
+        lag = g.m("MULTIPLY_ADD", attr("pv"), k, g.m("MULTIPLY_ADD", attr("pu"), 1.2, -offset))
+        return g.m("SINE", g.m("SUBTRACT", g.m("MULTIPLY", phase_time, TAU * freq), lag))
 
     t = g.node("GeometryNodeInputSceneTime").outputs["Seconds"]
-    tau = audio.at_gn(g, "wind")
+    tau = audio.at_gn(g, clock)
     sway = audio.at_gn(g, "sway")
     u, v = attr("pu"), attr("pv")
-    # 头发：两条传播的正弦叠加，发梢落后于发根
+    # 头发：两条传播的慢正弦叠加，发梢落后于发根
     f1, f2 = A["hair_freq"]
+    k1, k2 = A["hair_k"]
     wh = g.m("MULTIPLY", g.m("MULTIPLY", g.m("MULTIPLY", attr("w_hair"), A["hair"]), sway), gain("hair"))
-    du = g.m("MULTIPLY", wh, g.m("ADD", g.m("MULTIPLY", wave(tau, f1, 7.0), 0.65),
-                                  g.m("MULTIPLY", wave(tau, f2, 11.0, 1.7), 0.35)))
-    dv = g.m("MULTIPLY", wh, g.m("MULTIPLY", wave(tau, (f1 + f2) / 1.6, 9.0, 0.6), 0.25))
+    du = g.m("MULTIPLY", wh, g.m("ADD", g.m("MULTIPLY", wave(tau, f1, k1), 0.7),
+                                  g.m("MULTIPLY", wave(tau, f2, k2, 1.7), 0.3)))
+    dv = g.m("MULTIPLY", wh, g.m("MULTIPLY", wave(tau, (f1 + f2) / 1.6, k1, 0.6), 0.15))
     # 耳朵
     ge = gain("ear")
     el = g.m("MULTIPLY", g.m("MULTIPLY", attr("w_ear_l"), audio.at_gn(g, "earl")), ge)
     er = g.m("MULTIPLY", g.m("MULTIPLY", attr("w_ear_r"), audio.at_gn(g, "earr")), ge)
     du = g.m("MULTIPLY_ADD", g.m("SUBTRACT", er, el), A["ear"], du)
     dv = g.m("MULTIPLY_ADD", g.m("ADD", el, er), -0.3 * A["ear"], dv)
-    # 尾巴：绕根部转（在等比的坐标里转，再换回 u），转的角度按 w_tail（根 0、尖 1）
+    # 尾巴：绕根部转（在等比的坐标里转，再换回 u），转的角度按 w_tail（根 0、尖 1），尖的相位落后 tail_lag。
+    # 尾巴是自己在摆，不怎么跟风：sway 只带一点
     bu, bv = info["tail_base"]
     p1, p2 = A["tail_period"]
-    swing = g.m("ADD", g.m("MULTIPLY", g.m("SINE", g.m("MULTIPLY", t, TAU / p1)), A["tail"][0]),
-                g.m("MULTIPLY", g.m("SINE", g.m("ADD", g.m("MULTIPLY", t, TAU / p2), 1.1)), A["tail"][1]))
-    alpha = g.m("MULTIPLY", g.m("MULTIPLY", attr("w_tail"), gain("tail")),
-                g.m("MULTIPLY", swing, g.m("MULTIPLY_ADD", sway, 0.4, 0.8)))
+    wt = attr("w_tail")
+    lag = g.m("MULTIPLY", wt, A["tail_lag"])
+    swing = g.m("ADD", g.m("MULTIPLY", g.m("SINE", g.m("SUBTRACT", g.m("MULTIPLY", t, TAU / p1), lag)), A["tail"][0]),
+                g.m("MULTIPLY", g.m("SINE", g.m("SUBTRACT", g.m("MULTIPLY", t, TAU / p2), g.m("MULTIPLY_ADD", lag, 1.5, -1.1))),
+                    A["tail"][1]))
+    alpha = g.m("MULTIPLY", g.m("MULTIPLY", wt, gain("tail")),
+                g.m("MULTIPLY", swing, g.m("MULTIPLY_ADD", sway, 0.2, 0.85)))
     x = g.m("MULTIPLY", g.m("SUBTRACT", u, bu), pic.aspect)
     y = g.m("SUBTRACT", v, bv)
     ca, sa = g.m("COSINE", alpha), g.m("SINE", alpha)
