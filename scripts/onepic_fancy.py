@@ -340,17 +340,17 @@ def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=40
             beat, since = audio.at(g, "beat"), audio.at(g, "since")
             # 六芒星芒：约 40 秒转过 60°，长短 7 秒起伏，六条各自强弱
             rot = M("MULTIPLY_ADD", t, (math.pi / 3) / 40.0, 0.26)
-            reach = M("MULTIPLY", M("MULTIPLY_ADD", M("SINE", M("MULTIPLY", t, TAU / 7.0)), 0.3, 1.0), 0.26)
+            reach = M("MULTIPLY", M("MULTIPLY_ADD", M("SINE", M("MULTIPLY", t, TAU / 7.0)), 0.3, 1.0), 0.32)
             edge = M("POWER", M("MAXIMUM", M("SUBTRACT", 1.0, M("DIVIDE", g.v("LENGTH", g.xyz(x, z, 0.0)), FLARE)), 0.0), 2.0)   # 到方块边上淡完
             six = None
             for j in range(6):
-                along, prof = line(g, x, z, M("ADD", rot, j * math.pi / 3), 0.011)
+                along, prof = line(g, x, z, M("ADD", rot, j * math.pi / 3), 0.013)
                 gj = M("MULTIPLY_ADD", M("SINE", M("MULTIPLY_ADD", t, TAU / (5.0 + 0.8 * j), 1.3 * j)), 0.35, 0.75)
                 s_ = M("MULTIPLY", M("MULTIPLY", M("GREATER_THAN", along, 0.0),
                                      M("EXPONENT", M("DIVIDE", M("MULTIPLY", M("MAXIMUM", along, 0.0), -1.0), reach))),
                        M("MULTIPLY", M("MULTIPLY", prof, gj), edge))
                 six = s_ if six is None else M("ADD", six, s_)
-            six = M("MULTIPLY", six, M("MULTIPLY", M("MAXIMUM", M("SUBTRACT", hb, 0.25), 0.0), 0.4 * spike_gain))
+            six = M("MULTIPLY", six, M("MULTIPLY", M("MAXIMUM", M("SUBTRACT", hb, 0.25), 0.0), 0.75 * spike_gain))
             # 十字星芒：普通的短、拍点上亮一下；脉冲星的长、慢慢转、踩着拍子亮
             pulsar = sattr(g, "pulsar")
             amp = M("MULTIPLY_ADD", beat, 0.75, 0.25)
@@ -386,7 +386,7 @@ def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=40
             k_ = M("MULTIPLY", M("MAXIMUM", M("SUBTRACT", sattr(g, "hb"), 0.3), 0.0),
                    M("MULTIPLY_ADD", M("SINE", M("MULTIPLY", t, TAU / 11.0)), 0.3, 0.8))
             prof = M("MULTIPLY", M("EXPONENT", M("MULTIPLY", M("MULTIPLY", x, x), -1 / (2 * 2.1 ** 2))), gauss(g, z, 0.024))
-            rgb = g.v("SCALE", (0.5, 0.7, 1.0), M("MULTIPLY", M("MULTIPLY", prof, k_), 0.18 * streak_gain))
+            rgb = g.v("SCALE", (0.5, 0.7, 1.0), M("MULTIPLY", M("MULTIPLY", prof, k_), 0.3 * streak_gain))
         else:   # spark
             rho = M("MULTIPLY", g.v("LENGTH", g.xyz(sattr(g, "ox"), sattr(g, "oy"), 0.0)), 0.07)
             big = sattr(g, "big")
