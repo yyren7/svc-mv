@@ -10,7 +10,7 @@
   两刀至少隔约 7 秒；第一句歌词前、最后一句唱完后各切一刀。
 - 每段的能量 = 这段的平均响度在整首里的位置（0.2–1.0，取到 0.05）；花瓣、光点、旋律盘、光束的开度按能量推。
   名字：开头安静的是 open，第一句前是 intro，唱完是 outro，中间没人唱的是 inst（间奏），有人唱的段落里最响的三成
-  多是 chorus，能量 ≤ 0.45 的是 verse，其余 bridge。
+  多是 chorus，能量 ≤ 0.45 的是 verse，其余 bridge。哪里在唱看歌词；没歌词看人声分轨；都没有就当整首都在唱。
 - 镜头：始终看整张画，放大 1.04–1.10 倍；副歌升起一点、主歌左右慢慢挪、间奏往月亮那边偏、结尾漂向月亮；
   开头对焦在镜头前的标题上，标题淡出时拉回脸上。
 - 流星：开头一颗，每段副歌两颗，间奏里约 2 秒一颗（流星雨），主歌里稀疏几颗，结尾一颗。
@@ -90,7 +90,12 @@ def make_sections(d, dur, spans):
     F = np.stack([[v[int(edges[i] * FPS):max(int(edges[i + 1] * FPS), int(edges[i] * FPS) + 1)].mean() for i in range(n)]
                   for v in feats.values()], 1)
     t_mid = (edges[:-1] + edges[1:]) / 2
-    sing = np.array([any(a - 1.0 <= t <= c + 1.0 for a, c in spans) for t in t_mid], float)
+    if spans:                       # 有歌词：按每句唱的时间
+        sing = np.array([any(a - 1.0 <= t <= c + 1.0 for a, c in spans) for t in t_mid], float)
+    elif "vocal" in feats:          # 没歌词、有人声分轨：人声包络
+        sing = (F[:, list(feats).index("vocal")] > 0.25).astype(float)
+    else:                           # 都没有：当整首都在唱，只按能量分
+        sing = np.ones(n)
     Z = np.concatenate([(F - F.mean(0)) / (F.std(0) + 1e-6), 1.5 * sing[:, None]], 1)
     nov = np.zeros(n)
     for i in range(2, n - 1):
@@ -124,8 +129,9 @@ def make_sections(d, dur, spans):
         if not added:
             break
     cuts = sorted({0} | cuts)
-    first_sung = spans[0][0] if spans else 0.0
-    last_sung = spans[-1][1] if spans else dur
+    on = np.flatnonzero(sing > 0)
+    first_sung = spans[0][0] if spans else (float(b[on[0]]) if len(on) and len(on) < n else 0.0)
+    last_sung = spans[-1][1] if spans else (float(edges[on[-1] + 1]) if len(on) and len(on) < n else dur)
     lo, hi = np.percentile(F[:, 0], 10), np.percentile(F[:, 0], 95)
     Ln = np.clip((F[:, 0] - lo) / max(hi - lo, 1e-6), 0, 1)
     lo, hi = np.percentile(F[:, 1], 10), np.percentile(F[:, 1], 95)
@@ -247,14 +253,15 @@ def make(case, force=False):
         title_end = (cand[0] if cand else 8.0) + 2.85
     show = song.get("show")
     if show is None:
-        last = spans[-1][1] if spans else dur - 12
+        last = spans[-1][1] if spans else dur - 14
         show = [snap(title_end + 3.0, b[b >= title_end + 3.0]) if (b >= title_end + 3.0).any() else title_end + 3.0,
                 round(min(last + 1.5, dur - 6), 2)]
     credits_at = song.get("credits_at")
     if credits_at is None:      # 歌名淡出后的第一个段落边界（8 秒内），没有就下一个重拍
         nxt = [s[1] for s in secs if show[1] - 0.5 <= s[1] <= show[1] + 8.0]
         after = np.array(nxt) if nxt else b[b >= show[1] + 1.0]
-        credits_at = [round(float(after[0]) if len(after) else show[1] + 1.5, 2), round(dur - 3.5, 2)]
+        start = min(float(after[0]) if len(after) else show[1] + 1.5, dur - 9.0)     # 至少留 5.5 秒
+        credits_at = [round(start, 2), round(dur - 3.5, 2)]
     plan = dict(duration=round(dur, 3), bpm=round(60 / float(d["grid_beat"]), 2), title_end=round(float(title_end), 2),
                 show=[round(float(x), 2) for x in show], credits_at=credits_at, sections=secs,
                 camera=make_camera(secs, dur, float(title_end)), meteors=make_meteors(secs, dur, spans))

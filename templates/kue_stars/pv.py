@@ -240,13 +240,14 @@ def pick_meteors(pic, cam, sky):
 
 def title(pic):
     """开头月亮旁边竖排的歌名（song.json 的 title），一个字一个字浮现，下面一行小字是 artist，到 TITLE_END 淡完。
-    8 个字以内是 kimishira 的大小，再长按字数缩小，排得下就一列。字放在镜头前 TITLE_Y 米，开头对焦在字上。"""
+    8 个字以内是 kimishira 的大小，9 个字一列，再长分两列（从右往左、第二列往下错开一点），每列超过 8 个字时按字数缩小。字放在镜头前 TITLE_Y 米，开头对焦在字上。"""
     mu, mv, _ = pic.meta["moon"]
     y = TITLE_Y
     k = y / 40.0
     mat = op.fading_mat("title", (0.93, 0.96, 1.0), 1.7)
     chars = [ch for ch in SONG["title"] if not ch.isspace()]
-    s = min(1.0, 8.0 / max(len(chars), 1))
+    per = len(chars) if len(chars) <= 9 else -(-len(chars) // 2)     # 9 个字以上分两列，从右往左
+    s = min(1.0, 8.0 / max(per, 1))
     size, line = 1.1 * k * s, 1.18 * k * s
     top = mv - 0.055
     x0 = op.Vector(pic.point(mu + 0.155, top, y))
@@ -255,14 +256,16 @@ def title(pic):
     font = os.path.join(FONTS, SONG.get("title_font", "yumindb.ttf"))
     obs = []
     for i, ch in enumerate(chars):
-        loc = x0 + op.Vector((0, 0, -i * line))
+        col, row = divmod(i, per)
+        loc = x0 + op.Vector((-col * 1.45 * line, 0, -(row + 0.9 * col) * line))     # 第二列往左、往下错开一点
         ob = op.text_obj(ch, font, size, loc, mat=mat)
         t_in = 1.2 + min(0.22, 1.8 / len(chars)) * i
         op.key_prop(ob, "a", [(0, 0.0), (f(t_in), 0.0), (f(t_in + 0.9), 1.0), (f(out0), 1.0), (f(out1), 0.0)])
         kit.fcurve(ob, "location", 2, [0, f(t_in), f(t_in + 1.2)], [loc.z - 0.12 * k, loc.z - 0.12 * k, loc.z], "BEZIER")
         obs.append(ob)
     if SONG.get("artist"):
-        sub_loc = x0 + op.Vector((0, 0, -len(chars) * line - 0.3 * k))
+        ncol, last = divmod(len(chars) - 1, per)
+        sub_loc = x0 + op.Vector((-ncol * 1.45 * line, 0, -(last + 1 + 0.9 * ncol) * line - 0.3 * k))
         sub = op.text_obj(SONG["artist"], os.path.join(FONTS, SONG.get("artist_font", "DINNextLTPro-Light.ttf")),
                           0.36 * k, sub_loc, spacing=1.3, mat=op.fading_mat("title_sub", (0.85, 0.9, 1.0), 1.3))
         op.key_prop(sub, "a", [(0, 0.0), (f(3.6), 0.0), (f(4.6), 0.85), (f(out0), 0.85), (f(out1), 0.0)])
