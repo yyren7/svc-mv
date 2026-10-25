@@ -110,6 +110,19 @@ def make_sections(d, dur, spans):
             break
         if all(abs(i - c) >= gap for c in cuts):
             cuts.add(i)
+    # 超过约 24 秒的段落在里面最明显的变化点再切（门槛以下的也算），直到切不动
+    while True:
+        cs = sorted({0} | cuts) + [n]
+        added = False
+        for a_, z_ in zip(cs, cs[1:]):
+            if edges[z_] - edges[a_] <= 24.0:
+                continue
+            inside = [i for i in peaks if a_ + gap <= i <= z_ - gap]
+            if inside:
+                cuts.add(max(inside, key=lambda i: nov[i]))
+                added = True
+        if not added:
+            break
     cuts = sorted({0} | cuts)
     first_sung = spans[0][0] if spans else 0.0
     last_sung = spans[-1][1] if spans else dur
