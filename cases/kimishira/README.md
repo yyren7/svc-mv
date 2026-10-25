@@ -13,6 +13,8 @@
 | 封面 | `renders/cover_16x9.jpg`（1920×1080）、`renders/cover_4x3.jpg`（手机端裁切） |
 
 通用的做法和踩过的坑在 [docs/onepic.md](../../docs/onepic.md)，这里只记这首歌的部分。
+这支 PV 存成了模板 [templates/kue_stars](../../templates/kue_stars/README.md)：同一张插画，换歌和文字就能出新的；模板的星环是后来在
+`scripts/ring_poc.py` 里比出来的花哨样式（E），这首的成片还是原来的星环。
 
 ## 段落
 
