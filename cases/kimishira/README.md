@@ -85,6 +85,10 @@
 尾巴摆幅减半；呼吸是以胸口为中心的软椭圆，下巴以上是 0。看改得对不对用 `scripts/rig_review.sh`：每个部位渲一段只有它动、
 镜头定住的小样，和热力图、"每个像素动了多少"拼成三栏，到 `renders/rig_review/`。
 
+**头发、尾巴两张后来是手改的**（在 `rig_paint.py` 画的基础上）：用 `scripts/rig_painter.html`，网页里直接在人物上刷权重、
+实时看热力图（`scripts/rig_painter_embed.py <目录>` 把 `ref_char.png` 和灰度图嵌进去，双击就能打开）。
+**别再跑 `rig_paint.py`**，它会把 `rig_paint/` 整个重画、覆盖掉手改的图；要改就在网页里接着改，存回 `rig_paint/` 后重跑 `rig`。
+
 ## 修图
 
 原画里话筒歪了约 9°，下面那只手的手指糊成一团。`scripts/retouch.py` 用 Qwen 的局部 img2img 只重画框里那块
