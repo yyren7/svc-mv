@@ -9,7 +9,8 @@
                 珠串（后面跟三四颗小卫星）、棱彩尾（尾巴沿长度变色、慢慢流动）；所有光头带小星芒，拍点上闪一下
     C B + 大星系  月亮是星系核：两条对数螺旋旋臂铺到 22 R（大半个天空），内暖外蓝、粉色星团团块，一万多颗小星差速转；只在天空上
     D C + 星云丝带 域扭曲噪声的细丝带（粉、青、紫），慢慢流动
-    E C + 星芒滤镜 亮点都拉出六芒星芒、横向的蓝色光条（变形宽银幕镜头那种），光层加一点色散
+    E C + 星芒滤镜 亮点都拉出六芒星芒、横向的蓝色光条（变形宽银幕镜头那种），光层加一点色散；星芒慢慢转、长短起伏、
+                六条各自强弱错开
     F C + 吸积环  月亮外一圈转得飞快的亮环，一侧亮一侧暗（多普勒），贴着月亮一道细的光子环，外面一圈淡淡的爱因斯坦环
 2D 只是比样式，定了再做进 Blender（docs/onepic.md：比样式时在画面上叠 2D 的光，定了马上做进场景）。"""
 import os
@@ -32,7 +33,7 @@ W, H, SS = 1920, 1080, 2            # 每格的大小，画线时 2 倍超采样
 FPS_OUT = 30
 T0 = float(sys.argv[1]) if len(sys.argv) > 1 else 70.0
 LEN = float(sys.argv[2]) if len(sys.argv) > 2 else 8.0
-VARIANTS = ("A", "B", "C", "D", "E", "F")
+VARIANTS = tuple(os.environ.get("ONLY", "A,B,C,D,E,F").split(","))     # ONLY=A,E 只渲这几种，并排成 pair_*.mp4
 LABELS = {"A": "A 现在", "B": "B 花哨光点 + 拉开间距", "C": "C B + 大星系", "D": "D C + 星云丝带",
           "E": "E C + 星芒滤镜", "F": "F C + 吸积环"}
 TAU = 2 * np.pi
@@ -341,20 +342,27 @@ def nebula(t):
     return out * np.clip((RR - 1.3) / 1.0, 0, 1)[..., None]
 
 
-def star_filter(light):
-    """E：亮点拉出六芒星芒（半分辨率卷积）、横向蓝光条，整层一点色散。"""
+def star_filter(light, t):
+    """E：亮点拉出六芒星芒（半分辨率卷积）、横向蓝光条，整层一点色散。星芒随时间慢慢变：整体约 40 秒转过 60°
+    （六芒星转 60° 就回到原样），长短按 7 秒起伏，六条各自按 5–9 秒的周期强弱错开；光条按 11 秒明暗。"""
     lum = light.max(2)
     bright = np.clip(light - 0.3, 0, None) * (lum > 0.3)[..., None]
     small = cv2.resize(bright, (W // 2, H // 2), interpolation=cv2.INTER_AREA)
-    L = 121
+    L = 161
     k = np.zeros((L, L), np.float32)
     c = L // 2
-    for a in (0.26, 0.26 + np.pi / 3, 0.26 + 2 * np.pi / 3):
-        for s in np.linspace(-c, c, 4 * L):
-            k[int(round(c + s * np.sin(a))), int(round(c + s * np.cos(a)))] = np.exp(-abs(s) / 18.0)
+    rot = 0.26 + (np.pi / 3) * t / 40.0
+    reach = 18.0 * (1 + 0.3 * np.sin(TAU * t / 7.0))
+    for j in range(6):          # 六条半边各自强弱
+        a = rot + j * np.pi / 3
+        g = 0.75 + 0.35 * np.sin(TAU * t / (5.0 + 0.8 * j) + 1.3 * j)
+        for s in np.linspace(0, c, 2 * L):
+            k[int(round(c + s * np.sin(a))), int(round(c + s * np.cos(a)))] = g * np.exp(-s / reach)
+    k[c, c] = 1.0
     k /= k.sum() / 6.0
     spikes = cv2.filter2D(small, -1, k)
-    streak = cv2.GaussianBlur(small, (0, 0), sigmaX=90, sigmaY=0.7) * np.array((0.5, 0.7, 1.0), np.float32) * 6.0
+    streak = (cv2.GaussianBlur(small, (0, 0), sigmaX=90, sigmaY=0.7) * np.array((0.5, 0.7, 1.0), np.float32)
+              * 6.0 * (0.8 + 0.3 * np.sin(TAU * t / 11.0)))
     add = cv2.resize(spikes + streak, (W, H))
     out = light + add
     # 色散：红往外、蓝往里各挪一点（以画面中心为准）
@@ -401,8 +409,9 @@ def frame(fo):
     gal = gal * SKY
     # (光点那层, 星系一类铺在天上的那层, 尘埃带)
     layers = {"A": (base, None, None), "B": (stars, None, None), "C": (stars, gal, lane),
-              "D": (stars, gal + nebula(t) * SKY, lane), "E": (star_filter(stars), gal, lane),
+              "D": (stars, gal + nebula(t) * SKY, lane), "E": (star_filter(stars, t), gal, lane),
               "F": (stars, gal + accretion(t), lane)}
+    layers = {v: layers[v] for v in VARIANTS}
     for v, (st, sky, ln) in layers.items():
         light = st if sky is None else st + sky
         bg = ART if ln is None else ART * (1 - 0.12 * ln[..., None] * SKY)
@@ -441,6 +450,25 @@ def grid(tag, zoom=False):
                         "-c:a", "aac", "-b:a", "192k", os.path.join(OUT, f"{v}_{tag}.mp4")], check=True)
 
 
+
+def pair(tag, zoom=False):
+    """ONLY 给的几种左右并排，每格 1920×1080；zoom 时取月亮周围的 1152×648 放大。"""
+    font = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+    ext = "png" if tag == "black" else "jpg"
+    ins, fl = [], []
+    for k, v in enumerate(VARIANTS):
+        ins += ["-framerate", str(FPS_OUT), "-i", os.path.join(OUT, f"{v}_{tag}", f"f_%04d.{ext}")]
+        crop = "crop=1152:648:0:0,scale=1920:1080:flags=lanczos," if zoom else ""
+        fl.append(f"[{k}:v]{crop}drawtext=fontfile={font}:text='{LABELS[v]}':x=36:y=H-90:fontsize=54:"
+                  f"fontcolor=white:borderw=4[v{k}]")
+    m = len(VARIANTS)
+    fl.append("".join(f"[v{k}]" for k in range(m)) + f"hstack=inputs={m},format=yuv420p[v]")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", *ins, "-ss", str(T0), "-t", str(LEN),
+                    "-i", os.path.join(C, "audio", "kimishira_sakura_shunka_mix.wav"),
+                    "-filter_complex", ";".join(fl), "-map", "[v]", "-map", f"{m}:a", "-shortest",
+                    "-c:v", "libx264", "-crf", "17", "-preset", "fast", "-c:a", "aac", "-b:a", "192k",
+                    os.path.join(OUT, f"pair_{tag}" + ("_zoom" if zoom else "") + ".mp4")], check=True)
+
 if __name__ == "__main__":
     for v in VARIANTS:
         for tag in ("black", "art"):
@@ -453,6 +481,10 @@ if __name__ == "__main__":
             if k % 30 == 0:
                 print("frame", k, flush=True)
     for tag in ("black", "art"):
-        grid(tag)
-        grid(tag, zoom=True)
+        if len(VARIANTS) == 6:
+            grid(tag)
+            grid(tag, zoom=True)
+        else:
+            pair(tag)
+            pair(tag, zoom=True)
     print("->", OUT)
