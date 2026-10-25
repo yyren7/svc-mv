@@ -136,7 +136,8 @@ def make_sections(d, dur, spans):
         raw.append(float((Ln[c:e_] + 0.5 * Hn[c:e_]).mean() / 1.5))
         info.append((float(b[c]), float(edges[e_]), sing[c:e_].mean() > 0.3))
     raw = np.array(raw)
-    x = (raw - raw.min()) / max(raw.max() - raw.min(), 1e-6)
+    # 整首里的位置和排名各占一半：混音压得紧的歌，段落之间的响度差很小，光按位置副歌和主歌拉不开
+    x = 0.5 * (raw - raw.min()) / max(raw.max() - raw.min(), 1e-6) + 0.5 * np.argsort(np.argsort(raw)) / max(len(raw) - 1, 1)
     sung_x = [x[k] for k, (_, _, s) in enumerate(info) if s]
     ch_thr = max(np.percentile(sung_x, 65) if sung_x else 1.0, 0.55)
     secs = []
