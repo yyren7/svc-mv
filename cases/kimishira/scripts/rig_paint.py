@@ -111,9 +111,7 @@ tail_m = (lab == (seed if seed else 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA]))
 tail_m = cv2.dilate(tail_m.astype(np.uint8), disk(6)) & tail_raw     # 长回开运算削掉的边
 tail_m = fill_holes(tail_m, 4000)
 tail_m = cv2.dilate(tail_m, disk(5)) & (alpha > 0.01)       # 抗锯齿的边和尾巴外面那圈淡淡的光一起走
-# 外面那圈光比 5 px 宽：只带 5 px 时尾巴尖转出去，光的外沿留在原地，下沿切成一道硬边。透明处（不透明度 0.35 以下）
-# 再往外带 12 px，慢慢放开
-tail_soft = np.maximum(blur(tail_m, 1.5), blur(cv2.dilate(tail_m, disk(12)), 4) * (alpha < 0.35))
+tail_soft = blur(tail_m, 1.5)
 a0, a1 = angle(*T["base"]), angle(*T["tip"])
 tail_s = np.clip((a0 - ang) / (a0 - a1), 0, 1)
 tail_w = tail_soft * tail_s ** 1.2
@@ -134,7 +132,7 @@ hair_m = cv2.morphologyEx(hair_raw, cv2.MORPH_CLOSE, disk(4))
 hair_m = fill_holes(hair_m, 2500)
 hair_m = drop_specks(hair_m, 40)
 hair_m = cv2.dilate(hair_m, disk(2)) & (alpha > 0.03)
-away = np.ones((h, w), np.float32)
+away = (1 - blur(cv2.dilate(tail_m, disk(10)), 4))
 for b in spec["ears"]:
     away *= 1 - blur(box(b), 4)
 center = blur((U > 0.525) & (U < 0.705) & (Y > 0.60), 8)    # 裙子正面和手：上面偏粉的反光不算头发
@@ -143,20 +141,13 @@ away *= (1 - blur(box((0.86, 0.82, 1.0, 1.0)), 4)) * (1 - blur(box((0.76, 0.92, 
 lo, hi = spec["hair_reach"]
 # 先往外长 5 px 再模糊：1–2 px 的细发丝直接模糊会被稀释到 0.1 以下，几乎不动（长出去的是透明处，不影响）
 hair_w = blur(cv2.dilate(hair_m, disk(5)), 2) * ramp(dist(spec["head"]), lo, hi) * away * (1 - center)
-# 衣服（裙子、袖子）和尾巴本身不跟头发摆：半透明的袖子后面透出的头发是袖子的贴图。rig.json 画的袖子多边形左边
-# 画宽了，把袖子外面垂着的长发也压住了；这里改用衣服本身：大块的白，闭运算、补洞（袖子里透出的头发是被白围住的洞）。
-# 头发在衣服、尾巴外面一直是全量，放开的那段放到衣服、尾巴里面（衣服 3.5%、尾巴 2.5% 画面高）：袖子的荷叶边、
-# 尾巴的边跟着旁边的头发带一点。原来是出了衣服 20 px、离尾巴 10 px 才在头发里放开，挨着的发丝 20 px 里从不动到
-# 动 12 px，像粘在袖子、尾巴上，摆到头还会折过去
+hair_w = blur(hair_w * (1 - rigid), 3) * (1 - rigid)
+# 衣服（裙子、袖子）里的头发不动：半透明的袖子后面透出的头发是袖子的贴图。rig.json 画的袖子多边形左边画宽了，
+# 把袖子外面垂着的长发也压住了；这里改用衣服本身：大块的白，闭运算、补洞（袖子里透出的头发是被白围住的洞），
+# 出了衣服约 1.8% 画面高（20 px）放开
 cloth = drop_specks((white_s & solid).astype(np.uint8), 3000)
 cloth = fill_holes(cv2.morphologyEx(cloth, cv2.MORPH_CLOSE, disk(5)), 15000)
-glue = np.maximum(cloth, tail_m)
-free = hair_w * (1 - glue)
-reach = np.where(tail_m > 0, 0.025, 0.035)
-into = 1 - ramp(cv2.distanceTransform(glue, cv2.DIST_L2, 5) / h / reach, 0, 1)
-spread = blur(cv2.dilate(free, disk(int(0.04 * h))), 6)
-hair_w = np.maximum(free, spread * into * glue)
-hair_w = blur(hair_w * (1 - rigid), 3) * (1 - rigid)
+hair_w *= ramp(cv2.distanceTransform(1 - cloth, cv2.DIST_L2, 5) / h, 0.002, 0.018)
 
 # ---- 呼吸：以胸口（0.615, 0.59）为中心的软椭圆，横半径 0.23、竖半径 0.22（画面宽 / 高的比例），里面 55% 是 1，
 # 往外落到 0；下巴（0.455）以上是 0，头完全不动，锁骨（0.54）起才全量。两边垂下的头发跟着肩膀抬一点，没有方框的边
