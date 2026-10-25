@@ -14,8 +14,9 @@
 - 镜头：始终看整张画，放大 1.04–1.10 倍；副歌升起一点、主歌左右慢慢挪、间奏往月亮那边偏、结尾漂向月亮；
   开头对焦在镜头前的标题上，标题淡出时拉回脸上。
 - 流星：开头一颗，每段副歌两颗，间奏里约 2 秒一颗（流星雨），主歌里稀疏几颗，结尾一颗。
-- 大标题在乐队进来（6–14 秒里第一个段落边界）后约 3 秒淡完（title_end），左下角的歌名在那之后 3 秒的第一个
-  重拍淡入，最后一句唱完 1.5 秒淡出；制作信息在那之后的段落边界（或下一个重拍）出来，到片尾前 3.5 秒。
+- 大标题在第一句开唱时淡完（title_end；第一句在 6–25 秒以外，或没有歌词时，在乐队进来——6–14 秒里第一个段落
+  边界——后约 3 秒淡完），左下角的歌名紧接着淡入，最后一句唱完 1.5 秒淡出；制作信息在那之后的段落边界
+  （或下一个重拍）出来，到片尾前 3.5 秒。
 song.json 里给了 title_end、show、credits_at 就用给的。
 """
 import json
@@ -248,14 +249,16 @@ def make(case, force=False):
     spans = sung_spans(lines)
     secs, b = make_sections(d, dur, spans)
     title_end = song.get("title_end")
-    if title_end is None:       # 乐队进来（6–14 秒里第一个段落边界）后约 3 秒淡完，对焦在那之后拉回脸上
-        cand = [s[1] for s in secs if 6.0 <= s[1] <= 14.0]
-        title_end = (cand[0] if cand else 8.0) + 2.85
+    if title_end is None:       # 第一句开唱时淡完，对焦在那之后拉回脸上
+        if spans and 6.0 <= spans[0][0] <= 25.0:
+            title_end = spans[0][0]
+        else:                   # 乐队进来（6–14 秒里第一个段落边界）后约 3 秒
+            cand = [s[1] for s in secs if 6.0 <= s[1] <= 14.0]
+            title_end = (cand[0] if cand else 8.0) + 2.85
     show = song.get("show")
-    if show is None:
+    if show is None:            # 大标题淡完紧接着淡入
         last = spans[-1][1] if spans else dur - 14
-        show = [snap(title_end + 3.0, b[b >= title_end + 3.0]) if (b >= title_end + 3.0).any() else title_end + 3.0,
-                round(min(last + 1.5, dur - 6), 2)]
+        show = [round(title_end + 0.3, 2), round(min(last + 1.5, dur - 6), 2)]
     credits_at = song.get("credits_at")
     if credits_at is None:      # 歌名淡出后的第一个段落边界（8 秒内），没有就下一个重拍
         nxt = [s[1] for s in secs if show[1] - 0.5 <= s[1] <= show[1] + 8.0]
@@ -300,6 +303,7 @@ def env(case):
     vals = dict(NAME=name, TITLE=song["title"], SUB=song.get("sub", ""), MIX=song["mix"],
                 VOCAL=song.get("vocal") or "-", LRC=song.get("lyrics") or "", TLRC=song.get("lyrics_cn") or "",
                 CREDITS=song.get("credits") or "", LYRICS_OFFSET=str(song.get("lyrics_offset", 0.15)),
+                LYRICS_STYLE=song.get("lyrics_style", "stagger"),
                 SHOW=" ".join(str(x) for x in plan["show"]), CREDITS_AT=" ".join(str(x) for x in plan["credits_at"]),
                 COVER_AT=str(next((s[1] + 4.0 for s in plan["sections"] if s[0].startswith("chorus")), 60.0)))
     print("\n".join(f"{k}={shlex.quote(str(v))}" for k, v in vals.items()))
