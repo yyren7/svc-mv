@@ -35,6 +35,14 @@ else
         --fps 60 --height $HEIGHT --show $SHOW > $R/logs/player.log 2>&1 &
     PLAYER=$!
 fi
+TT=$R/title_$HEIGHT TE=$R/ending_$HEIGHT     # 开头竖排的歌名、结尾的制作信息（2D 叠加层，title.py）
+if [ -n "${RESUME:-}" ] && [ -f $TT/region.json ] && [ -f $TE/region.json ]; then
+    TITLEJOB=
+else
+    { nice -n 19 $PY $T/title.py $CASE $TT --part opening --height $HEIGHT --fps 60
+      nice -n 19 $PY $T/title.py $CASE $TE --part ending --height $HEIGHT --fps 60; } > $R/logs/title.log 2>&1 &
+    TITLEJOB=$!
+fi
 
 if [ -z "${SKIP_RENDER:-}" ]; then
     if [ -z "${RESUME:-}" ]; then
@@ -62,11 +70,11 @@ if [ -z "${SKIP_RENDER:-}" ]; then
 fi
 
 [ -n "$PLAYER" ] && wait $PLAYER
+[ -n "$TITLEJOB" ] && wait $TITLEJOB
 ARGS=()
 [ -n "$LRC" ] && [ -f "$LRC" ] && ARGS+=(--lrc "$LRC")
 [ -n "$TLRC" ] && [ -f "$TLRC" ] && ARGS+=(--tlrc "$TLRC")
-[ -n "$CREDITS" ] && [ -f "$CREDITS" ] && ARGS+=(--credits "$CREDITS")
 $PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "$LYRICS_OFFSET" --credits-at $CREDITS_AT --lift 150 --style "$LYRICS_STYLE" \
     --res $((HEIGHT * 16 / 9)) $HEIGHT
-$PY scripts/onepic_finish.py $R/chunks "$MIX" $R/${NAME}_pv_${HEIGHT}p.mp4 --ass $R/subs.ass --overlay $P
+$PY scripts/onepic_finish.py $R/chunks "$MIX" $R/${NAME}_pv_${HEIGHT}p.mp4 --ass $R/subs.ass --overlay $TT --overlay $TE --overlay $P
 touch $R/render_done

@@ -49,8 +49,8 @@ RING = os.environ.get("RING", SONG.get("ring", "fancy"))
 # 跟插画走的（换歌不用动）
 FACE = (0.620, 0.352)
 MOON_DOWN = 0.035      # 天空整层往下挪这么多（画面高的比例）：插画里月亮贴着上边，旋律盘的顶上没地方
-TITLE_Y = 0.5          # 开头的竖排标题离镜头 0.5 米：对焦在它上面时，人物和背景都在焦外
-SHADE_Y = 0.8          # 标题的暗晕放在 0.8 米：对焦在标题上时虚开约画面宽的 0.5%
+TITLE_Y = 0.5          # 开头对焦在镜头前 0.5 米（标题在那儿）：人物和背景都在焦外
+SHADE_Y = 0.8          # 3D 标题的暗晕放在 0.8 米：对焦在标题上时虚开约画面宽的 0.5%
 GLINTS = [(0.667, 0.283), (0.705, 0.313), (0.625, 0.114)]   # 发夹的花、丝带上的花、头顶的蝴蝶结（插画坐标）
 LAYER_GAIN = {"near": 2.2, "far": 0.8}
 BEAM_GAIN, BEAM_MASK, STREAK_GAIN = 2.0, 2.8, 0.8
@@ -66,7 +66,7 @@ def camera_keys():
         elif k.get("focus_m") == "title":
             keys.append((t, dict(blur=k.get("blur", 0.014), focus_m=TITLE_Y)))
         else:
-            keys.append((t, dict(blur=k.get("blur", 0.003), focus=FACE)))
+            keys.append((t, dict(blur=k.get("blur", 0.0015), focus=FACE)))
     return keys
 
 
@@ -240,7 +240,8 @@ def pick_meteors(pic, cam, sky):
 
 
 def title(pic):
-    """开头月亮旁边竖排的歌名（song.json 的 title），一个字一个字浮现，下面一行小字是 artist，到 TITLE_END 淡完。
+    """（song.json 的 title_3d 为真时才用；默认标题是 title.py 画的 2D 叠加层，排版、时机一样）
+    开头月亮旁边竖排的歌名（song.json 的 title），一个字一个字浮现，下面一行小字是 artist，到 TITLE_END 淡完。
     8 个字是 kimishira 的大小，更短的按字数放大（最多 1.5 倍），9 个字一列，再长分两列（从右往左、第二列往下错开一点），每列超过 8 个字时按字数缩小。字放在镜头前 TITLE_Y 米，开头对焦在字上。"""
     mu, mv, _ = pic.meta["moon"]
     y = TITLE_Y
@@ -358,7 +359,8 @@ def build():
         of.galaxy(pic, audio, sky)
     elif RING == "classic":
         op.star_ring(pic, sr.Ring(spec, d["loud"], FPS, float(d["grid_beat"]), float(d["grid_phase"])))
-    title(pic)
+    if SONG.get("title_3d"):       # 默认标题是 title.py 画的 2D 叠加层：3D 字被抗锯齿和景深磨得发糊
+        title(pic)
     if "glint" in FX:
         op.glints(pic, GLINTS, [twinkle(n, 20 + i) for i in range(len(GLINTS))])
 

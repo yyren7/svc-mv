@@ -36,7 +36,8 @@ def main():
     ap.add_argument("audio")
     ap.add_argument("out")
     ap.add_argument("--ass")
-    ap.add_argument("--overlay", help="onepic_player.py 的输出目录（o_*.png + region.json）")
+    ap.add_argument("--overlay", action="append", default=[],
+                    help="透明 PNG 序列的目录（o_*.png + region.json，onepic_player.py、标题等），可以给多个，按顺序叠")
     ap.add_argument("--fade-in", type=float, default=1.5)
     ap.add_argument("--fade-out", type=float, default=4.0)
     ap.add_argument("--grain", type=int, default=2)
@@ -81,11 +82,18 @@ def main():
     # overlay 要指定 yuv420：format=auto 会把整帧转成 RGB 叠，4K 下慢 7 倍
     graph = f"[0:v]{','.join(chain) or 'null'}[g];[1:v]format=yuva420p[m];[g][m]overlay=format=yuv420[o];"
     inputs = ["-i", master, "-i", vig]
-    if a.overlay:      # onepic_player.py 画的透明 PNG 序列，叠在淡入淡出之前（跟着画面一起淡）
-        reg = json.load(open(os.path.join(a.overlay, "region.json")))
-        inputs += ["-framerate", str(reg["fps"]), "-start_number", str(int(round(a.start * reg["fps"]))),
-                   "-i", os.path.join(a.overlay, "o_%05d.png")]
-        graph += f"[2:v]format=yuva420p[p];[o][p]overlay=x={reg['x']}:y={reg['y']}:format=yuv420:eof_action=repeat[o];"
+    for k, ov in enumerate(a.overlay):      # 透明 PNG 序列，叠在淡入淡出之前（跟着画面一起淡）
+        reg = json.load(open(os.path.join(ov, "region.json")))
+        t0 = reg.get("t0", 0.0)             # 第一帧在第几秒（结尾的制作信息只画了出现的那几秒）
+        first = max(0, int(round((a.start - t0) * reg["fps"])))
+        if not os.path.exists(os.path.join(ov, f"o_{first:05d}.png")):
+            continue        # 这一段在预览的范围之前就播完了
+        idx = inputs.count("-i")
+        inputs += ["-framerate", str(reg["fps"]), "-start_number", str(first), "-i", os.path.join(ov, "o_%05d.png")]
+        shift = max(0.0, t0 - a.start)
+        # 从头开始的（旋律盘）播完停在最后一帧；中途开始的播完就不叠了
+        graph += (f"[{idx}:v]setpts=PTS+{shift:.3f}/TB,format=yuva420p[p{k}];[o][p{k}]overlay=x={reg['x']}:y={reg['y']}"
+                  f":format=yuv420:eof_action={'pass' if t0 > 0 else 'repeat'}[o];")
     graph += f"[o]{','.join(fx)}[v]"
     aidx = inputs.count("-i")
     inputs += (["-ss", str(a.start)] if a.start else []) + ["-i", a.audio]

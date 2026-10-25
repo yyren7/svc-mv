@@ -30,6 +30,8 @@ OUT=$R/${NAME}_preview_${HEIGHT}p${TAG:+_$TAG}.mp4
 
 nice -n 19 $PY scripts/onepic_player.py $CASE/audio/bands.npz $R/player_p$HEIGHT --title "$TITLE" --sub "$SUB" \
     --fps 30 --height $HEIGHT --show $SHOW > $R/logs/player.log 2>&1 &
+{ nice -n 19 $PY $T/title.py $CASE $R/title_p$HEIGHT --part opening --height $HEIGHT --fps 30
+  nice -n 19 $PY $T/title.py $CASE $R/ending_p$HEIGHT --part ending --height $HEIGHT --fps 30; } > $R/logs/title.log 2>&1 &
 $B -b --factory-startup -P $T/pv.py -- build > $R/logs/build.log 2>&1
 grep -E "camera out|star ring|galaxy" $R/logs/build.log || true
 N=$($PY -c "import numpy as np; print(len(np.load('$CASE/audio/bands.npz')['loud']))")
@@ -45,9 +47,8 @@ wait
 ARGS=()
 [ -n "$LRC" ] && [ -f "$LRC" ] && ARGS+=(--lrc "$LRC")
 [ -n "$TLRC" ] && [ -f "$TLRC" ] && ARGS+=(--tlrc "$TLRC")
-[ -n "$CREDITS" ] && [ -f "$CREDITS" ] && ARGS+=(--credits "$CREDITS")
 $PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "$LYRICS_OFFSET" --credits-at $CREDITS_AT --lift 150 --style "$LYRICS_STYLE" \
     --res $((HEIGHT * 16 / 9)) $HEIGHT
-$PY scripts/onepic_finish.py $P "$MIX" $OUT --ass $R/subs.ass --overlay $R/player_p$HEIGHT --crf 20 --preset fast \
+$PY scripts/onepic_finish.py $P "$MIX" $OUT --ass $R/subs.ass --overlay $R/title_p$HEIGHT --overlay $R/ending_p$HEIGHT --overlay $R/player_p$HEIGHT --crf 20 --preset fast \
     --fade-out $([ "$LEN" -gt 0 ] && echo 1 || echo 4) ${START:+--start $START}
 echo "-> $OUT"

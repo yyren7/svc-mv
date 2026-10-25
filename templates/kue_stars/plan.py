@@ -186,7 +186,7 @@ def P_(u, v, zoom, dx=0.0, dy=0.0, dz=0.0):
 def make_camera(secs, dur, title_end):
     """镜头关键帧：[秒, 机位]，机位有 u/v/zoom/dx/dy/dz（Camera.path 的写法）或者只有对焦（blur 和 focus_m / focus）。"""
     keys = [[0.0, dict(blur=0.014, focus_m="title")], [round(title_end - 2.85, 2), dict(blur=0.014, focus_m="title")],
-            [round(title_end + 0.4, 2), dict(blur=0.003, focus="face")]]
+            [round(title_end + 0.4, 2), dict(blur=0.0015, focus="face")]]
     poses = [[0.0, P_(0.47, 0.46, 1.10, dx=-0.006)], [round(title_end - 2.85, 2), P_(0.48, 0.47, 1.09, dx=-0.004)]]
     side = 1
     for i, (name, t0, energy, *_) in enumerate(secs):
