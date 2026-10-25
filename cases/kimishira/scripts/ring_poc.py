@@ -72,11 +72,11 @@ def pos(th, r):
 SPARKS = []
 f_lo, f_hi = int((T0 - 1.5) * FPS), int((T0 + LEN) * FPS)
 for i in np.flatnonzero(KIND == 2):
-    t = f_lo + np.cumsum(rng.exponential(FPS / 22.0, 400))
+    t = f_lo + np.cumsum(rng.exponential(FPS / 45.0, 800))
     t = t[t < f_hi]
     k = len(t)
-    SPARKS.append(dict(i=i, fb=t, life=rng.uniform(0.35, 1.1, k), back=rng.uniform(0.05, 0.4, k),
-                       side=rng.normal(0, 0.14, k), ph=rng.uniform(0, 6.3, k), big=rng.random(k) < 0.15))
+    SPARKS.append(dict(i=i, fb=t, life=rng.uniform(0.5, 1.5, k), back=rng.uniform(0.1, 0.7, k),
+                       side=rng.normal(0, 0.28, k), ph=rng.uniform(0, 6.3, k), big=rng.random(k) < 0.25))
 
 
 def beat_pulse(t):
@@ -127,7 +127,7 @@ def draw_stars(f, styled):
         er = np.stack([np.sin(th), np.cos(th)], 1)               # 朝外
         if kind == 1:           # 双子星：两股尾巴按当时的互绕相位左右错开
             ph = 2 * np.pi * (fs / FPS) / TW_P[i] + TW_PH[i]
-            sep = max(1.3 * rh, 2.2)
+            sep = max(2.4 * rh, 0.09 * R)
             for sgn, cc in ((1, col), (-1, COL2[i])):
                 ox, oy = x + sgn * sep * np.cos(ph) * er[:, 0], y + sgn * sep * np.cos(ph) * er[:, 1]
                 for j in range(T - 1):
@@ -144,13 +144,13 @@ def draw_stars(f, styled):
             for j in range(T - 1):
                 k = q[j + 1]
                 cc = (1 - k) * np.array((0.75, 0.45, 0.95)) + k * (0.5 * col + 0.5 * k)
-                line(soft, (x[j], y[j]), (x[j + 1], y[j + 1]), cc * sv[j + 1] * 1.1, 3.2 * hw[j + 1])
+                line(soft, (x[j], y[j]), (x[j + 1], y[j + 1]), cc * sv[j + 1] * 1.5, 5.0 * hw[j + 1])
             hx, hy = x[-1], y[-1]
             for s in range(10):
                 a0, a1 = s / 10, (s + 1) / 10
-                line(soft, (hx + er[-1, 0] * a0 * 0.6 * R, hy + er[-1, 1] * a0 * 0.6 * R),
-                     (hx + er[-1, 0] * a1 * 0.6 * R, hy + er[-1, 1] * a1 * 0.6 * R),
-                     np.array((0.45, 0.7, 1.0)) * 0.35 * b * (1 - a0) ** 1.5, 0.9)
+                line(soft, (hx + er[-1, 0] * a0 * 1.1 * R, hy + er[-1, 1] * a0 * 1.1 * R),
+                     (hx + er[-1, 0] * a1 * 1.1 * R, hy + er[-1, 1] * a1 * 1.1 * R),
+                     np.array((0.45, 0.7, 1.0)) * 0.6 * b * (1 - a0) ** 1.5, 1.2)
         else:
             thin = 0.7 if kind == 2 else 1.0
             for j in range(T - 1):
@@ -163,7 +163,7 @@ def draw_stars(f, styled):
             amp = 0.25 + 0.75 * pulse
             for a in (0.0, np.pi / 2):
                 ang = SPIKE0[i] + 0.15 * t + a
-                for L, k in ((7.0, 0.25), (4.5, 0.5), (2.5, 0.9)):
+                for L, k in ((12.0, 0.3), (7.0, 0.6), (3.5, 1.0)):
                     L = L * rh * (0.7 + 0.6 * amp)
                     dx, dy = np.cos(ang) * L, np.sin(ang) * L
                     line(sharp, (p[0] - dx, p[1] - dy), (p[0] + dx, p[1] + dy), (0.5 * col + 0.5) * k * amp * b, 0.6)
@@ -186,8 +186,8 @@ def draw_stars(f, styled):
                 v = (back * s["back"][k] + out * s["side"][k]) * R
                 px = (x0 + v[0] * drift, y0 + v[1] * drift + 0.04 * R * a * a)
                 fade = (1 - a / s["life"][k]) ** 2 * (0.6 + 0.4 * np.sin(38 * a + s["ph"][k]))
-                cc = (0.5 * WARM + 0.5 * COL[i]) * b0 * fade * (1.4 if s["big"][k] else 0.9)
-                disk(sharp, px, 1.1 if s["big"][k] else 0.6, cc)
+                cc = (0.5 * WARM + 0.5 * COL[i]) * b0 * fade * (2.0 if s["big"][k] else 1.2)
+                disk(sharp, px, 1.6 if s["big"][k] else 0.9, cc)
     return down(sharp), down(soft)
 
 
@@ -204,13 +204,13 @@ nz = sum(cv2.resize(cv2.GaussianBlur(np.tile(nz, (1, 3)), (0, 0), s), (768, 96))
          for s, w_ in ((1.0, 0.5), (3.0, 0.35), (8.0, 0.15)))
 nz = (nz - nz.min()) / (nz.max() - nz.min())
 NZ = cv2.resize(nz, (512, 192))
-K_PITCH = 2.4
+K_PITCH = 1.3
 # 旋臂上的小星：沿两条对数螺旋撒开，离中心越远越疏，按 1/r 差速转
-M = 3200
+M = 6000
 g_r = 1.3 * np.exp(rng.random(M) ** 1.3 * np.log(11.5 / 1.3))
 g_arm = rng.integers(0, 2, M)
 g_th = g_arm * np.pi - K_PITCH * np.log(g_r) + rng.normal(0, 0.22 + 0.04 * g_r, M)
-g_b = rng.uniform(0.05, 0.3, M) * (rng.random(M) ** 3 * 2.5 + 0.4)
+g_b = rng.uniform(0.08, 0.45, M) * (rng.random(M) ** 3 * 2.5 + 0.4)
 g_tw = rng.uniform(0, 6.3, M)
 g_col = np.where((g_r < 3.5)[:, None], np.array((1.0, 0.85, 0.65)), np.array((0.6, 0.72, 1.0))).astype(np.float32)
 g_col[rng.random(M) < 0.08] = (1.0, 0.55, 0.75)
@@ -221,18 +221,18 @@ def galaxy(t):
     """(加在上面的光, 尘埃带)。"""
     rot = OMEGA0 * t * 0.6
     psi = 2 * (PHI - rot) + 2 * K_PITCH * LNR
-    arm = ((1 + np.cos(psi)) / 2) ** 3
+    arm = ((1 + np.cos(psi)) / 2) ** 4
     lane = ((1 + np.cos(psi - 0.9)) / 2) ** 8 * WIN
     mx = (((PHI - rot) / (2 * np.pi)) % 1.0) * 511
     my = np.clip((LNR - np.log(0.3)) / (np.log(14) - np.log(0.3)), 0, 1) * 191
     clump = cv2.remap(NZ, mx.astype(np.float32), my.astype(np.float32), cv2.INTER_LINEAR)
     dens = arm * WIN * (0.35 + 0.9 * clump ** 2)
     inner = np.clip((5.0 - RR) / 3.5, 0, 1)[..., None]
-    col = inner * np.array((1.0, 0.75, 0.55)) + (1 - inner) * np.array((0.45, 0.55, 1.0))
-    light = dens[..., None] * col * 0.11
+    col = inner * np.array((1.0, 0.85, 0.7)) + (1 - inner) * np.array((0.5, 0.65, 1.0))
+    light = dens[..., None] * col * 0.26
     hii = (np.clip(clump - 0.62, 0, 1) * 2.6) ** 2 * arm * WIN
-    light += hii[..., None] * np.array((1.0, 0.45, 0.7)) * 0.10
-    light += (0.22 * np.exp(-np.maximum(RR - 1.0, 0) / 1.4) * (RR > 0.95))[..., None] * np.array((1.0, 0.85, 0.65))
+    light += hii[..., None] * np.array((1.0, 0.45, 0.7)) * 0.22
+    light += (0.16 * np.exp(-np.maximum(RR - 1.0, 0) / 0.9) * (RR > 0.95))[..., None] * np.array((1.0, 0.92, 0.8))
     # 小星
     th = g_th + OMEGA0 * t * (2.0 / g_r)
     gx, gy = CX + np.sin(th) * g_r * R, CY + np.cos(th) * g_r * R
@@ -247,12 +247,12 @@ def galaxy(t):
 def halo_filter(stars):
     """D：大的多层辉光（红的晕开一点）、7 R 的彩虹晕、盘面薄雾。"""
     out = np.zeros_like(stars)
-    for s, k in ((3.0, 0.55), (10.0, 0.4), (30.0, 0.25)):
+    for s, k in ((3.0, 0.7), (10.0, 0.55), (30.0, 0.4)):
         for c, scale in ((0, 1.25), (1, 1.0), (2, 0.85)):
             out[..., c] += blur(stars[..., c], s * scale) * k
-    for c, (dr, k) in enumerate(((-0.18, 0.06), (0.0, 0.05), (0.18, 0.07))):
+    for c, (dr, k) in enumerate(((-0.2, 0.11), (0.0, 0.09), (0.2, 0.12))):
         out[..., c] += k * np.exp(-((RR - 7.0 - dr) / 0.32) ** 2)
-    out += (0.10 * np.exp(-np.maximum(RR - 1.0, 0) / 4.0) * (RR > 0.95))[..., None] * np.array((0.35, 0.3, 0.65))
+    out += (0.16 * np.exp(-np.maximum(RR - 1.0, 0) / 4.0) * (RR > 0.95))[..., None] * np.array((0.35, 0.3, 0.65))
     return out.astype(np.float32)
 
 
@@ -274,7 +274,7 @@ def frame(fo):
               "C": (styled + blur(sty_s, 9.0) * 0.25 + gal, lane), "D": (styled + halo_filter(styled), None)}
     for v, (light, ln) in layers.items():
         black = np.clip(light, 0, 1)
-        bg = ART if ln is None else ART * (1 - 0.35 * ln[..., None] * (1 - CHAR))
+        bg = ART if ln is None else ART * (1 - 0.15 * ln[..., None] * (1 - CHAR))
         onart = 1 - (1 - bg) * (1 - np.clip(light * (1 - CHAR), 0, 1))
         for tag, img in (("black", black), ("art", onart)):
             cv2.imwrite(os.path.join(OUT, f"{v}_{tag}", f"f_{fo:04d}.png"),
