@@ -5,7 +5,7 @@
     eval "$($PY templates/kue_stars/plan.py env cases/<歌>)"       # render.sh / preview.sh 用：歌名、文件、时机
 
 怎么排的（照着 kimishira 手排的那份总结出来的）：
-- 小节：拍子网格（grid_beat、grid_phase）上 4、6 或 8 拍一小节（按拍点强度的周期），重拍取最强的相位。
+- 小节：audio_bands.py 的重拍（downbeats）。
 - 段落边界：每小节一个候选点，前后 2 小节、4 小节的响度、高频、低频、高音区、人声（有没有人在唱）差得多的地方切开，
   两刀至少隔约 7 秒；第一句歌词前、最后一句唱完后各切一刀。
 - 每段的能量 = 这段的平均响度在整首里的位置（0.2–1.0，取到 0.05）；花瓣、光点、旋律盘、光束的开度按能量推。
@@ -63,25 +63,16 @@ def sung_spans(lines):
 
 
 def bars(d, dur):
-    """小节的开始时刻：拍子网格上每 m 拍一小节。m 取 4、6、8 里拍点强度（低频 + 起音）自相关最强的（差不多一样强时
-    取小的；kimishira 是 6，4/4 的歌是 4），重拍取这个周期里最强的那个相位。"""
-    P, phi = float(d["grid_beat"]), float(d["grid_phase"])
-    beats = phi + P * np.arange(int((dur - phi) / P) + 1)
-    idx = np.clip((beats * FPS).astype(int), 0, len(d["bass"]) - 1)
-    s = d["bass"][idx] / max(d["bass"].max(), 1e-6) + d["onset"][idx]
-    s = s - s.mean()
-
-    def ac(m):
-        return float(np.dot(s[:-m], s[m:]) / np.sqrt(np.dot(s[:-m], s[:-m]) * np.dot(s[m:], s[m:]) + 1e-9))
-
-    acs = {m: ac(m) for m in (4, 6, 8)}
-    top = max(acs.values())
-    m = min(k for k, v in acs.items() if v >= 0.9 * top)
-    k = int(np.argmax([s[j::m].mean() for j in range(m)]))
-    b = beats[k::m]
-    if b[0] > 0.5:
+    """小节的开始时刻：audio_bands.py 的 downbeats（librosa 的拍子每 4 拍一个，取低频最响的相位）。kimishira 手排的
+    段落边界都落在它上面；拍子网格（grid_beat）是 165 BPM，按 4、6 拍凑小节都对不上。小节短于 1.2 秒的（拍子测成
+    倍频）隔一个取一个。"""
+    b = np.asarray(d["downbeats"], float)
+    b = b[(b >= 0) & (b < dur)]
+    while len(b) > 2 and np.median(np.diff(b)) < 1.2:
+        b = b[::2]
+    if len(b) == 0 or b[0] > 0.5:
         b = np.concatenate([[0.0], b])
-    return b, P * m
+    return b, float(np.median(np.diff(b))) if len(b) > 1 else 2.0
 
 
 def snap(t, grid):
