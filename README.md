@@ -17,6 +17,12 @@ jobs files.
 | [cases/uraomote](cases/uraomote/) | The first experiment: six sets as stills, an animatic cut on the downbeats, a script for 2D and 3D invading each other |
 | [cases/kimishira](cases/kimishira/) | 一图流鉴赏 PV：一张插画拆层摆成 2.5D 场景，人物随风摆、跟着唱，粒子、月亮外圈的星环跟着歌走，1080p60 成片 |
 
+Templates: a finished case saved so a new song only needs its own audio and text.
+
+| Template | What it is |
+|---|---|
+| [templates/kue_stars](templates/kue_stars/) | kimishira 的一图流 PV 存成的模板：同一张星空花田插画，换歌、歌词、歌名和制作信息；段落、镜头、流星、标题时机由 `plan.py` 从音频和歌词自动排，星环是花哨样式加大星系 |
+
 ## Shared scripts
 
 Audio and lyrics:
