@@ -240,14 +240,14 @@ def pick_meteors(pic, cam, sky):
 
 def title(pic):
     """开头月亮旁边竖排的歌名（song.json 的 title），一个字一个字浮现，下面一行小字是 artist，到 TITLE_END 淡完。
-    8 个字以内是 kimishira 的大小，9 个字一列，再长分两列（从右往左、第二列往下错开一点），每列超过 8 个字时按字数缩小。字放在镜头前 TITLE_Y 米，开头对焦在字上。"""
+    8 个字是 kimishira 的大小，更短的按字数放大（最多 1.5 倍），9 个字一列，再长分两列（从右往左、第二列往下错开一点），每列超过 8 个字时按字数缩小。字放在镜头前 TITLE_Y 米，开头对焦在字上。"""
     mu, mv, _ = pic.meta["moon"]
     y = TITLE_Y
     k = y / 40.0
     mat = op.fading_mat("title", (0.93, 0.96, 1.0), 1.7)
     chars = [ch for ch in SONG["title"] if not ch.isspace()]
     per = len(chars) if len(chars) <= 9 else -(-len(chars) // 2)     # 9 个字以上分两列，从右往左
-    s = min(1.0, 8.0 / max(per, 1))
+    s = min(1.5, 8.0 / max(per, 1))
     size, line = 1.1 * k * s, 1.18 * k * s
     top = mv - 0.055
     x0 = op.Vector(pic.point(mu + 0.155, top, y))
@@ -269,7 +269,7 @@ def title(pic):
         cjk = any(ord(c) >= 0x2E80 for c in SONG["artist"])      # DIN 没有中日文字形，这时用标题的字体
         afont = SONG.get("artist_font", SONG.get("title_font", "yumindb.ttf") if cjk else "DINNextLTPro-Light.ttf")
         sub = op.text_obj(SONG["artist"], os.path.join(FONTS, afont),
-                          (0.6 if cjk else 0.36) * k, sub_loc, spacing=1.1 if cjk else 1.3, mat=op.fading_mat("title_sub", (0.85, 0.9, 1.0), 1.3))
+                          (0.6 * s if cjk else 0.36) * k, sub_loc, spacing=1.1 if cjk else 1.3, mat=op.fading_mat("title_sub", (0.85, 0.9, 1.0), 1.3))
         op.key_prop(sub, "a", [(0, 0.0), (f(3.6), 0.0), (f(4.6), 0.85), (f(out0), 0.85), (f(out1), 0.0)])
         obs.append(sub)
     return obs
