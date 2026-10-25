@@ -31,6 +31,8 @@ EM8 = 0.04                         # 开头：8 个字一列时的字号（画�
 END_X, END_Y = 0.955, 0.93         # 结尾：右边线、最后一行的下沿
 END_EM, END_EM1 = 0.03, 0.048      # 结尾：每行的字号、第一行（歌名）的字号
 COLOR, GLOW = (237, 245, 255), (175, 212, 255)
+# 标题字体（游明朝）是日文字体，没有部分简体字（"绘"会画成方框）：缺字时这一行换成思源宋体的简体中文粗体
+FALLBACK = "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"
 IN_D = 1.1                         # 每个字（每行）浮现用的秒数
 
 G = {}
@@ -50,8 +52,37 @@ def glyph(text, font, bold):
     return im, r - l, b - t
 
 
-def font_of(song, key, default, px):
-    return ImageFont.truetype(os.path.join(FONTS, song.get(key, default)), int(round(px)))
+_CMAPS = {}
+
+
+def covers(path, text):
+    if path not in _CMAPS:
+        from fontTools.ttLib import TTFont
+        f = TTFont(path, fontNumber=0, lazy=True)
+        _CMAPS[path] = set(f.getBestCmap())
+    return all(c.isspace() or ord(c) in _CMAPS[path] for c in text)
+
+
+def fallback_index():
+    """思源宋体 .ttc 里简体中文（SC）是第几个。"""
+    if "sc" not in _CMAPS:
+        from fontTools.ttLib import TTFont
+        _CMAPS["sc"] = 0
+        for i in range(10):
+            try:
+                if " SC" in TTFont(FALLBACK, fontNumber=i, lazy=True)["name"].getDebugName(1):
+                    _CMAPS["sc"] = i
+                    break
+            except Exception:
+                break
+    return _CMAPS["sc"]
+
+
+def font_for(path, px, text):
+    """path 的字体，缺 text 里的字时换成思源宋体（简体中文）。"""
+    if covers(path, text):
+        return ImageFont.truetype(path, int(round(px)))
+    return ImageFont.truetype(FALLBACK, int(round(px)), index=fallback_index())
 
 
 def opening(song, plan, W, H):
@@ -62,20 +93,20 @@ def opening(song, plan, W, H):
     s = min(2.0, 8.0 / max(per, 1))
     em = EM8 * s * H
     line = 1.34 * em
-    font = font_of(song, "title_font", "yumindb.ttf", em)
+    path = os.path.join(FONTS, song.get("title_font", "yumindb.ttf"))
     bold = max(1, int(round(em * 0.025)))
     end = plan["title_end"]
     stagger = min(0.35, 2.4 / n)
     items = []
     for i, ch in enumerate(chars):
         col, row = divmod(i, per)
-        m, _, _ = glyph(ch, font, bold)
+        m, _, _ = glyph(ch, font_for(path, em, ch), bold)
         items.append((m, COL_X * W - col * 1.45 * line, TOP_Y * H + (row + 0.9 * col) * line,
                       1.2 + stagger * i, end - 2.0 + 0.12 * i, end, 1.0))
     if song.get("artist"):
         cjk = any(ord(c) >= 0x2E80 for c in song["artist"])
         afont = song.get("artist_font", song.get("title_font", "yumindb.ttf") if cjk else "DINNextLTPro-Light.ttf")
-        f2 = ImageFont.truetype(os.path.join(FONTS, afont), int(round(em * (0.55 if cjk else 0.34))))
+        f2 = font_for(os.path.join(FONTS, afont), em * (0.55 if cjk else 0.34), song["artist"])
         ncol, last = divmod(n - 1, per)
         m, _, _ = glyph(song["artist"], f2, max(1, bold // 2))
         items.append((m, COL_X * W - ncol * 1.45 * line, TOP_Y * H + (last + 0.9 * ncol) * line + 1.2 * line,
@@ -87,11 +118,12 @@ def ending(song, plan, W, H, case):
     lines = [ln.strip() for ln in open(os.path.join(case, song["credits"]), encoding="utf-8-sig") if ln.strip()]
     t0, t1 = plan["credits_at"]
     em, em1 = END_EM * H, END_EM1 * H
-    f, f1 = font_of(song, "title_font", "yumindb.ttf", em), font_of(song, "title_font", "yumindb.ttf", em1)
+    path = os.path.join(FONTS, song.get("title_font", "yumindb.ttf"))
     rows = []
     for i, ln in enumerate(lines):
         big = i == 0 and len(lines) > 1
-        rows.append((glyph(ln, f1 if big else f, max(1, int(round((em1 if big else em) * 0.025)))), big))
+        px = em1 if big else em
+        rows.append((glyph(ln, font_for(path, px, ln), max(1, int(round(px * 0.025)))), big))
     # 从最后一行往上排：每行 1.55 个字号，歌名下面多空半行
     y = END_Y * H
     pos = []
@@ -154,7 +186,7 @@ def frame(k):
             dst[..., 3] = dst[..., 3] * (1 - al) + al
     nz = canvas[..., 3] > 1e-4
     canvas[..., :3][nz] /= canvas[..., 3][nz][..., None]      # 预乘 -> 直通 alpha
-    Image.fromarray((np.clip(canvas, 0, 1) * 255 + 0.5).astype(np.uint8), "RGBA").save(
+    Image.fromarray((np.clip(canvas, 0, 1) * 255 + 0.5).astype(np.uint8)).save(
         os.path.join(g["out"], f"o_{k:05d}.png"), compress_level=1)
 
 
