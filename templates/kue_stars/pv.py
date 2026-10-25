@@ -269,7 +269,7 @@ def title(pic):
         cjk = any(ord(c) >= 0x2E80 for c in SONG["artist"])      # DIN 没有中日文字形，这时用标题的字体
         afont = SONG.get("artist_font", SONG.get("title_font", "yumindb.ttf") if cjk else "DINNextLTPro-Light.ttf")
         sub = op.text_obj(SONG["artist"], os.path.join(FONTS, afont),
-                          0.36 * k, sub_loc, spacing=1.3, mat=op.fading_mat("title_sub", (0.85, 0.9, 1.0), 1.3))
+                          (0.6 if cjk else 0.36) * k, sub_loc, spacing=1.1 if cjk else 1.3, mat=op.fading_mat("title_sub", (0.85, 0.9, 1.0), 1.3))
         op.key_prop(sub, "a", [(0, 0.0), (f(3.6), 0.0), (f(4.6), 0.85), (f(out0), 0.85), (f(out1), 0.0)])
         obs.append(sub)
     return obs
