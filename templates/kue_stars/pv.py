@@ -421,10 +421,10 @@ def clip(name):
 
 
 def preview():
-    """快速预览：960×540、30 fps（隔一帧渲一帧）、8 采样，到 <case>/renders/preview/。"""
+    """快速预览：默认 960×540（RES=25）、30 fps（隔一帧渲一帧）、8 采样，到 <case>/renders/preview/。"""
     s = bpy.context.scene
-    s.render.resolution_percentage = 25
-    s.eevee.taa_render_samples = 8
+    s.render.resolution_percentage = int(os.environ.get("RES", 25))
+    s.eevee.taa_render_samples = int(os.environ.get("SAMPLES", 8))
     s.render.fps = FPS // 2
     s.render.ffmpeg.constant_rate_factor = "MEDIUM"
     s.render.filepath = os.path.join(RENDERS, "preview", "p_#####")

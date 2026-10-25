@@ -1,5 +1,5 @@
 #!/bin/bash
-# 模板的快速预览，在 AutoDL 上：960×540、30 fps（隔一帧渲一帧）、8 采样，4 段同时渲；带左下角歌名、歌词和制作信息。
+# 模板的快速预览，在 AutoDL 上：960×540（HEIGHT=1080 出 1080p）、30 fps（隔一帧渲一帧）、8 采样，4 段同时渲；带左下角歌名、歌词和制作信息。
 # 默认只出前 40 秒（约 1 分半），LEN=0 出整首；音频特征、plan.json 没有时先做（同 render.sh）。
 #   bash templates/kue_stars/preview.sh cases/<歌>           -> <case>/renders/<歌>_preview_540p_40s.mp4
 #   LEN=0 bash templates/kue_stars/preview.sh cases/<歌>     -> <case>/renders/<歌>_preview_540p.mp4
@@ -23,11 +23,13 @@ eval "$($PY $T/plan.py env $CASE)"
 [ -f $CASE/audio/bands.npz ] || $LIBROSA_PY scripts/audio_bands.py "$MIX" "$VOCAL" $CASE/audio/bands.npz --fps 60 --bands 48
 [ -f $CASE/plan.json ] || $PY $T/plan.py make $CASE
 eval "$($PY $T/plan.py env $CASE)"
-OUT=$R/${NAME}_preview_540p${TAG:+_$TAG}.mp4
-[ "$LEN" -gt 0 ] && OUT=$R/${NAME}_preview_540p_${START}s+${LEN}s${TAG:+_$TAG}.mp4
+HEIGHT=${HEIGHT:-540}
+export RES=$((HEIGHT * 100 / 2160))
+OUT=$R/${NAME}_preview_${HEIGHT}p${TAG:+_$TAG}.mp4
+[ "$LEN" -gt 0 ] && OUT=$R/${NAME}_preview_${HEIGHT}p_${START}s+${LEN}s${TAG:+_$TAG}.mp4
 
-nice -n 19 $PY scripts/onepic_player.py $CASE/audio/bands.npz $R/player_540 --title "$TITLE" --sub "$SUB" \
-    --fps 30 --height 540 --show $SHOW > $R/logs/player.log 2>&1 &
+nice -n 19 $PY scripts/onepic_player.py $CASE/audio/bands.npz $R/player_p$HEIGHT --title "$TITLE" --sub "$SUB" \
+    --fps 30 --height $HEIGHT --show $SHOW > $R/logs/player.log 2>&1 &
 $B -b --factory-startup -P $T/pv.py -- build > $R/logs/build.log 2>&1
 grep -E "camera out|star ring|galaxy" $R/logs/build.log || true
 N=$($PY -c "import numpy as np; print(len(np.load('$CASE/audio/bands.npz')['loud']))")
@@ -44,7 +46,8 @@ ARGS=()
 [ -n "$LRC" ] && [ -f "$LRC" ] && ARGS+=(--lrc "$LRC")
 [ -n "$TLRC" ] && [ -f "$TLRC" ] && ARGS+=(--tlrc "$TLRC")
 [ -n "$CREDITS" ] && [ -f "$CREDITS" ] && ARGS+=(--credits "$CREDITS")
-$PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "$LYRICS_OFFSET" --credits-at $CREDITS_AT --lift 150
-$PY scripts/onepic_finish.py $P "$MIX" $OUT --ass $R/subs.ass --overlay $R/player_540 --crf 20 --preset fast \
+$PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "$LYRICS_OFFSET" --credits-at $CREDITS_AT --lift 150 \
+    --res $((HEIGHT * 16 / 9)) $HEIGHT
+$PY scripts/onepic_finish.py $P "$MIX" $OUT --ass $R/subs.ass --overlay $R/player_p$HEIGHT --crf 20 --preset fast \
     --fade-out $([ "$LEN" -gt 0 ] && echo 1 || echo 4) ${START:+--start $START}
 echo "-> $OUT"
