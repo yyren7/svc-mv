@@ -283,7 +283,9 @@ def layers(pic, audio, moon_tex):
             dd = np.array([mu - FACE[0], (FACE[1] - mv) / pic.aspect])
             extra = op.rim_extra(L["color"], dd / np.linalg.norm(dd), pic.aspect, strength=0.8, audio=audio, gain_col="rim")
         color = L["color"] if os.path.isabs(L["color"]) else pic.path(L["color"])
-        alpha = None if not L["alpha"] else (L["alpha"] if os.path.isabs(L["alpha"]) else pic.path(L["alpha"]))
+        alpha = L["alpha"]               # "self" 是用贴图自带的 alpha
+        if alpha and alpha != "self" and not os.path.isabs(alpha):
+            alpha = pic.path(alpha)
         mat = op.painted(name, color, alpha=alpha, extra=extra, shift=shift)
         if name == "char":
             char = pic.layer(name, pic.girl_inv(), mat, box=pic.girl_box(), grid=560, margin=0.05)
