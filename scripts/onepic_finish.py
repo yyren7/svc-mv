@@ -1,6 +1,7 @@
 """一图流 PV 的收尾：Blender 渲出的分段视频 -> 一条成片（给 B 站：H.264 High、yuv420p、AAC 320k、faststart）。
 
     python onepic_finish.py <分段目录> <音频> <输出.mp4> [--ass 字幕.ass] [--overlay 旋律盘目录] [--fade-in 1.5] [--fade-out 4]
+                          [--start 秒]     # 分段是从这一秒起渲的（预览只看中间一段）：音轨、字幕、左下角的 PNG 跟着对齐
 
 分段按文件名排序首尾相接（concat，不重编码）成 master.mkv，再一次编码时加：胶片颗粒（暗部渐变不出色带）、轻暗角、
 开头结尾的淡入淡出、ASS 字幕（歌词、制作信息）、音轨。字幕改了只需重跑这一步，不用重渲染。
@@ -42,6 +43,7 @@ def main():
     ap.add_argument("--vignette", type=float, default=0.35, help="四角最暗处压掉的比例")
     ap.add_argument("--crf", type=int, default=17)
     ap.add_argument("--preset", default="slow")
+    ap.add_argument("--start", type=float, default=0.0)
     a = ap.parse_args()
 
     parts = sorted(glob.glob(os.path.join(a.chunks, "*.mp4")))
@@ -51,7 +53,7 @@ def main():
     master = os.path.join(a.chunks, "master.mkv")
     subprocess.run([ffmpeg(), "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy", master],
                    check=True)
-    dur = min(duration(master), duration(a.audio))
+    dur = min(duration(master), duration(a.audio) - a.start)
     print(f"{len(parts)} chunks -> {master}, {dur:.2f} s", flush=True)
 
     # 暗角：ffmpeg 的 vignette 在 4K 上每帧要 0.1 秒多，比 x264 还慢；先算一张黑色、四角渐不透明的图，叠上去
@@ -71,18 +73,22 @@ def main():
         fx.append(f"fade=t=out:st={dur - a.fade_out:.3f}:d={a.fade_out}")
     if a.ass:
         ass = os.path.abspath(a.ass).replace("\\", "/").replace(":", "\\:")
-        fx.append(f"ass='{ass}'")
+        if a.start:     # 字幕按整首的时间：先把时间戳挪到整首的位置，叠完再挪回来
+            fx.append(f"setpts=PTS+{a.start}/TB,ass='{ass}',setpts=PTS-STARTPTS")
+        else:
+            fx.append(f"ass='{ass}'")
     fx.append("format=yuv420p")
     # overlay 要指定 yuv420：format=auto 会把整帧转成 RGB 叠，4K 下慢 7 倍
     graph = f"[0:v]{','.join(chain) or 'null'}[g];[1:v]format=yuva420p[m];[g][m]overlay=format=yuv420[o];"
     inputs = ["-i", master, "-i", vig]
     if a.overlay:      # onepic_player.py 画的透明 PNG 序列，叠在淡入淡出之前（跟着画面一起淡）
         reg = json.load(open(os.path.join(a.overlay, "region.json")))
-        inputs += ["-framerate", str(reg["fps"]), "-i", os.path.join(a.overlay, "o_%05d.png")]
+        inputs += ["-framerate", str(reg["fps"]), "-start_number", str(int(round(a.start * reg["fps"]))),
+                   "-i", os.path.join(a.overlay, "o_%05d.png")]
         graph += f"[2:v]format=yuva420p[p];[o][p]overlay=x={reg['x']}:y={reg['y']}:format=yuv420:eof_action=repeat[o];"
     graph += f"[o]{','.join(fx)}[v]"
     aidx = inputs.count("-i")
-    inputs += ["-i", a.audio]
+    inputs += (["-ss", str(a.start)] if a.start else []) + ["-i", a.audio]
     cmd = [ffmpeg(), "-v", "error", "-stats", "-y", "-filter_threads", "32", *inputs,
            "-filter_complex", graph, "-map", "[v]", "-map", f"{aidx}:a", "-t", f"{dur:.3f}",
            "-c:v", "libx264", "-preset", a.preset, "-crf", str(a.crf), "-profile:v", "high", "-pix_fmt", "yuv420p",

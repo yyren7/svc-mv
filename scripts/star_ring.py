@@ -28,6 +28,9 @@ TAIL = 1.6                      # 尾巴比最早定的样式（57°–97° 的�
 FOLLOW = 1.05                   # 跟在后面的光点，光头离前面那颗至少它尾巴的这么多倍（尾梢本来就淡，留出的空当看得清）
 LIFE = (20, 45)                 # 每次出现亮这么多秒（这个范围里随机）才熄灭
 CHASED = 12.0                   # 被追着的另外平均这么多秒就熄灭，给后面快的让路
+# 拉开间距的一套（花哨样式用）：11 道，内圈从 1.55 R 起、间距越往外越大；原来里面几道两两挤在一起（1.40 / 1.60、1.96 / 2.16）
+FANCY_RADII = (1.55, 2.05, 2.65, 3.35, 4.15, 5.05, 6.05, 7.15, 8.35, 9.65, 11.0)
+FANCY_TURNS = (16, 24, 12, 32, 20, 24, 28, 36, 32, 44, 56)
 
 
 def smooth(x, k):
@@ -135,9 +138,12 @@ def lifecycle(rng, F, group, target, beat_frames, beat, fps, per_beat=2, life=(8
 class Ring:
     """星环的光点：每道轨道上的光点（最多亮着的颗数按一圈放得下几条整尾巴，里圈 3 颗、外圈 6 颗，共 61 颗，各多备 3 颗
     轮换），各自的转速、明灭的周期和相位、大小、尾巴、颜色，以及逐帧的角度和出现程度。
-    spec (F, 频段) 是对数频谱，loud (F,) 是响度，beat / beat0 是拍长和第 0 拍的时刻（秒）。"""
+    spec (F, 频段) 是对数频谱，loud (F,) 是响度，beat / beat0 是拍长和第 0 拍的时刻（秒）。radii / turns 换一套轨道
+    （半径、每道转一圈的拍数，一样长），不给就是 RADII / TURN_BEATS；FANCY_RADII 是拉开间距的 11 道。"""
 
-    def __init__(self, spec, loud, fps, beat, beat0, seed=11):
+    def __init__(self, spec, loud, fps, beat, beat0, seed=11, radii=None, turns=None):
+        RADII = np.asarray(radii if radii is not None else globals()["RADII"], float)
+        TURN_BEATS = turns if turns is not None else globals()["TURN_BEATS"]
         rng = np.random.default_rng(seed)
         self.fps = fps
         self.sheen = SHEEN
@@ -250,3 +256,52 @@ class Ring:
         sh = sheen(th)
         br = np.clip(self.alive * 1.15 * (0.4 + 0.6 * blink) * (0.65 + 0.35 * self.env ** 1.2) * (1 + 0.3 * sh), 0, 1)
         return tuple(a.astype(np.float32) for a in (th, br, self.env, sh, self.tail_frames()))
+
+
+# ---------------------------------------------------------------- 花哨样式：每颗光点一种
+
+KINDS = ("plain", "twin", "spark", "pulsar", "comet", "beads", "prism")
+KIND_P = (0.20, 0.15, 0.17, 0.10, 0.14, 0.12, 0.12)
+WARM = (1.0, 0.78, 0.45)
+
+
+def fancy(ring, seed=7, spark_rate=40.0):
+    """花哨样式里每颗光点的样式和参数（onepic.star_ring_fancy 用）：
+    - kind：KINDS 里的一种，按 KIND_P 随机（固定种子）。plain 普通；twin 双子星（两颗一冷一暖互绕，周期 tw_p 秒，
+      尾巴按当时的相位拧成两股）；spark 火花尾（一路往后掉火星）；pulsar 脉冲星（十字星芒踩着拍子亮、拍点上一圈冲击波）；
+      comet 彗星（宽软的尾巴从白到本色再到偏紫，朝外一条淡蓝的离子尾）；beads 珠串（后面跟四颗小卫星）；
+      prism 棱彩尾（尾巴沿长度变色、颜色往前流）。
+    - col2：双子星另一颗的颜色（偏蓝的配暖的，偏暖的配蓝的）；spike0：星芒的起始角度；hue0：棱彩尾的起始色相。
+    - sparks：整首的火星，每颗火花尾的光点每秒 spark_rate 个（指数分布的间隔），各自的光点 li、出生帧 fb、
+      寿命 life（秒）、往后飘的速度 back、往外的速度 side（R / 秒）、闪烁相位 ph、大的 big（四分之一，带小星芒）、
+      颜色（七成暖金偏本色，三成随机色相）。"""
+    rng = np.random.default_rng(seed)
+    n = ring.n
+    col = ring.color.astype(np.float32)
+    out = dict(kind=rng.choice(len(KINDS), n, p=KIND_P), tw_p=rng.uniform(0.7, 1.5, n), tw_ph=rng.uniform(0, 2 * np.pi, n),
+               spike0=rng.uniform(0, np.pi / 2, n), hue0=rng.random(n))
+    out["col2"] = np.where((col[:, 2] > col[:, 0])[:, None], np.array(WARM, np.float32)[None, :],
+                           np.array((0.55, 0.75, 1.0), np.float32)[None, :])
+    keys = ("li", "fb", "life", "back", "side", "ph", "big", "col")
+    sp = {k: [] for k in keys}
+    for i in np.flatnonzero(out["kind"] == KINDS.index("spark")):
+        t = np.cumsum(rng.exponential(ring.fps / spark_rate, int(ring.F / ring.fps * spark_rate * 1.2) + 10))
+        t = t[t < ring.F - 1]
+        k = len(t)
+        hue = rng.random(k)
+        warm = 0.6 * np.array(WARM) + 0.4 * col[i]
+        c = np.where((hue < 0.7)[:, None], warm[None, :], hsv(hue, 0.5))
+        for key, v in (("li", np.full(k, i)), ("fb", t), ("life", rng.uniform(0.5, 1.6, k)),
+                       ("back", rng.uniform(0.1, 0.8, k)), ("side", rng.normal(0, 0.3, k)),
+                       ("ph", rng.uniform(0, 6.3, k)), ("big", (rng.random(k) < 0.25).astype(float)), ("col", c)):
+            sp[key].append(v)
+    out["sparks"] = {k: (np.concatenate(v) if v else np.zeros((0, 3) if k == "col" else 0)).astype(np.float32)
+                     for k, v in sp.items()}
+    return out
+
+
+def hsv(h, s=0.65, v=1.0):
+    """色相 h（0..1，可以是数组）-> RGB。"""
+    h = np.asarray(h, float)[..., None]
+    k = (np.array((5.0, 3.0, 1.0)) + h * 6) % 6
+    return v - v * s * np.clip(np.minimum(k, 4 - k), 0, 1)

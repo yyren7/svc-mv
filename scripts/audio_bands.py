@@ -2,6 +2,7 @@
 
     python scripts/audio_bands.py <mix> <vocal> <out.npz> --fps 60 --bands 48
     python scripts/audio_bands.py <mix> - <out.npz> --grid-only      # 只给已有的 npz 补上拍子网格
+    python scripts/audio_bands.py <mix> - <out.npz>                  # 没有人声分轨：vocal、voice 是 0
 
 输出 npz（每一项都是逐视频帧的，第 k 帧对应 t = k / fps）：
   loud, bass, high, onset, vocal : (n_frames,)  0..1
@@ -113,8 +114,11 @@ def main():
         np.savez_compressed(a.out, **d)
         print("->", a.out)
         return
-    voc, _ = librosa.load(a.vocal, sr=sr, mono=True)
-    voc = np.pad(voc, (0, max(0, len(mix) - len(voc))))[:len(mix)]
+    if a.vocal == "-":          # 没有人声分轨：人声那两列是 0（嘴、呼吸不靠它们）
+        voc = np.zeros_like(mix)
+    else:
+        voc, _ = librosa.load(a.vocal, sr=sr, mono=True)
+        voc = np.pad(voc, (0, max(0, len(mix) - len(voc))))[:len(mix)]
     dur = len(mix) / sr
     n = int(np.ceil(dur * a.fps))
 
@@ -135,7 +139,7 @@ def main():
     bass = envelope(norm(band_db(30, 150)), a.fps, 0.01, 0.15)
     high = envelope(norm(band_db(5000, 14000)), a.fps, 0.02, 0.3)
     Sv = np.abs(librosa.stft(voc, n_fft=2048, hop_length=hop)) ** 2
-    vdb = norm(librosa.power_to_db(Sv.sum(axis=0) + 1e-10), 10, 99)
+    vdb = norm(librosa.power_to_db(Sv.sum(axis=0) + 1e-10), 10, 99) if a.vocal != "-" else np.zeros(Sv.shape[1])
     vocal = envelope(vdb, a.fps, 0.05, 0.3)
     voice = envelope(vdb, a.fps, 0.012, 0.07)      # 快的：跟得上一个个字，给嘴的张合用
 

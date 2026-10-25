@@ -1,0 +1,11 @@
+{
+  "title": "君の知らない物語",
+  "artist": "supercell",
+  "sub": "supercell · cover 小铃久绘（DDSP-SVC）",
+  "mix": "audio/mix.wav",
+  "vocal": "audio/vocal.flac",
+  "lyrics": "audio/lyrics.lrc",
+  "lyrics_cn": "audio/lyrics_cn.lrc",
+  "lyrics_offset": 0.15,
+  "credits": "credits.txt"
+}
