@@ -1,7 +1,7 @@
 """星环样式的 2D 小样（不进成片）：用和正片同一份 star_ring.Ring 数据，只画星环的光点和滤镜，几种样式并排比。
 在 AutoDL 上：
     $PY cases/kimishira/scripts/ring_poc.py [起始秒 70] [秒数 8]
--> renders/ring_poc/grid_black.mp4（黑底）、grid_art.mp4（叠在插画上，人物挡在前面），每格 1920×1080：
+-> renders/ring_poc/grid_black.mp4（黑底）、grid_art.mp4（叠在插画上，人物挡在前面），每格 1920×1080；*_zoom.mp4 是月亮周围放大两倍，看光点的细节：
     A 现在     正片的样式（2D 近似：星芯 + 光晕 + 收细的尾巴）
     B 个性光点  每颗一种：普通、双子星（两颗互绕，尾巴拧成两股）、火花尾（一路掉小火星）、脉冲星（十字星芒，踩着拍子闪）、
                彗星（宽软的尾巴从白过渡到本色，外加一条朝外的淡蓝离子尾）
@@ -229,9 +229,9 @@ def galaxy(t):
     dens = arm * WIN * (0.35 + 0.9 * clump ** 2)
     inner = np.clip((5.0 - RR) / 3.5, 0, 1)[..., None]
     col = inner * np.array((1.0, 0.85, 0.7)) + (1 - inner) * np.array((0.5, 0.65, 1.0))
-    light = dens[..., None] * col * 0.26
+    light = dens[..., None] * col * 0.38
     hii = (np.clip(clump - 0.62, 0, 1) * 2.6) ** 2 * arm * WIN
-    light += hii[..., None] * np.array((1.0, 0.45, 0.7)) * 0.22
+    light += hii[..., None] * np.array((1.0, 0.45, 0.7)) * 0.3
     light += (0.16 * np.exp(-np.maximum(RR - 1.0, 0) / 0.9) * (RR > 0.95))[..., None] * np.array((1.0, 0.92, 0.8))
     # 小星
     th = g_th + OMEGA0 * t * (2.0 / g_r)
@@ -282,19 +282,22 @@ def frame(fo):
     return fo
 
 
-def grid(tag):
+def grid(tag, zoom=False):
+    """四格并排；zoom 时每格只取月亮周围左上的 960×540 放大两倍，看光点的细节。"""
     font = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
     ins, fl = [], []
     for k, v in enumerate(VARIANTS):
         ins += ["-framerate", str(FPS_OUT), "-i", os.path.join(OUT, f"{v}_{tag}", "f_%04d.png")]
-        fl.append(f"[{k}:v]drawtext=fontfile={font}:text='{LABELS[v]}':x=36:y=H-90:fontsize=54:"
+        fl.append(f"[{k}:v]" + ("crop=960:540:0:0,scale=1920:1080:flags=lanczos," if zoom else "") + f"drawtext=fontfile={font}:text='{LABELS[v]}':x=36:y=H-90:fontsize=54:"
                   f"fontcolor=white:borderw=4[v{k}]")
     fl.append("[v0][v1][v2][v3]xstack=inputs=4:layout=0_0|w0_0|0_h0|w0_h0,format=yuv420p[v]")
     subprocess.run(["ffmpeg", "-v", "error", "-y", *ins, "-ss", str(T0), "-t", str(LEN),
                     "-i", os.path.join(C, "audio", "kimishira_sakura_shunka_mix.wav"),
                     "-filter_complex", ";".join(fl), "-map", "[v]", "-map", "4:a", "-shortest",
                     "-c:v", "libx264", "-crf", "17", "-preset", "fast", "-c:a", "aac", "-b:a", "192k",
-                    os.path.join(OUT, f"grid_{tag}.mp4")], check=True)
+                    os.path.join(OUT, f"grid_{tag}" + ("_zoom" if zoom else "") + ".mp4")], check=True)
+    if zoom:
+        return
     for v in VARIANTS:          # 每个样式单独一份，看细节用
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", str(FPS_OUT),
                         "-i", os.path.join(OUT, f"{v}_{tag}", "f_%04d.png"), "-c:v", "libx264", "-crf", "16",
@@ -314,4 +317,6 @@ if __name__ == "__main__":
                 print("frame", k, flush=True)
     for tag in ("black", "art"):
         grid(tag)
+    grid("art", zoom=True)
+    grid("black", zoom=True)
     print("->", OUT)
