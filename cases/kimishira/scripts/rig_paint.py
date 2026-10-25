@@ -111,10 +111,9 @@ tail_m = (lab == (seed if seed else 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA]))
 tail_m = cv2.dilate(tail_m.astype(np.uint8), disk(6)) & tail_raw     # 长回开运算削掉的边
 tail_m = fill_holes(tail_m, 4000)
 tail_m = cv2.dilate(tail_m, disk(5)) & (alpha > 0.01)       # 抗锯齿的边和尾巴外面那圈淡淡的光一起走
-tail_soft = blur(tail_m, 1.5)
 a0, a1 = angle(*T["base"]), angle(*T["tip"])
 tail_s = np.clip((a0 - ang) / (a0 - a1), 0, 1)
-tail_w = tail_soft * tail_s ** 1.2
+# tail_w 在头发之后算：外面那圈光要避开头发
 
 # ---- 头发：不是皮肤、不是白衣服、不是深色硬物的人物像素（粉的、紫红的、蓝的描边都算），闭运算补上发丝间的缝、
 # 填掉高光留下的洞，整片头发一起动；离头越远动得越多。左边飘出去的细发丝大半是半透明的（不透明度过 0.5 的只有
@@ -131,23 +130,39 @@ hair_raw = (hair_raw | outer).astype(np.uint8)
 hair_m = cv2.morphologyEx(hair_raw, cv2.MORPH_CLOSE, disk(4))
 hair_m = fill_holes(hair_m, 2500)
 hair_m = drop_specks(hair_m, 40)
-hair_m = cv2.dilate(hair_m, disk(2)) & (alpha > 0.03)
-away = (1 - blur(cv2.dilate(tail_m, disk(10)), 4))
+hair_m = cv2.dilate(hair_m, disk(2)) & (alpha > 0.03) & (1 - tail_m)    # 尾巴也是紫的，按颜色会算进来
+away = np.ones((h, w), np.float32)
 for b in spec["ears"]:
     away *= 1 - blur(box(b), 4)
 center = blur((U > 0.525) & (U < 0.705) & (Y > 0.60), 8)    # 裙子正面和手：上面偏粉的反光不算头发
 # 尾巴根（右下那头）一带和右下角的裙边没有头发，尾巴外面那圈光、裙边的淡紫会被当成发丝
 away *= (1 - blur(box((0.86, 0.82, 1.0, 1.0)), 4)) * (1 - blur(box((0.76, 0.92, 1.0, 1.0)), 4))
+# 右边发梢最低到 v 0.87，再往下（u 0.62–0.86）是裙子右边淡紫的阴影边和裙摆：不是白的，衣服里不算它
+away *= 1 - blur(box((0.62, 0.885, 0.86, 1.0)), 6)
 lo, hi = spec["hair_reach"]
 # 先往外长 5 px 再模糊：1–2 px 的细发丝直接模糊会被稀释到 0.1 以下，几乎不动（长出去的是透明处，不影响）
 hair_w = blur(cv2.dilate(hair_m, disk(5)), 2) * ramp(dist(spec["head"]), lo, hi) * away * (1 - center)
-hair_w = blur(hair_w * (1 - rigid), 3) * (1 - rigid)
-# 衣服（裙子、袖子）里的头发不动：半透明的袖子后面透出的头发是袖子的贴图。rig.json 画的袖子多边形左边画宽了，
-# 把袖子外面垂着的长发也压住了；这里改用衣服本身：大块的白，闭运算、补洞（袖子里透出的头发是被白围住的洞），
-# 出了衣服约 1.8% 画面高（20 px）放开
+# 衣服（裙子、袖子）和尾巴本身不跟头发摆：半透明的袖子后面透出的头发是袖子的贴图。rig.json 画的袖子多边形左边
+# 画宽了，把袖子外面垂着的长发也压住了；这里改用衣服本身：大块的白，闭运算、补洞（袖子里透出的头发是被白围住的洞）。
+# 头发在衣服、尾巴外面一直是全量。原来是出了衣服 20 px、离尾巴 10 px 才在头发里放开，挨着的发丝 20 px 里从不动到
+# 动 12 px，像粘在袖子、尾巴上，摆到头还会折过去。
+# - 衣服：放开的那段放到衣服里面（3.5% 画面高），袖子的荷叶边跟着旁边的头发带一点；裙子正面、右下角照旧不动，
+#   离皮肤、话筒 12 px 内也不带（不然在手臂边上从带着动一下子掉到 0）
+# - 尾巴：只有 40 px 粗，往里放开会整条跟着头发摆。头发一直摆到尾巴边，和尾巴之间是透明的缝，两边反着动时挤的是缝
 cloth = drop_specks((white_s & solid).astype(np.uint8), 3000)
 cloth = fill_holes(cv2.morphologyEx(cloth, cv2.MORPH_CLOSE, disk(5)), 15000)
-hair_w *= ramp(cv2.distanceTransform(1 - cloth, cv2.DIST_L2, 5) / h, 0.002, 0.018)
+free = hair_w * (1 - cloth) * (1 - blur(tail_m, 1.5))
+into = 1 - ramp(cv2.distanceTransform(cloth, cv2.DIST_L2, 5) / h, 0, 0.035)
+keep = away * (1 - center) * (1 - blur(cv2.dilate((rigid > 0.05).astype(np.uint8), disk(12)), 5))
+spread = blur(cv2.dilate(free, disk(int(0.04 * h))), 6) * into * cloth * keep
+hair_w = np.maximum(free, spread)
+hair_w = blur(hair_w * (1 - rigid), 3) * (1 - rigid)
+
+# ---- 尾巴的权重（接上面的尾巴）：外面那圈光比 5 px 宽，只带 5 px 时尾巴尖转出去，光的外沿留在原地，下沿切成一道
+# 硬边。透明处（不透明度 0.35 以下）再往外带 12 px、慢慢放开，头发（离尾巴 3 px 以外的）不算
+glow = cv2.dilate(tail_m, disk(12)) & (alpha < 0.35) & ~(hair_m & (1 - cv2.dilate(tail_m, disk(3)))).astype(bool)
+tail_soft = np.maximum(blur(tail_m, 1.5), blur(glow.astype(np.uint8), 4) * (alpha < 0.35))
+tail_w = tail_soft * tail_s ** 1.2
 
 # ---- 呼吸：以胸口（0.615, 0.59）为中心的软椭圆，横半径 0.23、竖半径 0.22（画面宽 / 高的比例），里面 55% 是 1，
 # 往外落到 0；下巴（0.455）以上是 0，头完全不动，锁骨（0.54）起才全量。两边垂下的头发跟着肩膀抬一点，没有方框的边
