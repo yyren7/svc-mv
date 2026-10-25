@@ -5,17 +5,17 @@
     eval "$($PY templates/kue_stars/plan.py env cases/<歌>)"       # render.sh / preview.sh 用：歌名、文件、时机
 
 怎么排的（照着 kimishira 手排的那份总结出来的）：
-- 小节：拍子网格（grid_beat、grid_phase）上每 4 拍一小节，重拍取低频最响的那个相位。
-- 段落边界：每 2 小节一个候选点，前后各 4 小节的平均响度、有没有人在唱差得多的地方切开，两刀至少隔 6 小节；
-  第一句歌词前、最后一句唱完后各切一刀。
+- 小节：拍子网格（grid_beat、grid_phase）上 4、6 或 8 拍一小节（按拍点强度的周期），重拍取最强的相位。
+- 段落边界：每小节一个候选点，前后 2 小节、4 小节的响度、高频、低频、高音区、人声（有没有人在唱）差得多的地方切开，
+  两刀至少隔约 7 秒；第一句歌词前、最后一句唱完后各切一刀。
 - 每段的能量 = 这段的平均响度在整首里的位置（0.2–1.0，取到 0.05）；花瓣、光点、旋律盘、光束的开度按能量推。
-  名字：第一句前是 intro（从 0 开始的叫 open），唱完是 outro，中间没人唱的是 inst（间奏），能量 ≥ 0.78 的是 chorus，
-  ≤ 0.45 的是 verse，其余 bridge。
+  名字：开头安静的是 open，第一句前是 intro，唱完是 outro，中间没人唱的是 inst（间奏），有人唱的段落里最响的三成
+  多是 chorus，能量 ≤ 0.45 的是 verse，其余 bridge。
 - 镜头：始终看整张画，放大 1.04–1.10 倍；副歌升起一点、主歌左右慢慢挪、间奏往月亮那边偏、结尾漂向月亮；
   开头对焦在镜头前的标题上，标题淡出时拉回脸上。
 - 流星：开头一颗，每段副歌两颗，间奏里约 2 秒一颗（流星雨），主歌里稀疏几颗，结尾一颗。
-- 大标题到 title_end（8–16 秒里第一个段落边界，没有就 10 秒），左下角的歌名在那之后 3 秒的第一个重拍淡入，
-  最后一句唱完 1.5 秒淡出；制作信息在那之后的第一个重拍出来，到片尾前 3.5 秒。
+- 大标题在乐队进来（6–14 秒里第一个段落边界）后约 3 秒淡完（title_end），左下角的歌名在那之后 3 秒的第一个
+  重拍淡入，最后一句唱完 1.5 秒淡出；制作信息在那之后的段落边界（或下一个重拍）出来，到片尾前 3.5 秒。
 song.json 里给了 title_end、show、credits_at 就用给的。
 """
 import json
@@ -63,16 +63,25 @@ def sung_spans(lines):
 
 
 def bars(d, dur):
-    """小节的开始时刻：拍子网格上每 4 拍，重拍取低频最响的相位。"""
+    """小节的开始时刻：拍子网格上每 m 拍一小节。m 取 4、6、8 里拍点强度（低频 + 起音）自相关最强的（差不多一样强时
+    取小的；kimishira 是 6，4/4 的歌是 4），重拍取这个周期里最强的那个相位。"""
     P, phi = float(d["grid_beat"]), float(d["grid_phase"])
     beats = phi + P * np.arange(int((dur - phi) / P) + 1)
-    bass = d["bass"]
-    score = [bass[np.clip((beats[k::4] * FPS).astype(int), 0, len(bass) - 1)].mean() for k in range(4)]
-    k = int(np.argmax(score))
-    b = beats[k::4]
+    idx = np.clip((beats * FPS).astype(int), 0, len(d["bass"]) - 1)
+    s = d["bass"][idx] / max(d["bass"].max(), 1e-6) + d["onset"][idx]
+    s = s - s.mean()
+
+    def ac(m):
+        return float(np.dot(s[:-m], s[m:]) / np.sqrt(np.dot(s[:-m], s[:-m]) * np.dot(s[m:], s[m:]) + 1e-9))
+
+    acs = {m: ac(m) for m in (4, 6, 8)}
+    top = max(acs.values())
+    m = min(k for k, v in acs.items() if v >= 0.9 * top)
+    k = int(np.argmax([s[j::m].mean() for j in range(m)]))
+    b = beats[k::m]
     if b[0] > 0.5:
         b = np.concatenate([[0.0], b])
-    return b, P
+    return b, P * m
 
 
 def snap(t, grid):
@@ -80,44 +89,64 @@ def snap(t, grid):
 
 
 def make_sections(d, dur, spans):
-    b, P = bars(d, dur)
-    loud = d["loud"]
+    b, bar = bars(d, dur)
     n = len(b)
-    L = np.array([loud[int(b[i] * FPS):int((b[i + 1] if i + 1 < n else dur) * FPS)].mean() for i in range(n)])
-    t_mid = (b + np.append(b[1:], dur)) / 2
+    edges = np.append(b, dur)
+    upper = d["spec"][:, d["spec"].shape[1] * 2 // 3:].astype(np.float32).mean(1)
+    feats = {"loud": d["loud"], "high": d["high"], "bass": d["bass"], "upper": upper}
+    if d["vocal"].max() > 0:
+        feats["vocal"] = d["vocal"]
+    F = np.stack([[v[int(edges[i] * FPS):max(int(edges[i + 1] * FPS), int(edges[i] * FPS) + 1)].mean() for i in range(n)]
+                  for v in feats.values()], 1)
+    t_mid = (edges[:-1] + edges[1:]) / 2
     sing = np.array([any(a - 1.0 <= t <= c + 1.0 for a, c in spans) for t in t_mid], float)
-    lo, hi = np.percentile(L, 10), np.percentile(L, 95)
-    Ln = np.clip((L - lo) / max(hi - lo, 1e-6), 0, 1)
+    Z = np.concatenate([(F - F.mean(0)) / (F.std(0) + 1e-6), 1.5 * sing[:, None]], 1)
     nov = np.zeros(n)
-    for i in range(4, n - 3, 2):
-        nov[i] = abs(Ln[i:i + 4].mean() - Ln[i - 4:i].mean()) + 0.5 * abs(sing[i:i + 4].mean() - sing[i - 4:i].mean())
+    for i in range(2, n - 1):
+        for w, k in ((4, 1.0), (2, 0.6)):
+            lo, hi = max(i - w, 0), min(i + w, n)
+            nov[i] += k * np.linalg.norm(Z[i:hi].mean(0) - Z[lo:i].mean(0))
+    peaks = [i for i in range(2, n - 1) if nov[i] >= nov[i - 1] and nov[i] >= nov[i + 1]]
+    thr = np.median(nov[peaks]) if peaks else 0
     cuts = set()
     if spans:
-        cuts.add(int(np.searchsorted(b, spans[0][0] - 0.3)) - 1)      # 第一句开唱前的那个小节
-        cuts.add(int(np.searchsorted(b, spans[-1][1])))                # 最后一句唱完后的那个小节
+        cuts.add(int(np.searchsorted(b, spans[0][0] - 0.3)) - 1)
+        cuts.add(int(np.searchsorted(b, spans[-1][1])))
     cuts = {c for c in cuts if 0 < c < n}
-    for i in np.argsort(-nov):
-        if nov[i] < 0.18:
+    gap = max(3, int(round(7.0 / bar)))          # 两刀至少隔约 7 秒
+    for i in sorted(peaks, key=lambda i: -nov[i]):
+        if nov[i] < thr:
             break
-        if all(abs(i - c) >= 6 for c in cuts):
-            cuts.add(int(i))
+        if all(abs(i - c) >= gap for c in cuts):
+            cuts.add(i)
     cuts = sorted({0} | cuts)
     first_sung = spans[0][0] if spans else 0.0
     last_sung = spans[-1][1] if spans else dur
-    secs = []
+    lo, hi = np.percentile(F[:, 0], 10), np.percentile(F[:, 0], 95)
+    Ln = np.clip((F[:, 0] - lo) / max(hi - lo, 1e-6), 0, 1)
+    lo, hi = np.percentile(F[:, 1], 10), np.percentile(F[:, 1], 95)
+    Hn = np.clip((F[:, 1] - lo) / max(hi - lo, 1e-6), 0, 1)
+    raw, info = [], []
     for k, c in enumerate(cuts):
         e_ = cuts[k + 1] if k + 1 < len(cuts) else n
-        t0 = float(b[c])
-        t1 = float(b[e_]) if e_ < n else dur
-        energy = round(float(np.clip(0.2 + 0.8 * Ln[c:e_].mean(), 0.2, 1.0)) * 20) / 20
-        sung = sing[c:e_].mean() > 0.3
-        if t1 <= first_sung + 0.5 and spans:
-            kind = "open" if t0 == 0 else "intro"
+        raw.append(float((Ln[c:e_] + 0.5 * Hn[c:e_]).mean() / 1.5))
+        info.append((float(b[c]), float(edges[e_]), sing[c:e_].mean() > 0.3))
+    raw = np.array(raw)
+    x = (raw - raw.min()) / max(raw.max() - raw.min(), 1e-6)
+    sung_x = [x[k] for k, (_, _, s) in enumerate(info) if s]
+    ch_thr = max(np.percentile(sung_x, 65) if sung_x else 1.0, 0.55)
+    secs = []
+    for k, (t0, t1, sung) in enumerate(info):
+        energy = round((0.2 + 0.8 * float(x[k])) * 20) / 20
+        if t0 == 0 and (not sung or energy <= 0.45):
+            kind = "open"
+        elif t1 <= first_sung + 0.5 and spans:
+            kind = "intro"
         elif t0 >= last_sung - 0.5:
             kind = "outro"
         elif not sung:
             kind = "inst"
-        elif energy >= 0.78:
+        elif x[k] >= ch_thr:
             kind = "chorus"
         elif energy <= 0.45:
             kind = "verse"
@@ -208,17 +237,18 @@ def make(case, force=False):
     spans = sung_spans(lines)
     secs, b = make_sections(d, dur, spans)
     title_end = song.get("title_end")
-    if title_end is None:
-        cand = [s[1] for s in secs if 8.0 <= s[1] <= 16.0]
-        title_end = cand[0] if cand else 10.0
+    if title_end is None:       # 乐队进来（6–14 秒里第一个段落边界）后约 3 秒淡完，对焦在那之后拉回脸上
+        cand = [s[1] for s in secs if 6.0 <= s[1] <= 14.0]
+        title_end = (cand[0] if cand else 8.0) + 2.85
     show = song.get("show")
     if show is None:
         last = spans[-1][1] if spans else dur - 12
         show = [snap(title_end + 3.0, b[b >= title_end + 3.0]) if (b >= title_end + 3.0).any() else title_end + 3.0,
                 round(min(last + 1.5, dur - 6), 2)]
     credits_at = song.get("credits_at")
-    if credits_at is None:
-        after = b[b >= show[1] + 1.0]
+    if credits_at is None:      # 歌名淡出后的第一个段落边界（8 秒内），没有就下一个重拍
+        nxt = [s[1] for s in secs if show[1] - 0.5 <= s[1] <= show[1] + 8.0]
+        after = np.array(nxt) if nxt else b[b >= show[1] + 1.0]
         credits_at = [round(float(after[0]) if len(after) else show[1] + 1.5, 2), round(dur - 3.5, 2)]
     plan = dict(duration=round(dur, 3), bpm=round(60 / float(d["grid_beat"]), 2), title_end=round(float(title_end), 2),
                 show=[round(float(x), 2) for x in show], credits_at=credits_at, sections=secs,
