@@ -686,7 +686,7 @@ def drift(name, src, audio, count, box_min, box_size, wind, size, seed=0, size_v
 # hair_k 是沿发丝（v 方向，整幅画高 = 1）的相位差：发丝长约 0.6，2.2 只差 1/5 圈，整缕一起摆、发梢慢半拍；
 # 再大一缕头发上段往左下段往右，像蛇在扭。尾巴：tail 是尖的最大转角（弧度，两个周期叠加），tail_lag 是尖比根落后的相位。
 DEFORM = dict(hair=0.006,hair_freq=(0.28, 0.47), hair_k=(2.2, 3.6), ear=0.008,
-              tail=(0.10, 0.03), tail_period=(5.2, 3.1), tail_lag=1.3,
+              tail=(0.05, 0.015), tail_period=(5.2, 3.1), tail_lag=1.3,
               dress=0.0025, mouth_x=0.35, breath=0.004)
 
 

@@ -151,8 +151,12 @@ hair_w = blur(cv2.dilate(hair_m, disk(5)), 2) * ramp(dist(spec["head"]), lo, hi)
 #   像粘在尾巴上；往尾巴里放开不行，尾巴只有 40 px 粗，会整条跟着头发摆
 cloth = drop_specks((white_s & solid).astype(np.uint8), 3000)
 cloth = fill_holes(cv2.morphologyEx(cloth, cv2.MORPH_CLOSE, disk(5)), 15000)
-hair_w = hair_w * ramp(cv2.distanceTransform(1 - cloth, cv2.DIST_L2, 5) / h, 0.0, 0.045) * (1 - blur(tail_m, 1.5))
+hair_w = hair_w * ramp(cv2.distanceTransform(1 - cloth, cv2.DIST_L2, 5) / h, 0.0, 0.045)
 hair_w = blur(hair_w * (1 - rigid), 3) * (1 - rigid)
+# 尾巴放在模糊之后：头发的权重在尾巴实心处（不透明度 0.5 以上）外 2–13 px 落到 0，放开的那段在头发和尾巴之间透明
+# 的缝里。原来按尾巴的遮罩乘、又模糊了一遍，头发的权重渗进尾巴边上那圈粉毛约 15 px，毛边一半跟头发摆，像粘在一起
+tail_core = (tail_m & (alpha > 0.5)).astype(np.uint8)
+hair_w *= ramp(cv2.distanceTransform(1 - tail_core, cv2.DIST_L2, 5) / h, 0.002, 0.012)
 
 # ---- 尾巴的权重（接上面的尾巴）：外面那圈光比 5 px 宽，只带 5 px 时尾巴尖转出去，光的外沿留在原地，下沿切成一道
 # 硬边。透明处（不透明度 0.35 以下）再往外带 12 px、慢慢放开，头发（离尾巴 3 px 以外的）不算
