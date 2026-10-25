@@ -546,9 +546,11 @@ def petal_mat(name="petal", inner=(0.50, 0.80, 1.0), outer=(0.90, 0.97, 1.0), st
     return mt
 
 
-def bokeh_petal_mat(name="bokeh_petal", inner=(0.50, 0.80, 1.0), outer=(0.90, 0.97, 1.0), strength=0.8):
+def bokeh_petal_mat(name="bokeh_petal", inner=(0.50, 0.80, 1.0), outer=(0.90, 0.97, 1.0), strength=0.8, avoid=None):
     """镜头前虚焦的花瓣（petal_mesh）：颜色同 petal_mat，边上软软地淡掉，像 bokeh_mat 一样叠加在后面的东西上
-    （透明 + 发光），亮度乘实例的 flick（慢慢明灭）。虚焦交给景深。"""
+    （透明 + 发光），亮度乘实例的 flick（慢慢明灭）。虚焦交给景深。
+    avoid = (x, y, rx, ry, floor)：画面上的一个椭圆（屏幕坐标 0..1，y 朝上），飘进去时亮度降到 floor 倍，
+    不从脸前晃过去；椭圆边上 40% 的宽度里慢慢过渡。"""
     mt, g, out = material(name, "BLENDED")
     color, r = petal_color(g, inner, outer)
     soft = g.m("SUBTRACT", 1.0, g.m("POWER", g.m("MINIMUM", r, 1.0), 3.0))
@@ -556,6 +558,19 @@ def bokeh_petal_mat(name="bokeh_petal", inner=(0.50, 0.80, 1.0), outer=(0.90, 0.
     a.attribute_type = "INSTANCER"
     a.attribute_name = "flick"
     k = g.m("MULTIPLY", soft, g.m("MULTIPLY", g.m("MULTIPLY_ADD", a.outputs["Fac"], 0.6, 0.4), strength))
+    if avoid:
+        x, y, rx, ry, floor = avoid
+        win = g.sep(g.node("ShaderNodeTexCoord").outputs["Window"])
+        d = g.m("SQRT", g.m("ADD", g.m("POWER", g.m("DIVIDE", g.m("SUBTRACT", win[0], x), rx), 2.0),
+                              g.m("POWER", g.m("DIVIDE", g.m("SUBTRACT", win[1], y), ry), 2.0)))
+        ramp_ = g.node("ShaderNodeMapRange")
+        ramp_.interpolation_type = "SMOOTHSTEP"
+        g.link(d, ramp_.inputs["Value"])
+        ramp_.inputs["From Min"].default_value = 0.6
+        ramp_.inputs["From Max"].default_value = 1.0
+        ramp_.inputs["To Min"].default_value = floor
+        ramp_.inputs["To Max"].default_value = 1.0
+        k = g.m("MULTIPLY", k, ramp_.outputs["Result"])
     em = g.node("ShaderNodeEmission")
     g.link(color, em.inputs["Color"])
     g.link(k, em.inputs["Strength"])
@@ -1143,11 +1158,13 @@ def glints(pic, points, envs, y=1.25, size=0.011, mat=None):
 
 # ---------------------------------------------------------------- 立在空中的字
 
-def text_obj(body, font_path, size, loc, align="CENTER", spacing=1.0, mat=None):
+def text_obj(body, font_path, size, loc, align="CENTER", spacing=1.0, mat=None, bold=0.0):
+    """bold：笔画往外加粗多少（字号的比例，0.02 左右；明朝体的横笔细，远看发虚）。"""
     cu = bpy.data.curves.new("text", "FONT")
     cu.body = body
     cu.font = bpy.data.fonts.load(font_path, check_existing=True)
     cu.size = size
+    cu.offset = bold * size
     cu.align_x = align
     cu.align_y = "CENTER"
     cu.space_character = spacing
@@ -1171,6 +1188,23 @@ def fading_mat(name, color, strength):
     mix = g.node("ShaderNodeMixShader")
     g.link(a.outputs["Fac"], mix.inputs[0])
     g.link(g.node("ShaderNodeBsdfTransparent").outputs[0], mix.inputs[1])
+    g.link(em.outputs[0], mix.inputs[2])
+    g.link(mix.outputs[0], out.inputs["Surface"])
+    return mt
+
+
+def fading_shade(name, darkness):
+    """字后面的暗晕：按 obj["a"] × darkness 把后面压暗（黑色、半透明），放在焦外让景深虚开。"""
+    mt, g, out = material(name, "BLENDED")
+    a = g.node("ShaderNodeAttribute")
+    a.attribute_type = "OBJECT"
+    a.attribute_name = "a"
+    mix = g.node("ShaderNodeMixShader")
+    g.link(g.m("MULTIPLY", a.outputs["Fac"], darkness), mix.inputs[0])
+    g.link(g.node("ShaderNodeBsdfTransparent").outputs[0], mix.inputs[1])
+    em = g.node("ShaderNodeEmission")
+    em.inputs["Color"].default_value = (0, 0, 0, 1)
+    em.inputs["Strength"].default_value = 0.0
     g.link(em.outputs[0], mix.inputs[2])
     g.link(mix.outputs[0], out.inputs["Surface"])
     return mt

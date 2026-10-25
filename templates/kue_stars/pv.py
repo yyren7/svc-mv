@@ -50,6 +50,7 @@ RING = os.environ.get("RING", SONG.get("ring", "fancy"))
 FACE = (0.620, 0.352)
 MOON_DOWN = 0.035      # 天空整层往下挪这么多（画面高的比例）：插画里月亮贴着上边，旋律盘的顶上没地方
 TITLE_Y = 0.5          # 开头的竖排标题离镜头 0.5 米：对焦在它上面时，人物和背景都在焦外
+SHADE_Y = 0.8          # 标题的暗晕放在 0.8 米：对焦在标题上时虚开约画面宽的 0.5%
 GLINTS = [(0.667, 0.283), (0.705, 0.313), (0.625, 0.114)]   # 发夹的花、丝带上的花、头顶的蝴蝶结（插画坐标）
 LAYER_GAIN = {"near": 2.2, "far": 0.8}
 BEAM_GAIN, BEAM_MASK, STREAK_GAIN = 2.0, 2.8, 0.8
@@ -247,7 +248,7 @@ def title(pic):
     mat = op.fading_mat("title", (0.93, 0.96, 1.0), 1.7)
     chars = [ch for ch in SONG["title"] if not ch.isspace()]
     per = len(chars) if len(chars) <= 9 else -(-len(chars) // 2)     # 9 个字以上分两列，从右往左
-    s = min(1.5, 8.0 / max(per, 1))
+    s = min(2.0, 8.0 / max(per, 1))      # 1.5 倍封顶时三个字的歌名（小幸运）字高约 55 px，背景一虚就看不清
     size, line = 1.1 * k * s, 1.18 * k * s
     top = mv - 0.055
     x0 = op.Vector(pic.point(mu + 0.155, top, y))
@@ -258,7 +259,7 @@ def title(pic):
     for i, ch in enumerate(chars):
         col, row = divmod(i, per)
         loc = x0 + op.Vector((-col * 1.45 * line, 0, -(row + 0.9 * col) * line))     # 第二列往左、往下错开一点
-        ob = op.text_obj(ch, font, size, loc, mat=mat)
+        ob = op.text_obj(ch, font, size, loc, mat=mat, bold=0.02)
         t_in = 1.2 + min(0.22, 1.8 / len(chars)) * i
         op.key_prop(ob, "a", [(0, 0.0), (f(t_in), 0.0), (f(t_in + 0.9), 1.0), (f(out0), 1.0), (f(out1), 0.0)])
         kit.fcurve(ob, "location", 2, [0, f(t_in), f(t_in + 1.2)], [loc.z - 0.12 * k, loc.z - 0.12 * k, loc.z], "BEZIER")
@@ -272,6 +273,20 @@ def title(pic):
                           (0.6 * s if cjk else 0.36) * k, sub_loc, spacing=1.1 if cjk else 1.3, mat=op.fading_mat("title_sub", (0.85, 0.9, 1.0), 1.3))
         op.key_prop(sub, "a", [(0, 0.0), (f(3.6), 0.0), (f(4.6), 0.85), (f(out0), 0.85), (f(out1), 0.0)])
         obs.append(sub)
+    # 暗晕：每个字复制一份放到 SHADE_Y 米（沿视线放大，画面上和字重合），压暗后面；对焦在字上时它在焦外，
+    # 景深把它虚成一圈柔和的暗晕，字从亮的虚化背景里托出来。挂在原点的空物体下，跟着字的动画走
+    holder = bpy.data.objects.new("title_shade", None)
+    holder.scale = (SHADE_Y / y,) * 3
+    op.link(holder)
+    shade = op.fading_shade("title_shade", 0.45)
+    for ob in obs:
+        sh = ob.copy()
+        sh.data = ob.data.copy()
+        sh.data.materials.clear()
+        sh.data.materials.append(shade)
+        sh.data.offset = ob.data.offset + 0.06 * ob.data.size
+        sh.parent = holder
+        op.link(sh)
     return obs
 
 
@@ -328,8 +343,11 @@ def build():
              seed=2, size_var=0.5, flutter=0.08, rate=0.5, spin=0.0, density="motes", tilt=-0.12)
     if "bokeh" in FX:
         bp = op.petal_mesh("bokeh_src")
-        bp.data.materials.append(op.bokeh_petal_mat())
-        op.drift("bokeh", bp, audio, 26, (-0.85, 0.5, -0.5), (1.7, 0.8, 1.0), (0.025, 0.0, 0.035), 2.5,
+        # 原来 26 片、亮度 0.8、尺寸 2.5，常从脸前、头顶飘过，晃眼：减到 14 片、暗一些、小两成，飘到头和上半身前面
+        # （以脸为中心的椭圆，屏幕坐标）时淡到两成
+        face_win = ((FACE[0] - 0.5) * 1.07 + 0.5, 1 - ((FACE[1] - 0.48) * 1.07 + 0.48))
+        bp.data.materials.append(op.bokeh_petal_mat(strength=0.5, avoid=(face_win[0], face_win[1] - 0.06, 0.22, 0.5, 0.2)))
+        op.drift("bokeh", bp, audio, 14, (-0.85, 0.5, -0.5), (1.7, 0.8, 1.0), (0.025, 0.0, 0.035), 2.0,
                  seed=5, size_var=0.35, flutter=0.03, rate=0.35, spin=0.5, density="motes", edge=0.12)
     sky = np.load(os.path.join(PREP, "sky.npy"))
     spec = d["spec"].astype(np.float32)
