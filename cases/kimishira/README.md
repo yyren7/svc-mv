@@ -87,7 +87,8 @@
 
 **头发、尾巴两张后来是手改的**（在 `rig_paint.py` 画的基础上）：用 `scripts/rig_painter.html`，网页里直接在人物上刷权重、
 实时看热力图（`scripts/rig_painter_embed.py <目录>` 把 `ref_char.png` 和灰度图嵌进去，双击就能打开）。
-**别再跑 `rig_paint.py`**，它会把 `rig_paint/` 整个重画、覆盖掉手改的图；要改就在网页里接着改，存回 `rig_paint/` 后重跑 `rig`。
+要改就在网页里接着改，存回 `rig_paint/` 后重跑 `rig`。`rig_paint.py` 见到 `rig_paint/` 里已经有图就不覆盖，
+算出来的写到 `renders/rig_review/auto/`（想从规则重新开始时拿来当底稿）；加 `--force` 才覆盖手改的图。
 
 ## 修图
 

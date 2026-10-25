@@ -1,14 +1,16 @@
 """kimishira 的头发、尾巴、呼吸三张权重图（替代 onepic_prep.py rig 按颜色算的那三张）-> rig_paint/<部位>.png，
 另外出一览给人看 -> renders/rig_review/paint_overview.jpg（现在用的 | 这次画的）、paint_hair.jpg（头发全尺寸，
 青线是衣服的边，衣服里的头发不动）、paint_tail.jpg（尾巴放大两倍）。在 AutoDL 上：
-    PYTHONPATH=/root/autodl-tmp/pv/pylib $PY cases/kimishira/scripts/rig_paint.py
-读的是 art/prep/rig_maps/ 里 rig 导出的人物（ref_char.png）和现在用的权重图；重跑会覆盖 rig_paint/ 里手改过的图。
+    PYTHONPATH=/root/autodl-tmp/pv/pylib $PY cases/kimishira/scripts/rig_paint.py [--force]
+读的是 art/prep/rig_maps/ 里 rig 导出的人物（ref_char.png）和现在用的权重图。rig_paint/ 里已经有图（手改过的）时，
+算出来的写到 renders/rig_review/auto/，不碰 rig_paint/；--force 才覆盖。
 画完要重跑 rig（rig_review.sh 会跑）才进场景。
 按颜色算的那三张出的问题：左边受光的浅粉长发、尾巴（偏蓝紫）不在"头发色"里，只动了零碎几块；袖子多边形画宽了，
 压住了袖子外面的长发；呼吸是一个方块，头也跟着动。
 """
 import json
 import os
+import sys
 
 import cv2
 import numpy as np
@@ -16,6 +18,10 @@ import numpy as np
 CASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(CASE, "rig_paint")
 SHOW = os.path.join(CASE, "renders", "rig_review")
+# rig_paint/ 里的图是手改过的（scripts/rig_painter.html）：不加 --force 就不覆盖，算出来的另存
+if "--force" not in sys.argv and any(os.path.exists(os.path.join(OUT, k + ".png")) for k in ("hair", "tail", "breath")):
+    OUT = os.path.join(SHOW, "auto")
+    print("rig_paint/ 里已经有图，不覆盖（要覆盖加 --force）；算出来的写到", OUT, flush=True)
 os.makedirs(OUT, exist_ok=True)
 os.makedirs(SHOW, exist_ok=True)
 spec = json.load(open(os.path.join(CASE, "rig.json"), encoding="utf-8"))
