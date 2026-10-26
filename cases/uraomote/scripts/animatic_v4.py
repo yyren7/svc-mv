@@ -506,15 +506,17 @@ def props():
     S.c1_print = V.sheet("c1_print", C1C.x, C1C.y, V.print_mat("v4_c1_211", "v4_u1_211"), seed=92)
     S.float_print = V.sheet("float_print", 34.0, -4.0, V.print_mat("v4_q1_211", "v4_u4_211"), seed=94, top=0.012)
     S.float_print.rotation_euler = (0.0, math.pi / 2, 0.0)        # lying on the water, face up, its top at +X
-    S.refl_omote = V.sheet("refl_omote", REFL.x, REFL.y, V.print_mat("v4_a2_211", "v4_u1_211"), seed=95, top=4.6)
-    S.refl_ura = V.sheet("refl_ura", REFL.x + 0.002, REFL.y, V.print_mat("v4_u2_211", "v4_a2_211"), seed=95, top=4.6)
+    S.refl_omote = V.sheet("refl_omote", REFL.x, REFL.y, V.print_mat("v4_a2_211", "v4_u1_211"), seed=95, top=2.5)
+    S.refl_ura = V.sheet("refl_ura", REFL.x + 0.002, REFL.y, V.print_mat("v4_u2_211", "v4_a2_211"), seed=95, top=2.5)
+    for ob in (S.refl_omote, S.refl_ura):
+        ob.scale = (0.55, 0.55, 0.55)                 # small and low, so the print and all of its reflection fit
     S.refl_omote.visible_glossy = False
     for attr in ("visible_camera", "visible_transmission", "visible_diffuse", "visible_shadow"):
         setattr(S.refl_ura, attr, False)             # only the water's mirror sees her 裏 (P7.3)
     board()
     al = cyc.area_light
     S.lights = {
-        "sweep": (al("sweep", (1.0, 1.5, 5.0), (2.0, 1.0, 4.7), 1.5, 9000, 8, size_y=0.06, spread_deg=12), 8.0),
+        "sweep": (al("sweep", (1.0, 1.5, 5.0), (2.0, 1.0, 4.7), 1.5, 9000, 60, size_y=0.06, spread_deg=12), 60.0),
         "q_cold": (al("q_cold", QC + Vector((-3.0, -1.5, 0.7)), QC, 2.0, 9000, 300, color="#7C94FF"), 300.0),
         "q_rose": (al("q_rose", QC + Vector((3.0, 1.5, 0.1)), QC, 2.0, 2000, 400, color=ROSE), 400.0),
         "c1_rose": (al("c1_rose", C1C + Vector((0.9, 0, 0.3)), C1C + Vector((0, 0, 0.3)), 2.0, 2000, 260, size_y=3.6,
@@ -522,9 +524,9 @@ def props():
         "c1_cold": (al("c1_cold", C1C + Vector((-2.4, -1.5, 0.4)), C1C, 2.0, 9000, 120, color="#7C94FF"), 120.0),
         "w1_cold": (al("w1_cold", W1C + Vector((-3.5, -1.0, -0.6)), W1C, 2.0, 9000, 250, color="#7C94FF"), 250.0),
         "w1_rose": (al("w1_rose", W1C + Vector((2.5, 0.5, 1.4)), W1C, 1.5, 2000, 400, color=ROSE), 400.0),
-        "refl_cold": (al("refl_cold", REFL + Vector((-4.0, 0, 2.6)), REFL + Vector((0, 0, 2.4)), 2.0, 9000, 150,
+        "refl_cold": (al("refl_cold", REFL + Vector((-4.0, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 9000, 150,
                          color="#7C94FF"), 150.0),
-        "refl_rose": (al("refl_rose", REFL + Vector((1.6, 0, 2.6)), REFL + Vector((0, 0, 2.4)), 2.0, 2000, 260,
+        "refl_rose": (al("refl_rose", REFL + Vector((1.6, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 2000, 260,
                          color=ROSE), 260.0),
         "under": (al("under", (V.L / 2, 0, 0.12), (V.L / 2, 0, 3), 40, 2000, 2500, size_y=14, color=ROSE), 2500.0),
         "float_sun": (al("float_sun", (31.9, -0.5, 6.0), FLOAT_C, 3.0, 8000, 900), 900.0),
@@ -956,7 +958,7 @@ def p1_eyes(u, t, b):
 def p1_drop(u, t, b):
     dawn()
     bpy.context.scene.cycles.samples = 4 * SAMPLES                              # glass in glass in water
-    bpy.context.scene.view_settings.exposure = 0.6                              # the window behind not blown out
+    bpy.context.scene.view_settings.exposure = -0.8                             # the window behind not blown out
     g, t15 = S.glass_at, at(15)
     if t15 - 0.35 <= t < t15:
         S.drop.hide_render = False
@@ -1183,7 +1185,7 @@ def p7_ura(u, t, b):
         night(cold=0.1, rose=0.3)
         light("refl_cold")
         light("refl_rose")
-        look(REFL + Vector((-4.3, 0, 0.45)), REFL + Vector((0, 0, 0.15)), lens=28, fstop=4)
+        look(REFL + Vector((-6.0, 0, 0.1)), REFL + Vector((0, 0, 0.1)), lens=24, fstop=8)
     elif key:
         card(key, 1.05 + 0.08 * v)
     else:                                                                       # the hall, upside down
@@ -1197,7 +1199,7 @@ def p7_reflect(u, t, b):
     light("refl_rose")
     flash = t - at(math.floor(b)) < 2 / FPS                                     # once a bar the reflection is 表 again
     S.refl_ura.visible_glossy, S.refl_omote.visible_glossy = not flash, flash
-    look(REFL + Vector((-4.3, 0.3 * u, 0.42)), REFL + Vector((0, 0, 0.1)), lens=28 + 6 * u, fstop=4)
+    look(REFL + Vector((-6.0, 0.3 * u, 0.1)), REFL + Vector((0, 0, 0.1)), lens=24 + 4 * u, fstop=8)
 
 
 def p7_crack(u, t, b):
