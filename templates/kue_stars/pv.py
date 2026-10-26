@@ -187,12 +187,14 @@ def section_arrays(n, d):
     speed = 0.55 + 1.1 * cols["energy"] + 0.35 * loud
     gust = 0.85 + 0.15 * (0.6 * np.sin(op.TAU * t / 11.0 + 0.7) + 0.4 * np.sin(op.TAU * t / 17.3 + 2.9))
     earl, earr = ear_moves(n, 3)
-    k = int(0.3 * FPS) | 1
-    pulse = np.convolve(np.pad(bass ** 2, (k // 2, k // 2), mode="edge"), np.ones(k) / k, "valid")
 
     def slow(x, sec):        # 几秒的滑动平均：跟着段落慢慢变，不踩拍子
         k_ = int(sec * FPS) | 1
         return np.convolve(np.pad(x, (k_ // 2, k_ // 2), mode="edge"), np.ones(k_) / k_, "valid")
+
+    # 月光光束（合成里从月亮放射的光）的强度跟它。原来是 0.3 秒平均的低音，一拍一鼓：光束把右边那条光带拉亮，
+    # 光带就跟着拍子（1.33 Hz）一明一暗。现在是 2 秒平均，慢慢起伏
+    pulse = slow(bass ** 2, 2.0)
     beat, since = beat_columns(n, d)
     return {
         "energy": cols["energy"],
@@ -206,7 +208,7 @@ def section_arrays(n, d):
         "heart": bass ** 2,
         "pulse": pulse,
         # 月晕、光束原来跟 0.3 秒平均的低音（心跳一样一下一下），现在跟 2 秒平均的，慢慢起伏
-        "halo": 0.06 + 0.04 * cols["energy"] + 0.08 * slow(bass ** 2, 2.0) * (0.4 + 0.6 * cols["energy"]),
+        "halo": 0.06 + 0.04 * cols["energy"] + 0.08 * pulse * (0.4 + 0.6 * cols["energy"]),
         "energy_glow": 0.5 + 0.7 * cols["energy"] + 0.15 * slow(bass, 2.0),
         "sway": (0.75 + 0.3 * cols["energy"]) * gust,
         "mouth": mouth_moves(n),
