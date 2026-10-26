@@ -1,11 +1,13 @@
 #!/bin/bash
 # 模板的成片，在 AutoDL 上：音频特征（没有就算）-> 编排（没有 plan.json 就排）-> 搭场景 -> 每 CHUNK 帧一段、N 个 Blender
-# 同时渲（共用 4090 D）-> 左下角的歌名进度条、歌词、制作信息 -> 成片 <case>/renders/<歌>_pv_<高>p.mp4。
+# 同时渲（共用 4090 D）-> 左下角的歌名进度条、歌词、开头的歌名和结尾的制作信息 -> 成片 <case>/renders/<歌>_pv_<高>p.mp4。
 #   bash templates/kue_stars/render.sh cases/<歌> [N=4] [起始帧 结束帧]   # 给了帧范围就只渲那一段（试渲用）
 #   RESUME=1 ...        不重建场景，跳过已完成的段（中途断了）
 #   SKIP_RENDER=1 ...   只重做字幕和成片（改了歌词、制作信息、歌名时）
 #   HEIGHT=2160 ...     4K60（默认 1080p60）
 # 4 个进程时 18 核的 CPU 配额就满了；4K 时一个进程约 3.4 GB 显存、9.5 GB 内存，N=6 会被 OOM 杀掉。
+# 容器内存上限 60 GB：4K 时歌名条、标题这些叠加层（多进程）和 4 个 Blender 一起跑会超，Blender 被杀（小幸运 4K
+# 第一次 27 段死了 7 段），所以 4K 先画完叠加层再渲。
 set -euo pipefail
 export B=/root/autodl-tmp/tools/blender-5.2.2-linux-x64/blender
 PY=/root/autodl-tmp/ComfyUI/venv/bin/python
@@ -42,6 +44,11 @@ else
     { nice -n 19 $PY $T/title.py $CASE $TT --part opening --height $HEIGHT --fps 60
       nice -n 19 $PY $T/title.py $CASE $TE --part ending --height $HEIGHT --fps 60; } > $R/logs/title.log 2>&1 &
     TITLEJOB=$!
+fi
+if [ "$HEIGHT" -gt 1080 ]; then      # 4K：叠加层画完再开 Blender，免得一起超内存
+    [ -n "$PLAYER" ] && wait $PLAYER
+    [ -n "$TITLEJOB" ] && wait $TITLEJOB
+    PLAYER= TITLEJOB=
 fi
 
 if [ -z "${SKIP_RENDER:-}" ]; then
