@@ -516,7 +516,7 @@ def props():
     board()
     al = cyc.area_light
     S.lights = {
-        "sweep": (al("sweep", (1.0, 1.5, 5.0), (2.0, 1.0, 4.7), 1.5, 9000, 60, size_y=0.06, spread_deg=12), 60.0),
+        "sweep": (al("sweep", (1.0, 1.5, 5.0), (2.0, 1.0, 4.7), 1.5, 9000, 25, size_y=0.06, spread_deg=12), 25.0),
         "q_cold": (al("q_cold", QC + Vector((-3.0, -1.5, 0.7)), QC, 2.0, 9000, 300, color="#7C94FF"), 300.0),
         "q_rose": (al("q_rose", QC + Vector((3.0, 1.5, 0.1)), QC, 2.0, 2000, 400, color=ROSE), 400.0),
         "c1_rose": (al("c1_rose", C1C + Vector((0.9, 0, 0.3)), C1C + Vector((0, 0, 0.3)), 2.0, 2000, 260, size_y=3.6,
@@ -524,8 +524,8 @@ def props():
         "c1_cold": (al("c1_cold", C1C + Vector((-2.4, -1.5, 0.4)), C1C, 2.0, 9000, 120, color="#7C94FF"), 120.0),
         "w1_cold": (al("w1_cold", W1C + Vector((-3.5, -1.0, -0.6)), W1C, 2.0, 9000, 250, color="#7C94FF"), 250.0),
         "w1_rose": (al("w1_rose", W1C + Vector((2.5, 0.5, 1.4)), W1C, 1.5, 2000, 400, color=ROSE), 400.0),
-        "refl_cold": (al("refl_cold", REFL + Vector((-4.0, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 9000, 150,
-                         color="#7C94FF"), 150.0),
+        "refl_cold": (al("refl_cold", REFL + Vector((-4.0, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 9000, 300,
+                         color="#7C94FF"), 300.0),
         "refl_rose": (al("refl_rose", REFL + Vector((1.6, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 2000, 260,
                          color=ROSE), 260.0),
         "under": (al("under", (V.L / 2, 0, 0.12), (V.L / 2, 0, 3), 40, 2000, 2500, size_y=14, color=ROSE), 2500.0),
@@ -1185,7 +1185,7 @@ def p7_ura(u, t, b):
         night(cold=0.1, rose=0.3)
         light("refl_cold")
         light("refl_rose")
-        look(REFL + Vector((-6.0, 0, 0.1)), REFL + Vector((0, 0, 0.1)), lens=24, fstop=8)
+        look(REFL + Vector((-3.7, 0, 0.1)), REFL + Vector((0, 0, 0.1)), lens=16, fstop=8)
     elif key:
         card(key, 1.05 + 0.08 * v)
     else:                                                                       # the hall, upside down
@@ -1199,7 +1199,7 @@ def p7_reflect(u, t, b):
     light("refl_rose")
     flash = t - at(math.floor(b)) < 2 / FPS                                     # once a bar the reflection is 表 again
     S.refl_ura.visible_glossy, S.refl_omote.visible_glossy = not flash, flash
-    look(REFL + Vector((-6.0, 0.3 * u, 0.1)), REFL + Vector((0, 0, 0.1)), lens=24 + 4 * u, fstop=8)
+    look(REFL + Vector((-3.7, 0.3 * u, 0.1)), REFL + Vector((0, 0, 0.1)), lens=16 + 2 * u, fstop=8)   # in front of float_print
 
 
 def p7_crack(u, t, b):
