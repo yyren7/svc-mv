@@ -1,6 +1,8 @@
 #!/bin/bash
 # 模板的成片，在 AutoDL 上：音频特征（没有就算）-> 编排（没有 plan.json 就排）-> 搭场景 -> 每 CHUNK 帧一段、N 个 Blender
 # 同时渲（共用 4090 D）-> 左下角的歌名进度条、歌词、开头的歌名和结尾的制作信息 -> 成片 <case>/renders/<歌>_pv_<高>p.mp4。
+# song.json 的 end：成片到这一秒为止（结尾多出来的说话之类不要）；lyrics_style 默认 ktv（lyrics.py 画的两行走字），
+# stagger / line 是 lrc2ass 的字幕。
 #   bash templates/kue_stars/render.sh cases/<歌> [N=4] [起始帧 结束帧]   # 给了帧范围就只渲那一段（试渲用）
 #   RESUME=1 ...        不重建场景，跳过已完成的段（中途断了）
 #   SKIP_RENDER=1 ...   只重做字幕和成片（改了歌词、制作信息、歌名时）
@@ -29,20 +31,23 @@ fi
 [ -f $CASE/plan.json ] || $PY $T/plan.py make $CASE
 eval "$($PY $T/plan.py env $CASE)"
 P=$R/player_$HEIGHT
+ENDARG=(); [ -n "$END" ] && ENDARG=(--end "$END")
+KTV=; [ "$LYRICS_STYLE" = ktv ] && [ -n "$LRC" ] && [ -f "$LRC" ] && KTV=1
 
 if [ -n "${RESUME:-}" ] && [ -f $P/region.json ]; then
     PLAYER=
 else
     nice -n 19 $PY scripts/onepic_player.py $CASE/audio/bands.npz $P --title "$TITLE" --sub "$SUB" \
-        --fps 60 --height $HEIGHT --show $SHOW > $R/logs/player.log 2>&1 &
+        --fps 60 --height $HEIGHT --show $SHOW "${ENDARG[@]}" > $R/logs/player.log 2>&1 &
     PLAYER=$!
 fi
-TT=$R/title_$HEIGHT TE=$R/ending_$HEIGHT     # 开头竖排的歌名、结尾的制作信息（2D 叠加层，title.py）
-if [ -n "${RESUME:-}" ] && [ -f $TT/region.json ] && [ -f $TE/region.json ]; then
+TT=$R/title_$HEIGHT TE=$R/ending_$HEIGHT TL=$R/lyrics_$HEIGHT   # 开头的歌名、结尾的制作信息、歌词（2D 叠加层）
+if [ -n "${RESUME:-}" ] && [ -f $TT/region.json ] && [ -f $TE/region.json ] && { [ -z "$KTV" ] || [ -f $TL/region.json ]; }; then
     TITLEJOB=
 else
     { nice -n 19 $PY $T/title.py $CASE $TT --part opening --height $HEIGHT --fps 60
-      nice -n 19 $PY $T/title.py $CASE $TE --part ending --height $HEIGHT --fps 60; } > $R/logs/title.log 2>&1 &
+      nice -n 19 $PY $T/title.py $CASE $TE --part ending --height $HEIGHT --fps 60
+      [ -n "$KTV" ] && nice -n 19 $PY $T/lyrics.py $CASE $TL --height $HEIGHT --fps 60; } > $R/logs/title.log 2>&1 &
     TITLEJOB=$!
 fi
 if [ "$HEIGHT" -gt 1080 ]; then      # 4K：叠加层画完再开 Blender，免得一起超内存
@@ -56,7 +61,8 @@ if [ -z "${SKIP_RENDER:-}" ]; then
         $B -b --factory-startup -P $T/pv.py -- build > $R/logs/build.log 2>&1
         rm -f $R/chunks/*
     fi
-    export F1=${4:-$(($($PY -c "import numpy as np; print(len(np.load('$CASE/audio/bands.npz')['loud']))") - 1))}
+    # 到最后一帧（给了 end 就到 end）
+    export F1=${4:-$($PY -c "import numpy as np; n = len(np.load('$CASE/audio/bands.npz')['loud']); e = '$END'; print(min(n, round(float(e) * 60)) - 1 if e else n - 1)")}
     export SIZE=${CHUNK:-600}
     seq ${3:-0} $SIZE $F1 | xargs -P $N -I{} bash -c '
         a={}; b=$((a + SIZE - 1)); [ $b -gt $F1 ] && b=$F1
@@ -79,9 +85,9 @@ fi
 [ -n "$PLAYER" ] && wait $PLAYER
 [ -n "$TITLEJOB" ] && wait $TITLEJOB
 ARGS=()
-[ -n "$LRC" ] && [ -f "$LRC" ] && ARGS+=(--lrc "$LRC")
+[ -z "$KTV" ] && [ -n "$LRC" ] && [ -f "$LRC" ] && ARGS+=(--lrc "$LRC")
 [ -n "$TLRC" ] && [ -f "$TLRC" ] && ARGS+=(--tlrc "$TLRC")
-$PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "$LYRICS_OFFSET" --credits-at $CREDITS_AT --lift 150 --style "$LYRICS_STYLE" \
+$PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "$LYRICS_OFFSET" --credits-at $CREDITS_AT --lift 150 --style "${LYRICS_STYLE/ktv/line}" \
     --res $((HEIGHT * 16 / 9)) $HEIGHT
-$PY scripts/onepic_finish.py $R/chunks "$MIX" $R/${NAME}_pv_${HEIGHT}p.mp4 --ass $R/subs.ass --overlay $TT --overlay $TE --overlay $P
+$PY scripts/onepic_finish.py $R/chunks "$MIX" $R/${NAME}_pv_${HEIGHT}p.mp4 --ass $R/subs.ass --overlay $TT --overlay $TE ${KTV:+--overlay $TL} --overlay $P "${ENDARG[@]}"
 touch $R/render_done

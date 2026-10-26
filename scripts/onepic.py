@@ -414,10 +414,11 @@ def painted(name, color, alpha=None, extra=None, shift=None):
 
 
 def sky_extra(pic, audio, stars="stars.png", star_gain=1.4, star_color=(0.75, 0.86, 1.0),
-              halo_color=(0.55, 0.72, 1.0), moon=None):
+              halo_color=(0.55, 0.72, 1.0), moon=None, rate=(0.25, 1.4)):
     """天空上加两样：星星按各自的相位、频率闪（stars.png：R 亮度，G 相位，B 频率），乘以 audio 的 "stars" 列；
     月亮外面一圈光晕，强度是 audio 的 "halo" 列。moon 是贴图里月亮的 (u, v, r)，默认 meta 的；贴图挪过
-    （painted 的 shift）而 meta 改成了画面里的位置时，把贴图里的传进来。"""
+    （painted 的 shift）而 meta 改成了画面里的位置时，把贴图里的传进来。
+    rate = (最慢, 加上多少)：每颗星每秒闪 rate[0] + rate[1] × B 次（默认 0.25–1.65 次）。"""
     moon = moon or pic.meta.get("moon")
 
     def f(g, uv, col):
@@ -426,7 +427,7 @@ def sky_extra(pic, audio, stars="stars.png", star_gain=1.4, star_color=(0.75, 0.
         g.link(st.outputs["Color"], sep.inputs[0])
         amp, phase, freq = sep.outputs[0], sep.outputs[1], sep.outputs[2]
         t = audio.seconds(g)
-        ph = g.m("ADD", g.m("MULTIPLY", t, g.m("MULTIPLY_ADD", freq, 1.4, 0.25)), phase)
+        ph = g.m("ADD", g.m("MULTIPLY", t, g.m("MULTIPLY_ADD", freq, rate[1], rate[0])), phase)
         s = g.m("MULTIPLY_ADD", g.m("SINE", g.m("MULTIPLY", ph, TAU)), 0.5, 0.5)
         tw = g.m("MULTIPLY_ADD", g.m("POWER", s, 3.0), 1.3, -0.12)   # 多数时候原样或稍暗，偶尔一亮
         k = g.m("MULTIPLY", g.m("MULTIPLY", tw, amp), g.m("MULTIPLY", audio.at(g, "stars"), star_gain))

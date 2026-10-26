@@ -28,13 +28,18 @@ export RES=$((HEIGHT * 100 / 2160))
 OUT=$R/${NAME}_preview_${HEIGHT}p${TAG:+_$TAG}.mp4
 [ "$LEN" -gt 0 ] && OUT=$R/${NAME}_preview_${HEIGHT}p_${START}s+${LEN}s${TAG:+_$TAG}.mp4
 
+ENDARG=(); [ -n "$END" ] && ENDARG=(--end "$END")
+KTV=; [ "$LYRICS_STYLE" = ktv ] && [ -n "$LRC" ] && [ -f "$LRC" ] && KTV=1
+RANGE=(); [ "$LEN" -gt 0 ] && RANGE=(--range $START $((START + LEN)))
 nice -n 19 $PY scripts/onepic_player.py $CASE/audio/bands.npz $R/player_p$HEIGHT --title "$TITLE" --sub "$SUB" \
-    --fps 30 --height $HEIGHT --show $SHOW > $R/logs/player.log 2>&1 &
+    --fps 30 --height $HEIGHT --show $SHOW "${ENDARG[@]}" > $R/logs/player.log 2>&1 &
 { nice -n 19 $PY $T/title.py $CASE $R/title_p$HEIGHT --part opening --height $HEIGHT --fps 30
-  nice -n 19 $PY $T/title.py $CASE $R/ending_p$HEIGHT --part ending --height $HEIGHT --fps 30; } > $R/logs/title.log 2>&1 &
+  nice -n 19 $PY $T/title.py $CASE $R/ending_p$HEIGHT --part ending --height $HEIGHT --fps 30
+  [ -n "$KTV" ] && nice -n 19 $PY $T/lyrics.py $CASE $R/lyrics_p$HEIGHT --height $HEIGHT --fps 30 "${RANGE[@]}"; } \
+    > $R/logs/title.log 2>&1 &
 $B -b --factory-startup -P $T/pv.py -- build > $R/logs/build.log 2>&1
 grep -E "camera out|star ring|galaxy" $R/logs/build.log || true
-N=$($PY -c "import numpy as np; print(len(np.load('$CASE/audio/bands.npz')['loud']))")
+N=$($PY -c "import numpy as np; n = len(np.load('$CASE/audio/bands.npz')['loud']); e = '$END'; print(min(n, round(float(e) * 60)) if e else n)")
 F0=$((START * 60)); F1=$((N - 1))
 [ "$LEN" -gt 0 ] && [ $((F0 + LEN * 60 - 1)) -lt $F1 ] && F1=$((F0 + LEN * 60 - 1))
 step=$(( ((F1 - F0) / 4 + 2) / 2 * 2 ))       # 每段的起点取偶数，-j 2 才都落在偶数帧上
@@ -45,10 +50,11 @@ done
 wait
 
 ARGS=()
-[ -n "$LRC" ] && [ -f "$LRC" ] && ARGS+=(--lrc "$LRC")
+[ -z "$KTV" ] && [ -n "$LRC" ] && [ -f "$LRC" ] && ARGS+=(--lrc "$LRC")
 [ -n "$TLRC" ] && [ -f "$TLRC" ] && ARGS+=(--tlrc "$TLRC")
-$PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "$LYRICS_OFFSET" --credits-at $CREDITS_AT --lift 150 --style "$LYRICS_STYLE" \
+$PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "$LYRICS_OFFSET" --credits-at $CREDITS_AT --lift 150 --style "${LYRICS_STYLE/ktv/line}" \
     --res $((HEIGHT * 16 / 9)) $HEIGHT
-$PY scripts/onepic_finish.py $P "$MIX" $OUT --ass $R/subs.ass --overlay $R/title_p$HEIGHT --overlay $R/ending_p$HEIGHT --overlay $R/player_p$HEIGHT --crf 20 --preset fast \
+$PY scripts/onepic_finish.py $P "$MIX" $OUT --ass $R/subs.ass --overlay $R/title_p$HEIGHT --overlay $R/ending_p$HEIGHT ${KTV:+--overlay $R/lyrics_p$HEIGHT} \
+    --overlay $R/player_p$HEIGHT --crf 20 --preset fast "${ENDARG[@]}" \
     --fade-out $([ "$LEN" -gt 0 ] && echo 1 || echo 4) ${START:+--start $START}
 echo "-> $OUT"

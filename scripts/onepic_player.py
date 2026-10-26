@@ -40,7 +40,7 @@ def setup(a):
     k = a.height / 1080 * SS
     d = np.load(a.bands)
     G.update(a=a, k=k, spec=d["spec"].astype(np.float32), bass=d["bass"], fps0=int(d["fps"]),
-             dur=float(d["duration"]))
+             dur=min(float(d["duration"]), a.end or 1e9))
     if not a.art:
         setup_bar(a, k)
         return
@@ -208,6 +208,7 @@ def main():
                     help="歌名和副标题只在这段时间里显示：t0 起淡入、t1 淡出完（给开头的大标题、结尾的制作信息让开），"
                          "进度条和时间一直在；不给就都一直在")
     ap.add_argument("--fade", type=float, default=1.5, help="--show 的淡入淡出秒数")
+    ap.add_argument("--end", type=float, help="成片到这一秒为止：进度条、总时长按它算")
     a = ap.parse_args()
     if a.y is None:
         a.y = 1080 - (H0 if a.art else H1) - 26

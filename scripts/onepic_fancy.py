@@ -63,8 +63,28 @@ def ring_image(ring, rows):
     return img, n, F, K_
 
 
-def emit(g, out, rgb, gain):
-    """显示值 rgb -> Gamma 2.2 -> 叠加的自发光。"""
+def quiet_mask(g, quiet, aspect=16 / 9):
+    """让位区：画面上一块（窗口坐标 x0, y0, x1, y1，0..1，y 朝上）里压暗到 floor 倍，出了这块在 soft（画面高的
+    比例）里慢慢回到 1。歌词在那儿，星环、星系别和它抢眼。"""
+    x0, y0, x1, y1, floor, soft = quiet
+    w = g.sep(g.node("ShaderNodeTexCoord").outputs["Window"])
+    dx = g.m("MAXIMUM", g.m("MAXIMUM", g.m("SUBTRACT", x0, w[0]), g.m("SUBTRACT", w[0], x1)), 0.0)
+    dy = g.m("MAXIMUM", g.m("MAXIMUM", g.m("SUBTRACT", y0, w[1]), g.m("SUBTRACT", w[1], y1)), 0.0)
+    d = g.v("LENGTH", g.xyz(g.m("MULTIPLY", dx, aspect), dy, 0.0))
+    mr_ = g.node("ShaderNodeMapRange")
+    mr_.interpolation_type = "SMOOTHSTEP"
+    g.link(d, kit.sock(mr_.inputs, "Value", "VALUE"))
+    kit.sock(mr_.inputs, "From Min", "VALUE").default_value = 0.0
+    kit.sock(mr_.inputs, "From Max", "VALUE").default_value = soft
+    kit.sock(mr_.inputs, "To Min", "VALUE").default_value = floor
+    kit.sock(mr_.inputs, "To Max", "VALUE").default_value = 1.0
+    return kit.sock(mr_.outputs, "Result", "VALUE")
+
+
+def emit(g, out, rgb, gain, quiet=None):
+    """显示值 rgb -> Gamma 2.2 -> 叠加的自发光。quiet 见 quiet_mask()。"""
+    if quiet:
+        rgb = g.v("SCALE", rgb, quiet_mask(g, quiet))
     rgb = g.v("MINIMUM", rgb, (1.0, 1.0, 1.0))
     gm = g.node("ShaderNodeGamma")
     g.link(rgb, gm.inputs["Color"])
@@ -123,7 +143,8 @@ def line(g, x, z, ang, width):
 
 
 def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=4096, spike_gain=1.0,
-                    streak_gain=1.0):
+                    streak_gain=1.0, beat_gain=1.0, halo_k=1.0, six_k=(1.0, 1.0), cross_k=1.0, twinkle=None,
+                    spark_flicker=38.0, trail=None, quiet=None):
     """花哨样式的星环。ring 是 star_ring.Ring（建议用 FANCY_RADII 那套轨道），fx 是 star_ring.fancy(ring) 的结果。
     摆在月亮的视线上 y 米处（默认天空的 0.97）。几个物体：
     - stars_trail：尾巴，每颗一条（双子星两条，按当时的互绕相位左右错开），宽度、亮度按种类，彗星的软、颜色从白到本色
@@ -133,7 +154,13 @@ def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=40
       光头才拉得出来）；双子星以外的光头一个小十字星芒，脉冲星换成长的、踩着拍子亮，拍点上一圈冲击波往外扩；彗星朝外一条
       淡蓝的离子尾；
     - stars_streak：横向的淡蓝光条，按 11 秒明暗；
-    - stars_spark：火花尾掉的火星，往后飘、往外散、稍微往下落，闪着熄掉，大的带小星芒。"""
+    - stars_spark：火花尾掉的火星，往后飘、往外散、稍微往下落，闪着熄掉，大的带小星芒。
+    调整（默认是 kimishira 那样）：beat_gain 乘所有踩拍子的变化（光头拍点上大一圈、十字星芒拍点上亮、脉冲星），0 就不踩拍；
+    twinkle = (最短, 最长) 秒：十字星芒按每颗自己的周期慢慢明灭、长短起伏（不踩拍时用，和背景的星一样慢）；
+    halo_k 光头外面那圈光晕的大小和亮度；six_k = (长度, 亮度) 六芒星芒；cross_k 十字星芒的长度；
+    streak_gain 是 0 就不建横向光条；spark_flicker 火星闪的角频率（rad/s）；trail 按种类改 TRAIL（宽度倍数, 亮度倍数）；
+    quiet 见 quiet_mask()。"""
+    TRAIL_ = dict(TRAIL, **(trail or {}))
     mu, mv, mr = pic.meta["moon"]
     y = y or pic.y_sky * 0.97
     c = pic.point(mu, mv, y)
@@ -148,8 +175,8 @@ def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=40
         [(i, s) for i in range(n) if kind[i] == K["twin"] for s in (1.0, -1.0)]
     li = np.array([i for i, _ in strands])
     ts = np.array([s for _, s in strands])
-    wk = np.array([TRAIL[KINDS[kind[i]]][0] for i in li])
-    bk = np.array([TRAIL[KINDS[kind[i]]][1] for i in li])
+    wk = np.array([TRAIL_[KINDS[kind[i]]][0] for i in li])
+    bk = np.array([TRAIL_[KINDS[kind[i]]][1] for i in li])
     col = ring.color[li].copy()
     col[ts < 0] = fx["col2"][li[ts < 0]]
     trail = items("stars_trail", len(li), 2 * T, [(2 * j, 2 * j + 1, 2 * j + 3, 2 * j + 2) for j in range(T - 1)],
@@ -176,7 +203,7 @@ def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=40
                        comet=kind == K["comet"], nocross=kind == K["twin"], spike0=fx["spike0"]),
                   QUAD[1], {"col": ring.color})
     streak = items("stars_streak", n, 4, *QUAD[:1], dict(li=all_, r=ring.r, rc=0.020 * ring.size, q=np.ones(n)),
-                   QUAD[1], {"col": ring.color})
+                   QUAD[1], {"col": ring.color}) if streak_gain > 0 else None
     sp = fx["sparks"]
     spark = items("stars_spark", len(sp["li"]), 4, *QUAD[:1],
                   dict(li=sp["li"], r=ring.r[sp["li"].astype(int)], fb=sp["fb"], life=sp["life"], back=sp["back"],
@@ -220,7 +247,7 @@ def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=40
         center = g.v("ADD", tuple(c), g.v("SCALE", radial, M("MULTIPLY", attr("r"), Rm)))
         sh = M("POWER", M("ABSOLUTE", M("COSINE", M("SUBTRACT", a, ring.sheen))), 4.0)
         widen = M("MULTIPLY_ADD", sh, 0.2, 1.0)
-        beat = audio.at_gn(g, "beat")
+        beat = M("MULTIPLY", audio.at_gn(g, "beat"), beat_gain)
         store = []
 
         def twin_phase():
@@ -277,7 +304,7 @@ def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=40
             center = g.v("ADD", p, g.xyz(0.0, 0.0, M("MULTIPLY", M("MULTIPLY", age, age), -0.05 * Rm)))
             left = M("SUBTRACT", 1.0, M("DIVIDE", age, life))
             fl = M("MULTIPLY", M("MULTIPLY", left, left),
-                   M("MULTIPLY_ADD", M("SINE", M("MULTIPLY_ADD", age, 38.0, attr("ph"))), 0.45, 0.55))
+                   M("MULTIPLY_ADD", M("SINE", M("MULTIPLY_ADD", age, spark_flicker, attr("ph"))), 0.45, 0.55))
             sv = M("MULTIPLY", M("MULTIPLY", M("MULTIPLY", b_, fl), M("MULTIPLY_ADD", attr("big"), 0.9, 1.3)), alive)
             size = M("MULTIPLY", alive, 0.07)
             pos = corner(size, size)
@@ -296,9 +323,9 @@ def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=40
         return ng
 
     # ---- 着色器
-    def glow(g, d, k):
-        """σ = 0.04 R 的高斯辉光，k 是峰值。"""
-        return g.m("MULTIPLY", k, g.m("EXPONENT", g.m("MULTIPLY", g.m("MULTIPLY", d, d), -312.5)))
+    def glow(g, d, k, s=0.04):
+        """σ = s（默认 0.04 R）的高斯辉光，k 是峰值。"""
+        return g.m("MULTIPLY", k, g.m("EXPONENT", g.m("MULTIPLY", g.m("MULTIPLY", d, d), -1 / (2 * s * s))))
 
     def shader(name, part):
         mt, g, out = material(name, "BLENDED")
@@ -329,18 +356,26 @@ def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=40
             rho = M("MULTIPLY", g.v("LENGTH", g.xyz(sattr(g, "ox"), sattr(g, "oy"), 0.0)), E)
             core = M("ADD", M("MULTIPLY", fade(g, rho, rh, 0.006), 0.55),
                      M("MULTIPLY", fade(g, rho, M("MULTIPLY", rh, 0.5), 0.006), 0.45))
-            halo = M("ADD", M("MULTIPLY", fade(g, rho, M("MULTIPLY", rh, 1.8), 0.05), 0.3),
-                     glow(g, rho, M("MULTIPLY", M("MULTIPLY", rh, rh), 153.0)))
+            halo = M("ADD", M("MULTIPLY", fade(g, rho, M("MULTIPLY", rh, 1.8 * halo_k), 0.05 * halo_k), 0.3 * halo_k),
+                     glow(g, rho, M("MULTIPLY", M("MULTIPLY", rh, rh), 153.0 * halo_k), 0.04 * halo_k))
             w2 = g.v("MULTIPLY_ADD", col, (0.4, 0.4, 0.4), (0.6, 0.6, 0.6))
             rgb = g.v("SCALE", g.v("ADD", g.v("SCALE", w2, core), g.v("SCALE", col, halo)), sattr(g, "hb"))
         elif part == "flare":
             x = M("MULTIPLY", sattr(g, "ox"), FLARE)
             z = M("MULTIPLY", sattr(g, "oy"), FLARE)
             hb, rh = sattr(g, "hb"), sattr(g, "rh")
-            beat, since = audio.at(g, "beat"), audio.at(g, "since")
+            beat, since = M("MULTIPLY", audio.at(g, "beat"), beat_gain), audio.at(g, "since")
+            # 慢明灭：每颗自己的周期（twinkle 的范围里，按光点编号散开）和相位，和背景的星一样慢
+            if twinkle:
+                per = M("MULTIPLY_ADD", M("FRACT", M("MULTIPLY_ADD", sattr(g, "li"), 0.618034, 0.13)),
+                        twinkle[1] - twinkle[0], twinkle[0])
+                tw = M("MULTIPLY_ADD", M("SINE", M("ADD", M("DIVIDE", M("MULTIPLY", t, TAU), per),
+                                                    M("MULTIPLY", sattr(g, "spike0"), 4.0))), 0.5, 0.5)
+            else:
+                tw = 0.5
             # 六芒星芒：约 40 秒转过 60°，长短 7 秒起伏，六条各自强弱
             rot = M("MULTIPLY_ADD", t, (math.pi / 3) / 40.0, 0.26)
-            reach = M("MULTIPLY", M("MULTIPLY_ADD", M("SINE", M("MULTIPLY", t, TAU / 7.0)), 0.3, 1.0), 0.32)
+            reach = M("MULTIPLY", M("MULTIPLY_ADD", M("SINE", M("MULTIPLY", t, TAU / 7.0)), 0.3, 1.0), 0.32 * six_k[0])
             edge = M("POWER", M("MAXIMUM", M("SUBTRACT", 1.0, M("DIVIDE", g.v("LENGTH", g.xyz(x, z, 0.0)), FLARE)), 0.0), 2.0)   # 到方块边上淡完
             six = None
             for j in range(6):
@@ -350,11 +385,12 @@ def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=40
                                      M("EXPONENT", M("DIVIDE", M("MULTIPLY", M("MAXIMUM", along, 0.0), -1.0), reach))),
                        M("MULTIPLY", M("MULTIPLY", prof, gj), edge))
                 six = s_ if six is None else M("ADD", six, s_)
-            six = M("MULTIPLY", six, M("MULTIPLY", M("MAXIMUM", M("SUBTRACT", hb, 0.25), 0.0), 0.75 * spike_gain))
-            # 十字星芒：普通的短、拍点上亮一下；脉冲星的长、慢慢转、踩着拍子亮
+            six = M("MULTIPLY", six, M("MULTIPLY", M("MAXIMUM", M("SUBTRACT", hb, 0.25), 0.0), 0.75 * spike_gain * six_k[1]))
+            # 十字星芒：普通的短、拍点上亮一下（不踩拍时按慢明灭起伏）；脉冲星的长、慢慢转、踩着拍子亮
             pulsar = sattr(g, "pulsar")
             amp = M("MULTIPLY_ADD", beat, 0.75, 0.25)
-            L = lerp(g, M("MULTIPLY", M("MULTIPLY", rh, 4.5), M("MULTIPLY_ADD", beat, 0.5, 1.0)),
+            L = lerp(g, M("MULTIPLY", M("MULTIPLY", rh, 4.5 * cross_k),
+                          M("MULTIPLY", M("MULTIPLY_ADD", beat, 0.5, 1.0), M("MULTIPLY_ADD", tw, 0.5, 0.75))),
                     M("MULTIPLY", M("MULTIPLY", rh, 13.0), M("MULTIPLY_ADD", amp, 0.6, 0.7)), pulsar)
             ang = M("ADD", sattr(g, "spike0"), M("MULTIPLY", M("MULTIPLY", t, 0.15), pulsar))
             crs = None
@@ -363,7 +399,7 @@ def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=40
                 f_ = M("MAXIMUM", M("SUBTRACT", 1.0, M("DIVIDE", M("ABSOLUTE", along), L)), 0.0)
                 s_ = M("MULTIPLY", M("POWER", f_, 1.5), prof)
                 crs = s_ if crs is None else M("ADD", crs, s_)
-            kb = lerp(g, M("MULTIPLY_ADD", beat, 0.5, 0.3), amp, pulsar)
+            kb = lerp(g, M("MULTIPLY", M("MULTIPLY_ADD", beat, 0.5, 0.3), M("MULTIPLY_ADD", tw, 1.3, 0.35)), amp, pulsar)
             crs = M("MULTIPLY", M("MULTIPLY", crs, M("MULTIPLY", hb, kb)), M("SUBTRACT", 1.0, sattr(g, "nocross")))
             # 冲击波（脉冲星）：拍点上从 2 倍星芯半径往外扩，0.5 秒散完
             rho = g.v("LENGTH", g.xyz(x, z, 0.0))
@@ -399,11 +435,13 @@ def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=40
                 s_ = M("MULTIPLY", M("MAXIMUM", M("SUBTRACT", 1.0, M("DIVIDE", M("ABSOLUTE", along), 0.06)), 0.0), prof)
                 crs = s_ if crs is None else M("ADD", crs, s_)
             rgb = g.v("SCALE", col, M("MULTIPLY", M("ADD", core, M("MULTIPLY", M("MULTIPLY", crs, big), 0.6)), sattr(g, "sv")))
-        emit(g, out, rgb, gain)
+        emit(g, out, rgb, gain, quiet)
         return mt
 
     obs = []
     for ob, part in ((trail, "trail"), (head, "head"), (flare, "flare"), (streak, "streak"), (spark, "spark")):
+        if ob is None:
+            continue
         ob.data.materials.append(shader(ob.name, part))
         mod = ob.modifiers.new("stars", "NODES")
         mod.node_group = nodes(ob.name, part)
@@ -414,10 +452,11 @@ def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=40
     return obs
 
 
-def galaxy(pic, audio, sky_mask, y=None, stars=14000, rmax=22.0, pitch=1.3, gain=2.5, arm_gain=1.0, seed=9):
+def galaxy(pic, audio, sky_mask, y=None, stars=14000, rmax=22.0, pitch=1.3, gain=2.5, arm_gain=1.0, seed=9, quiet=None):
     """月亮当星系核：两条对数螺旋旋臂铺到 rmax R（大半个天空），内暖外蓝，团块里带粉色的星团，盘面一层很淡的底光，
     核心一圈暖白的光；旋臂上 stars 颗小星按 1/r 差速转（内圈约 2 分钟一圈，和光点一样顺着 θ 减小的方向），各自闪。
-    sky_mask (h, w) 是天空的遮罩（1 是天空），地面、花田上不铺。摆在星环后面一点（y 默认天空的 0.975）。"""
+    sky_mask (h, w) 是天空的遮罩（1 是天空），地面、花田上不铺。摆在星环后面一点（y 默认天空的 0.975）。
+    quiet 见 quiet_mask()。"""
     mu, mv, mr = pic.meta["moon"]
     y = y or pic.y_sky * 0.975
     Rm = mr * pic.sx * y
@@ -482,7 +521,7 @@ def galaxy(pic, audio, sky_mask, y=None, stars=14000, rmax=22.0, pitch=1.3, gain
              M("GREATER_THAN", RR, 0.95))
     light = g.v("ADD", light, g.v("SCALE", (1.0, 0.92, 0.8), M("MULTIPLY", core, 0.16)))
     light = g.v("SCALE", light, g.sep(mask_at(g, uu, vv))[0])
-    emit(g, out, light, gain)
+    emit(g, out, light, gain, quiet)
     disc = pic.layer("galaxy_disc", np.full((2, 2), 1 / y, np.float32), mt, grid=24, margin=0.25)
 
     # ---- 旋臂上的小星
@@ -532,7 +571,7 @@ def galaxy(pic, audio, sky_mask, y=None, stars=14000, rmax=22.0, pitch=1.3, gain
     M = g.m
     rho = M("MULTIPLY", g.v("LENGTH", g.xyz(sattr(g, "ox"), sattr(g, "oy"), 0.0)), 0.035)
     k_ = M("ADD", fade(g, rho, 0.007, 0.003), M("MULTIPLY", gauss(g, rho, 0.016), 0.6))
-    emit(g, out, g.v("SCALE", sattr(g, "col", "Color"), M("MULTIPLY", k_, sattr(g, "sv"))), gain)
+    emit(g, out, g.v("SCALE", sattr(g, "col", "Color"), M("MULTIPLY", k_, sattr(g, "sv"))), gain, quiet)
     pts.data.materials.append(mt)
     print(f"galaxy: arms to {rmax} R, {stars} stars", flush=True)
     return disc, pts

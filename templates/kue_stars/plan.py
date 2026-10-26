@@ -244,7 +244,7 @@ def make(case, force=False):
     path = os.path.join(case, "plan.json")
     song = load_song(case)
     d = np.load(os.path.join(case, "audio", "bands.npz"))
-    dur = float(d["duration"])
+    dur = min(float(d["duration"]), float(song.get("end") or 1e9))      # song.json 的 end：成片到这一秒为止
     lines = lyric_lines(song.get("lyrics"))
     spans = sung_spans(lines)
     secs, b = make_sections(d, dur, spans)
@@ -303,7 +303,7 @@ def env(case):
     vals = dict(NAME=name, TITLE=song["title"], SUB=song.get("sub", ""), MIX=song["mix"],
                 VOCAL=song.get("vocal") or "-", LRC=song.get("lyrics") or "", TLRC=song.get("lyrics_cn") or "",
                 CREDITS=song.get("credits") or "", LYRICS_OFFSET=str(song.get("lyrics_offset", 0.15)),
-                LYRICS_STYLE=song.get("lyrics_style", "stagger"),
+                LYRICS_STYLE=song.get("lyrics_style", "ktv"), END=str(song.get("end") or ""),
                 SHOW=" ".join(str(x) for x in plan["show"]), CREDITS_AT=" ".join(str(x) for x in plan["credits_at"]),
                 COVER_AT=str(next((s[1] + 4.0 for s in plan["sections"] if s[0].startswith("chorus")), 60.0)))
     print("\n".join(f"{k}={shlex.quote(str(v))}" for k, v in vals.items()))

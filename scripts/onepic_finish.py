@@ -45,6 +45,7 @@ def main():
     ap.add_argument("--crf", type=int, default=17)
     ap.add_argument("--preset", default="slow")
     ap.add_argument("--start", type=float, default=0.0)
+    ap.add_argument("--end", type=float, help="成片到这一秒为止（整首的时间；比如结尾多出来的一句说话不要）")
     a = ap.parse_args()
 
     parts = sorted(glob.glob(os.path.join(a.chunks, "*.mp4")))
@@ -54,7 +55,7 @@ def main():
     master = os.path.join(a.chunks, "master.mkv")
     subprocess.run([ffmpeg(), "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy", master],
                    check=True)
-    dur = min(duration(master), duration(a.audio) - a.start)
+    dur = min(duration(master), duration(a.audio) - a.start, (a.end - a.start) if a.end else 1e9)
     print(f"{len(parts)} chunks -> {master}, {dur:.2f} s", flush=True)
 
     # 暗角：ffmpeg 的 vignette 在 4K 上每帧要 0.1 秒多，比 x264 还慢；先算一张黑色、四角渐不透明的图，叠上去

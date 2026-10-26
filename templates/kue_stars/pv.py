@@ -18,11 +18,13 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(1, os.path.join(ROOT, "scripts"))
+sys.path.insert(1, HERE)
 
 import bpy  # noqa: E402
 import numpy as np  # noqa: E402
 
 import kit  # noqa: E402
+import layout  # noqa: E402
 import onepic as op  # noqa: E402
 import onepic_fancy as of  # noqa: E402
 import star_ring as sr  # noqa: E402
@@ -187,6 +189,10 @@ def section_arrays(n, d):
     earl, earr = ear_moves(n, 3)
     k = int(0.3 * FPS) | 1
     pulse = np.convolve(np.pad(bass ** 2, (k // 2, k // 2), mode="edge"), np.ones(k) / k, "valid")
+
+    def slow(x, sec):        # 几秒的滑动平均：跟着段落慢慢变，不踩拍子
+        k_ = int(sec * FPS) | 1
+        return np.convolve(np.pad(x, (k_ // 2, k_ // 2), mode="edge"), np.ones(k_) / k_, "valid")
     beat, since = beat_columns(n, d)
     return {
         "energy": cols["energy"],
@@ -195,11 +201,13 @@ def section_arrays(n, d):
         "ring": cols["ring"],
         "wind": np.cumsum(speed) / FPS,
         "breeze": np.cumsum(0.85 + 0.3 * cols["energy"]) / FPS,
-        "stars": 0.85 + 0.45 * high,
+        # 天上的星（连同插画里光带上的光点）原来乘 0.85 + 0.45 × 高频，跟着镲片一下一下闪；现在只跟 4 秒平均的高频
+        "stars": 0.95 + 0.25 * slow(high, 4.0),
         "heart": bass ** 2,
         "pulse": pulse,
-        "halo": 0.06 + 0.04 * cols["energy"] + 0.08 * pulse * (0.4 + 0.6 * cols["energy"]),
-        "energy_glow": 0.5 + 0.7 * cols["energy"] + 0.15 * bass,
+        # 月晕、光束原来跟 0.3 秒平均的低音（心跳一样一下一下），现在跟 2 秒平均的，慢慢起伏
+        "halo": 0.06 + 0.04 * cols["energy"] + 0.08 * slow(bass ** 2, 2.0) * (0.4 + 0.6 * cols["energy"]),
+        "energy_glow": 0.5 + 0.7 * cols["energy"] + 0.15 * slow(bass, 2.0),
         "sway": (0.75 + 0.3 * cols["energy"]) * gust,
         "mouth": mouth_moves(n),
         "earl": earl,
@@ -298,7 +306,8 @@ def layers(pic, audio, moon_tex):
         name = L["name"]
         extra, shift = None, None
         if i == 0:
-            extra, shift = op.sky_extra(pic, audio, moon=moon_tex), (0.0, MOON_DOWN)
+            # 星星闪得慢一点：每秒 0.12–0.57 次（原来 0.25–1.65 次）
+            extra, shift = op.sky_extra(pic, audio, moon=moon_tex, rate=(0.12, 0.45)), (0.0, MOON_DOWN)
         elif name == "char" and "rim" in FX:
             mu, mv, _ = pic.meta["moon"]
             dd = np.array([mu - FACE[0], (FACE[1] - mv) / pic.aspect])
@@ -353,10 +362,16 @@ def build():
     sky = np.load(os.path.join(PREP, "sky.npy"))
     spec = d["spec"].astype(np.float32)
     if RING == "fancy":
+        # 尾巴不短于 1.75 rad（约 100°，外圈原来只有 50° 左右）；光点不要太大（大小上限 1.4 -> 1.1）；不要脉冲星；
+        # 不踩拍子（光头不在拍点上鼓、十字星芒不在拍点上亮），星芒按每颗自己 4–10 秒的周期慢慢明灭；光晕、星芒小一些；
+        # 不要横向光条；火星少一些、闪得慢；彗星的尾巴窄一些、暗一些。歌词那块（layout.QUIET）星环、星系压暗
         ring = sr.Ring(spec, d["loud"], FPS, float(d["grid_beat"]), float(d["grid_phase"]),
-                       radii=sr.FANCY_RADII, turns=sr.FANCY_TURNS)
-        of.star_ring_fancy(pic, ring, sr.fancy(ring), audio)
-        of.galaxy(pic, audio, sky)
+                       radii=sr.FANCY_RADII, turns=sr.FANCY_TURNS, tail_floor=1.75, size_max=1.1)
+        fx = sr.fancy(ring, kind_p=(0.24, 0.16, 0.14, 0.0, 0.12, 0.17, 0.17), spark_rate=14.0)
+        of.star_ring_fancy(pic, ring, fx, audio, beat_gain=0.0, twinkle=(4.0, 10.0), halo_k=0.6, six_k=(0.5, 0.5),
+                           cross_k=0.65, streak_gain=0.0, spark_flicker=7.0, trail={"comet": (1.7, 1.15)},
+                           quiet=layout.QUIET)
+        of.galaxy(pic, audio, sky, quiet=layout.QUIET)
     elif RING == "classic":
         op.star_ring(pic, sr.Ring(spec, d["loud"], FPS, float(d["grid_beat"]), float(d["grid_phase"])))
     if SONG.get("title_3d"):       # 默认标题是 title.py 画的 2D 叠加层：3D 字被抗锯齿和景深磨得发糊

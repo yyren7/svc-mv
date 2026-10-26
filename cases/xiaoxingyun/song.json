@@ -7,5 +7,7 @@
   "lyrics": "audio/lyrics.lrc",
   "lyrics_cn": null,
   "lyrics_offset": -0.25,
-  "credits": "credits.txt"
+  "credits": "credits.txt",
+  "end": 260.35,
+  "lyrics_style": "ktv"
 }

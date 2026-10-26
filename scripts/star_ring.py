@@ -141,7 +141,9 @@ class Ring:
     spec (F, 频段) 是对数频谱，loud (F,) 是响度，beat / beat0 是拍长和第 0 拍的时刻（秒）。radii / turns 换一套轨道
     （半径、每道转一圈的拍数，一样长），不给就是 RADII / TURN_BEATS；FANCY_RADII 是拉开间距的 11 道。"""
 
-    def __init__(self, spec, loud, fps, beat, beat0, seed=11, radii=None, turns=None):
+    def __init__(self, spec, loud, fps, beat, beat0, seed=11, radii=None, turns=None, tail_floor=None, size_max=1.4):
+        """tail_floor（rad）：尾巴至少这么长（外圈按 √(2/r) 收短后太短时用它，比如 1.75 ≈ 100°，三分之一圈不到）；
+        size_max：光点大小的上限（0.8 起，原来 1.4，大的那几颗亮得晃眼）。"""
         RADII = np.asarray(radii if radii is not None else globals()["RADII"], float)
         TURN_BEATS = turns if turns is not None else globals()["TURN_BEATS"]
         rng = np.random.default_rng(seed)
@@ -149,8 +151,11 @@ class Ring:
         self.sheen = SHEEN
         self.F = F = len(loud)
         K = len(RADII)
-        # 一圈放得下几颗：每颗占它尾巴的 FOLLOW 倍（尾巴平均是 TAIL × 1.23 rad × min(1, √(2/r))）
-        fit = 2 * np.pi / (FOLLOW * TAIL * 1.233 * np.minimum(1, (2.0 / RADII) ** 0.5))
+        # 一圈放得下几颗：每颗占它尾巴的 FOLLOW 倍（尾巴平均是 TAIL × 1.23 rad × min(1, √(2/r))，不短于 tail_floor）
+        mean_tail = TAIL * 1.233 * np.minimum(1, (2.0 / RADII) ** 0.5)
+        if tail_floor:
+            mean_tail = np.maximum(mean_tail, tail_floor * 1.1)
+        fit = 2 * np.pi / (FOLLOW * mean_tail)
         cmax = np.minimum(np.round(1.8 * RADII), np.floor(fit)).astype(int)
         self.track = np.repeat(np.arange(K), cmax + 3)
         n = self.n = len(self.track)
@@ -170,10 +175,12 @@ class Ring:
             idx = np.flatnonzero(self.track == k)
             m[idx] = rng.permutation(np.geomspace(0.6, 1.6, len(idx))) * rng.uniform(0.97, 1.03, len(idx))
         self.omega = 2 * np.pi / (np.array(TURN_BEATS, float)[self.track] * beat) * m
-        self.size = 0.8 + 0.6 * rng.random(n) ** 2
+        self.size = 0.8 + (size_max - 0.8) * rng.random(n) ** 2
         # 尾巴是一段弧（rad）：TAIL × 57°–97°，2 R 以外的轨道按 √(2/r) 收短，外圈的弧不至于拖过半个画面。
-        # 按角度定，光点慢下来尾巴也一样长
+        # 按角度定，光点慢下来尾巴也一样长；给了 tail_floor 就不短于它（大的长两成）
         self.L = TAIL * (1.0 + 0.7 * (self.size - 0.8) / 0.6) * np.minimum(1, (2.0 / self.r) ** 0.5)
+        if tail_floor:
+            self.L = np.maximum(self.L, tail_floor * (1.0 + 0.2 * (self.size - 0.8) / max(size_max - 0.8, 1e-6)))
         nb = spec.shape[1]
         edges = np.round(np.linspace(0, nb, K + 1)).astype(int)
         raw = np.stack([spec[:, edges[k]:edges[k + 1]].mean(1) for k in range(K)])
@@ -265,7 +272,7 @@ KIND_P = (0.20, 0.15, 0.17, 0.10, 0.14, 0.12, 0.12)
 WARM = (1.0, 0.78, 0.45)
 
 
-def fancy(ring, seed=7, spark_rate=40.0):
+def fancy(ring, seed=7, spark_rate=40.0, kind_p=None):
     """花哨样式里每颗光点的样式和参数（onepic.star_ring_fancy 用）：
     - kind：KINDS 里的一种，按 KIND_P 随机（固定种子）。plain 普通；twin 双子星（两颗一冷一暖互绕，周期 tw_p 秒，
       尾巴按当时的相位拧成两股）；spark 火花尾（一路往后掉火星）；pulsar 脉冲星（十字星芒踩着拍子亮、拍点上一圈冲击波）；
@@ -274,11 +281,13 @@ def fancy(ring, seed=7, spark_rate=40.0):
     - col2：双子星另一颗的颜色（偏蓝的配暖的，偏暖的配蓝的）；spike0：星芒的起始角度；hue0：棱彩尾的起始色相。
     - sparks：整首的火星，每颗火花尾的光点每秒 spark_rate 个（指数分布的间隔），各自的光点 li、出生帧 fb、
       寿命 life（秒）、往后飘的速度 back、往外的速度 side（R / 秒）、闪烁相位 ph、大的 big（四分之一，带小星芒）、
-      颜色（七成暖金偏本色，三成随机色相）。"""
+      颜色（七成暖金偏本色，三成随机色相）。
+    kind_p：各种的比例（和 KINDS 对应，自动归一），不给是 KIND_P；某种给 0 就不出（比如不要脉冲星）。"""
     rng = np.random.default_rng(seed)
     n = ring.n
     col = ring.color.astype(np.float32)
-    out = dict(kind=rng.choice(len(KINDS), n, p=KIND_P), tw_p=rng.uniform(0.7, 1.5, n), tw_ph=rng.uniform(0, 2 * np.pi, n),
+    p = np.asarray(kind_p if kind_p is not None else KIND_P, float)
+    out = dict(kind=rng.choice(len(KINDS), n, p=p / p.sum()), tw_p=rng.uniform(0.7, 1.5, n), tw_ph=rng.uniform(0, 2 * np.pi, n),
                spike0=rng.uniform(0, np.pi / 2, n), hue0=rng.random(n))
     out["col2"] = np.where((col[:, 2] > col[:, 0])[:, None], np.array(WARM, np.float32)[None, :],
                            np.array((0.55, 0.75, 1.0), np.float32)[None, :])
