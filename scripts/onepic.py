@@ -414,11 +414,12 @@ def painted(name, color, alpha=None, extra=None, shift=None):
 
 
 def sky_extra(pic, audio, stars="stars.png", star_gain=1.4, star_color=(0.75, 0.86, 1.0),
-              halo_color=(0.55, 0.72, 1.0), moon=None, rate=(0.25, 1.4)):
+              halo_color=(0.55, 0.72, 1.0), moon=None, rate=(0.25, 1.4), peak=3.0):
     """天空上加两样：星星按各自的相位、频率闪（stars.png：R 亮度，G 相位，B 频率），乘以 audio 的 "stars" 列；
     月亮外面一圈光晕，强度是 audio 的 "halo" 列。moon 是贴图里月亮的 (u, v, r)，默认 meta 的；贴图挪过
     （painted 的 shift）而 meta 改成了画面里的位置时，把贴图里的传进来。
-    rate = (最慢, 加上多少)：每颗星每秒闪 rate[0] + rate[1] × B 次（默认 0.25–1.65 次）。"""
+    rate = (最慢, 加上多少)：每颗星每秒闪 rate[0] + rate[1] × B 次（默认 0.25–1.65 次）；
+    peak：明灭波形的尖锐程度（正弦的 peak 次方，默认 3：多数时候原样或稍暗、偶尔猛地一亮；1 是平滑的起伏）。"""
     moon = moon or pic.meta.get("moon")
 
     def f(g, uv, col):
@@ -429,7 +430,7 @@ def sky_extra(pic, audio, stars="stars.png", star_gain=1.4, star_color=(0.75, 0.
         t = audio.seconds(g)
         ph = g.m("ADD", g.m("MULTIPLY", t, g.m("MULTIPLY_ADD", freq, rate[1], rate[0])), phase)
         s = g.m("MULTIPLY_ADD", g.m("SINE", g.m("MULTIPLY", ph, TAU)), 0.5, 0.5)
-        tw = g.m("MULTIPLY_ADD", g.m("POWER", s, 3.0), 1.3, -0.12)   # 多数时候原样或稍暗，偶尔一亮
+        tw = g.m("MULTIPLY_ADD", g.m("POWER", s, peak), 1.3, -0.12)   # peak 3：多数时候原样或稍暗，偶尔一亮
         k = g.m("MULTIPLY", g.m("MULTIPLY", tw, amp), g.m("MULTIPLY", audio.at(g, "stars"), star_gain))
         col = g.v("MULTIPLY_ADD", star_color, g.xyz(k, k, k), col)
         if moon:
@@ -618,7 +619,7 @@ def ico(name, radius=1.0, subdiv=2, hide=True):
 # ---------------------------------------------------------------- Geometry Nodes：漂流的粒子
 
 def drift(name, src, audio, count, box_min, box_size, wind, size, seed=0, size_var=0.4, flutter=0.15,
-          rate=0.7, spin=1.2, density="density", clock="wind", edge=0.05, tilt=0.0):
+          rate=0.7, spin=1.2, density="density", clock="wind", edge=0.05, tilt=0.0, flick_rate=(1.2, 3.0)):
     """count 个粒子在一个盒子里漂：位置 = 随机初始位置 + wind × 时钟 + 摆动，出了盒子从对面回来（盒子要比画面大，
     回卷才看不见）。时钟是 audio 的 clock 列（风大时走得快的“风时间”），density 列（0..1）决定开着的粒子比例。
     tilt：盒子沿 Y 每米把 Z 抬高多少（贴着往远处降下去的花田飘）。
@@ -681,7 +682,8 @@ def drift(name, src, audio, count, box_min, box_size, wind, size, seed=0, size_v
     g.link(rot.outputs[0], iop.inputs["Rotation"])
     g.link(g.xyz(scale, scale, scale), iop.inputs["Scale"])
     geo = iop.outputs[0]
-    flick = g.m("MULTIPLY_ADD", g.m("SINE", g.m("ADD", g.m("MULTIPLY", t, g.m("MULTIPLY_ADD", rnd, 3.0, 1.2)),
+    flick = g.m("MULTIPLY_ADD", g.m("SINE", g.m("ADD", g.m("MULTIPLY", t, g.m("MULTIPLY_ADD", rnd, flick_rate[1],
+                                                                              flick_rate[0])),
                                                  ph_z)), 0.5, 0.5)
     for nm, val in (("rnd", rnd), ("flick", flick)):
         st = g.node("GeometryNodeStoreNamedAttribute")

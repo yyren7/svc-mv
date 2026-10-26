@@ -452,11 +452,12 @@ def star_ring_fancy(pic, ring, fx, audio, y=None, tail_pts=64, gain=2.5, rows=40
     return obs
 
 
-def galaxy(pic, audio, sky_mask, y=None, stars=14000, rmax=22.0, pitch=1.3, gain=2.5, arm_gain=1.0, seed=9, quiet=None):
+def galaxy(pic, audio, sky_mask, y=None, stars=14000, rmax=22.0, pitch=1.3, gain=2.5, arm_gain=1.0, seed=9, quiet=None,
+           twinkle=2.3):
     """月亮当星系核：两条对数螺旋旋臂铺到 rmax R（大半个天空），内暖外蓝，团块里带粉色的星团，盘面一层很淡的底光，
     核心一圈暖白的光；旋臂上 stars 颗小星按 1/r 差速转（内圈约 2 分钟一圈，和光点一样顺着 θ 减小的方向），各自闪。
     sky_mask (h, w) 是天空的遮罩（1 是天空），地面、花田上不铺。摆在星环后面一点（y 默认天空的 0.975）。
-    quiet 见 quiet_mask()。"""
+    quiet 见 quiet_mask()；twinkle 是小星明灭的角频率（rad/s，默认 2.3，约 2.7 秒一次）。"""
     mu, mv, mr = pic.meta["moon"]
     y = y or pic.y_sky * 0.975
     Rm = mr * pic.sx * y
@@ -552,7 +553,7 @@ def galaxy(pic, audio, sky_mask, y=None, stars=14000, rmax=22.0, pitch=1.3, gain
     u = M("ADD", mu, M("DIVIDE", M("MULTIPLY", M("MULTIPLY", r, sa), mr), 1.0))
     v = M("ADD", mv, M("MULTIPLY", M("MULTIPLY", r, ca), mr * pic.aspect))
     sky = g.sep(mask_at(g, u, v, "GeometryNodeImageTexture"))[0]
-    tw = M("MULTIPLY_ADD", M("SINE", M("MULTIPLY_ADD", sec, 2.3, attr("tw"))), 0.4, 0.6)
+    tw = M("MULTIPLY_ADD", M("SINE", M("MULTIPLY_ADD", sec, twinkle, attr("tw"))), 0.4, 0.6)
     center = g.v("ADD", tuple(cp), g.xyz(M("MULTIPLY", M("MULTIPLY", r, sa), Rp), 0.0,
                                           M("MULTIPLY", M("MULTIPLY", r, ca), -Rp)))
     pos = g.v("ADD", center, g.xyz(M("MULTIPLY", attr("ox"), 0.035 * Rp), 0.0, M("MULTIPLY", attr("oy"), 0.035 * Rp)))

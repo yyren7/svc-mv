@@ -306,8 +306,8 @@ def layers(pic, audio, moon_tex):
         name = L["name"]
         extra, shift = None, None
         if i == 0:
-            # 星星闪得慢一点：每秒 0.12–0.57 次（原来 0.25–1.65 次）
-            extra, shift = op.sky_extra(pic, audio, moon=moon_tex, rate=(0.12, 0.45)), (0.0, MOON_DOWN)
+            # 星星（连同右边光带上的光点）平滑地慢慢明灭：每颗 3–16 秒一次（原来 0.6–4 秒），不再偶尔猛地一亮
+            extra, shift = op.sky_extra(pic, audio, moon=moon_tex, rate=(0.06, 0.25), peak=1.0), (0.0, MOON_DOWN)
         elif name == "char" and "rim" in FX:
             mu, mv, _ = pic.meta["moon"]
             dd = np.array([mu - FACE[0], (FACE[1] - mv) / pic.aspect])
@@ -346,11 +346,12 @@ def build():
     petal = op.petal_mesh()
     petal.data.materials.append(op.petal_mat())
     op.drift("petals", petal, audio, 1400, (-5.0, 0.45, -3.0), (10.0, 7.5, 8.0), (0.30, -0.05, -0.10), 1.0,
-             seed=1, size_var=0.45, flutter=0.12, rate=0.9, spin=1.6, density="density")
+             seed=1, size_var=0.45, flutter=0.12, rate=0.9, spin=1.0, density="density")   # 转得慢些，翻面时不一闪一闪
     mote = op.ico("mote_src", 1.0, 2)
     mote.data.materials.append(op.glow_mat("mote", (0.80, 0.92, 1.0), 2.6, attr="flick"))
     op.drift("motes", mote, audio, 320, (-9.0, 2.0, -0.35), (18.0, 22.0, 1.3), (0.02, -0.02, 0.05), 0.006,
-             seed=2, size_var=0.5, flutter=0.08, rate=0.5, spin=0.0, density="motes", tilt=-0.12)
+             seed=2, size_var=0.5, flutter=0.08, rate=0.5, spin=0.0, density="motes", tilt=-0.12,
+             flick_rate=(0.3, 0.75))      # 光尘 8–20 秒明灭一次（原来 1.5–5 秒）
     if "bokeh" in FX:
         bp = op.petal_mesh("bokeh_src")
         # 原来 26 片、亮度 0.8、尺寸 2.5，常从脸前、头顶飘过，晃眼：减到 14 片、暗一些、小两成，飘到头和上半身前面
@@ -358,7 +359,8 @@ def build():
         face_win = ((FACE[0] - 0.5) * 1.07 + 0.5, 1 - ((FACE[1] - 0.48) * 1.07 + 0.48))
         bp.data.materials.append(op.bokeh_petal_mat(strength=0.5, avoid=(face_win[0], face_win[1] - 0.06, 0.22, 0.5, 0.2)))
         op.drift("bokeh", bp, audio, 14, (-0.85, 0.5, -0.5), (1.7, 0.8, 1.0), (0.025, 0.0, 0.035), 2.0,
-                 seed=5, size_var=0.35, flutter=0.03, rate=0.35, spin=0.5, density="motes", edge=0.12)
+                 seed=5, size_var=0.35, flutter=0.03, rate=0.35, spin=0.5, density="motes", edge=0.12,
+                 flick_rate=(0.3, 0.75))
     sky = np.load(os.path.join(PREP, "sky.npy"))
     spec = d["spec"].astype(np.float32)
     if RING == "fancy":
@@ -371,7 +373,7 @@ def build():
         of.star_ring_fancy(pic, ring, fx, audio, beat_gain=0.0, twinkle=(4.0, 10.0), halo_k=0.6, six_k=(0.5, 0.5),
                            cross_k=0.65, streak_gain=0.0, spark_flicker=7.0, trail={"comet": (1.7, 1.15)},
                            quiet=layout.QUIET)
-        of.galaxy(pic, audio, sky, quiet=layout.QUIET)
+        of.galaxy(pic, audio, sky, quiet=layout.QUIET, twinkle=0.8)      # 小星 8 秒明灭一次（原来 2.7 秒）
     elif RING == "classic":
         op.star_ring(pic, sr.Ring(spec, d["loud"], FPS, float(d["grid_beat"]), float(d["grid_phase"])))
     if SONG.get("title_3d"):       # 默认标题是 title.py 画的 2D 叠加层：3D 字被抗锯齿和景深磨得发糊
