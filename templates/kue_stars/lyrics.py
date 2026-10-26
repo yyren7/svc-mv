@@ -31,8 +31,8 @@ META = re.compile(r"^(作词|作曲|编曲|制作人|演唱|原唱|词|曲|by)\s
 GAP = 5.0                   # 前一句唱完到这句开唱超过这么多秒，算新的一段（两行重新从上面那行起）
 FADE_IN, DISSOLVE = 0.45, 0.7
 LEAD = 0.05                 # 走字比 LRC 的时间早一点起
-UNSUNG, SUNG = (205, 215, 240), (255, 255, 255)
-GLOW, GLOW2, GOLD = (190, 220, 255), (110, 160, 255), (255, 236, 196)
+UNSUNG, SUNG = (185, 200, 232), (255, 255, 255)
+GLOW, GLOW2, GOLD = (196, 224, 255), (96, 150, 255), (255, 236, 196)
 DUST = ((235, 242, 255), (180, 210, 255), (255, 232, 190))
 
 G = {}
@@ -206,11 +206,11 @@ def prep(i):
                   ph=rng.uniform(0, 6.3, n_exit), col=rng.integers(0, len(DUST), n_exit))
     # 走字前沿撒的星尘：每秒 24 颗
     dur = ln["te"] - ln["ts"]
-    n_tr = max(1, int(dur * 24))
+    n_tr = max(1, int(dur * 32))
     te_k = ln["ts"] + np.sort(rng.uniform(0, dur, n_tr))
     trail_p = dict(t=te_k, vx=rng.normal(-0.25, 0.25, n_tr) * em, vy=-rng.uniform(0.15, 0.7, n_tr) * em,
                    dy=rng.normal(0, 0.18, n_tr) * em, life=rng.uniform(0.6, 1.3, n_tr),
-                   size=rng.uniform(0.03, 0.08, n_tr) * em, ph=rng.uniform(0, 6.3, n_tr),
+                   size=rng.uniform(0.04, 0.10, n_tr) * em, ph=rng.uniform(0, 6.3, n_tr),
                    col=rng.integers(0, len(DUST), n_tr))
     ox = L.LYRIC_X[r] * W - pad - G["rx"]
     oy = L.LYRIC_Y[r] * H - pad - up - G["ry"]
@@ -262,9 +262,9 @@ def draw_line(canvas, i, t):
             tw1 = 0.5 + 0.5 * math.sin(t * 0.9 + i)
             tw2 = 0.5 + 0.5 * math.sin(t * 0.67 + 2.0 + i)
             layer(dst, d["shade"][cut] * 0.40 * al, (0, 0, 0))
-            layer(dst, M[cut] * (1 - ww) * 0.55 * al, UNSUNG)
-            layer(dst, d["glow2"][cut] * ww * (0.45 + 0.5 * bb) * al, GLOW2)
-            layer(dst, d["glow"][cut] * ww * (0.65 + 0.35 * bb) * al, GLOW)
+            layer(dst, M[cut] * (1 - ww) * 0.45 * al, UNSUNG)
+            layer(dst, d["glow2"][cut] * ww * (0.75 + 0.5 * bb) * al, GLOW2)
+            layer(dst, d["glow"][cut] * ww * (0.95 + 0.4 * bb) * al, GLOW)
             layer(dst, M[cut] * ww * al, SUNG)
             layer(dst, M[cut] * ww * bb * 0.55 * al, GOLD)
             layer(dst, (d["sparks"][0][cut] * tw1 + d["sparks"][1][cut] * tw2) * ww * 0.9 * al, SUNG)
@@ -280,13 +280,13 @@ def draw_line(canvas, i, t):
             a = (1 - age / tr["life"][j]) ** 2 * (0.6 + 0.4 * math.sin(age * 3.0 + tr["ph"][j])) * (1 - dis)
             px = ox + x + tr["vx"][j] * age
             py = oy + d["base"] - 0.45 * em + tr["dy"][j] + tr["vy"][j] * age
-            over(canvas, px, py, dot(tr["size"][j]), DUST[tr["col"][j]], 0.85 * a)
+            over(canvas, px, py, dot(tr["size"][j]), DUST[tr["col"][j]], a)
     if ln["ts"] <= t <= ln["te"] + 0.3 and al > 0.003:
         k = 1 - ease((t - ln["te"]) / 0.3)
         hx = float(front(ln, d, min(t, ln["te"] - 1e-3)))
-        s = star(0.42 * em * (0.9 + 0.1 * math.sin(t * 1.3)))
-        over(canvas, ox + hx, oy + d["base"] - 0.45 * em, s, (240, 246, 255), 0.95 * k * al)
-        over(canvas, ox + hx, oy + d["base"] - 0.45 * em, dot(0.16 * em), GLOW2, 0.5 * k * al)
+        s = star(0.62 * em * (0.9 + 0.1 * math.sin(t * 1.3)))
+        over(canvas, ox + hx, oy + d["base"] - 0.45 * em, dot(0.26 * em), GLOW2, 0.55 * k * al)
+        over(canvas, ox + hx, oy + d["base"] - 0.45 * em, s, (242, 248, 255), k * al)
     # 唱完被换掉：字碎成星尘往上飘
     if t > ln["d"]:
         ex = d["exit"]
