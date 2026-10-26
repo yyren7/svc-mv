@@ -537,6 +537,7 @@ def props():
         "float_sun": (al("float_sun", (31.9, -0.5, 6.0), FLOAT_C, 3.0, 8000, 900), 900.0),
         "cover": (al("cover", (32.1, 0.0, 6.5), (32.1, 0.0, 0.0), 4.0, 9000, 500, color="#9FB2FF"), 500.0),
     }
+    S.lights["refl_rose"][0].visible_glossy = False   # not two red lamps in the water under her
     for i, (target, z) in enumerate((((2, 0.78, 3.95), 0), ((2, 0.78, 3.05), 0), ((2, -0.3, 3.9), 0),
                                      ((2, -0.3, 2.2), 0))):
         S.lights[f"kv{i}"] = (al(f"kv{i}", Vector(target) + Vector((-2.6, 0, 2.0)), target, 0.5, 5200, 60,
@@ -1190,7 +1191,7 @@ def p7_ura(u, t, b):
         night(cold=0.1, rose=0.3)
         light("refl_cold")
         light("refl_rose")
-        look(REFL + Vector((-3.7, 0, 0.1)), REFL + Vector((0, 0, 0.1)), lens=16, fstop=8)
+        look(REFL + Vector((-3.7, 0, 0.1)), REFL + Vector((0, 0, 0.1)), lens=14, fstop=8)
     elif key:
         card(key, 1.05 + 0.08 * v)
     else:                                                                       # the hall, upside down
@@ -1204,7 +1205,7 @@ def p7_reflect(u, t, b):
     light("refl_rose")
     flash = t - at(math.floor(b)) < 2 / FPS                                     # once a bar the reflection is 表 again
     S.refl_ura.visible_glossy, S.refl_omote.visible_glossy = not flash, flash
-    look(REFL + Vector((-3.7, 0.3 * u, 0.1)), REFL + Vector((0, 0, 0.1)), lens=16 + 2 * u, fstop=8)   # in front of float_print
+    look(REFL + Vector((-3.7, 0.3 * u, 0.1)), REFL + Vector((0, 0, 0.1)), lens=14 + 1.5 * u, fstop=8)   # in front of float_print
 
 
 def p7_crack(u, t, b):
