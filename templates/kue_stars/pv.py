@@ -366,11 +366,13 @@ def build():
     sky = np.load(os.path.join(PREP, "sky.npy"))
     spec = d["spec"].astype(np.float32)
     if RING == "fancy":
+        # 轨道用不规则的 14 道（ORBIT_*：间距忽紧忽松、挨着的一顺一逆、长尾疏道和短尾密道相间）；
         # 尾巴不短于 1.75 rad（约 100°，外圈原来只有 50° 左右）；光点不要太大（大小上限 1.4 -> 1.1）；不要脉冲星；
         # 不踩拍子（光头不在拍点上鼓、十字星芒不在拍点上亮），星芒按每颗自己 4–10 秒的周期慢慢明灭；光晕、星芒小一些；
         # 不要横向光条；火星少一些、闪得慢；彗星的尾巴窄一些、暗一些。歌词那块（layout.QUIET）星环、星系压暗
         ring = sr.Ring(spec, d["loud"], FPS, float(d["grid_beat"]), float(d["grid_phase"]),
-                       radii=sr.FANCY_RADII, turns=sr.FANCY_TURNS, tail_floor=1.75, size_max=1.1)
+                       radii=sr.ORBIT_RADII, turns=sr.ORBIT_TURNS, dirs=sr.ORBIT_DIRS, tail_k=sr.ORBIT_TAIL_K,
+                       dens=2.4, tail_floor=1.75, size_max=1.1)
         fx = sr.fancy(ring, kind_p=(0.24, 0.16, 0.14, 0.0, 0.12, 0.17, 0.17), spark_rate=14.0)
         of.star_ring_fancy(pic, ring, fx, audio, beat_gain=0.0, twinkle=(4.0, 10.0), halo_k=0.6, six_k=(0.5, 0.5),
                            cross_k=0.65, streak_gain=0.0, spark_flicker=7.0, trail={"comet": (1.7, 1.15)},

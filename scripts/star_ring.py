@@ -31,6 +31,13 @@ CHASED = 12.0                   # 被追着的另外平均这么多秒就熄灭�
 # 拉开间距的一套（花哨样式用）：11 道，内圈从 1.55 R 起、间距越往外越大；原来里面几道两两挤在一起（1.40 / 1.60、1.96 / 2.16）
 FANCY_RADII = (1.55, 2.05, 2.65, 3.35, 4.15, 5.05, 6.05, 7.15, 8.35, 9.65, 11.0)
 FANCY_TURNS = (16, 24, 12, 32, 20, 24, 28, 36, 32, 44, 56)
+# 不规则的一套（kue_stars 用）：14 道，间距忽紧忽松（紧的两道 0.25–0.35 R 挨着，宽的空当 1.0–1.25 R），像土星环那样一束一束；
+# 挨着的两道一顺一逆（DIRS：1 顺时针、-1 逆时针，14 道里 5 道逆着转）；每道一种疏密（TAIL_K：尾巴乘这么多，尾巴短的
+# 一圈放得下更多颗）：1 是长尾的疏道，0.45–0.7 是短尾的密道，最外两道长尾（约 100°–120°）
+ORBIT_RADII = (1.50, 1.78, 2.45, 2.70, 3.55, 4.40, 4.75, 5.80, 6.55, 7.70, 8.05, 9.30, 10.45, 11.40)
+ORBIT_TURNS = (16, 20, 24, 18, 28, 32, 24, 36, 30, 40, 34, 48, 44, 56)
+ORBIT_DIRS = (1, -1, 1, -1, 1, 1, -1, 1, 1, 1, -1, 1, 1, -1)
+ORBIT_TAIL_K = (1.0, 0.6, 1.0, 0.5, 1.0, 1.0, 0.5, 1.0, 0.7, 1.0, 0.45, 1.0, 1.0, 1.0)
 
 
 def smooth(x, k):
@@ -141,9 +148,12 @@ class Ring:
     spec (F, 频段) 是对数频谱，loud (F,) 是响度，beat / beat0 是拍长和第 0 拍的时刻（秒）。radii / turns 换一套轨道
     （半径、每道转一圈的拍数，一样长），不给就是 RADII / TURN_BEATS；FANCY_RADII 是拉开间距的 11 道。"""
 
-    def __init__(self, spec, loud, fps, beat, beat0, seed=11, radii=None, turns=None, tail_floor=None, size_max=1.4):
+    def __init__(self, spec, loud, fps, beat, beat0, seed=11, radii=None, turns=None, tail_floor=None, size_max=1.4,
+                 dirs=None, tail_k=None, dens=1.8):
         """tail_floor（rad）：尾巴至少这么长（外圈按 √(2/r) 收短后太短时用它，比如 1.75 ≈ 100°，三分之一圈不到）；
-        size_max：光点大小的上限（0.8 起，原来 1.4，大的那几颗亮得晃眼）。"""
+        size_max：光点大小的上限（0.8 起，原来 1.4，大的那几颗亮得晃眼）；
+        dirs：每道的方向（1 顺时针、-1 逆时针），不给全是顺时针；tail_k：每道的尾巴再乘这么多（短尾的密道）；
+        dens：一道最多亮几颗是 dens × r（还要一圈放得下）。"""
         RADII = np.asarray(radii if radii is not None else globals()["RADII"], float)
         TURN_BEATS = turns if turns is not None else globals()["TURN_BEATS"]
         rng = np.random.default_rng(seed)
@@ -152,12 +162,14 @@ class Ring:
         self.F = F = len(loud)
         K = len(RADII)
         # 一圈放得下几颗：每颗占它尾巴的 FOLLOW 倍（尾巴平均是 TAIL × 1.23 rad × min(1, √(2/r))，不短于 tail_floor）
+        TK = np.asarray(tail_k if tail_k is not None else np.ones(K), float)
         mean_tail = TAIL * 1.233 * np.minimum(1, (2.0 / RADII) ** 0.5)
         if tail_floor:
             mean_tail = np.maximum(mean_tail, tail_floor * 1.1)
-        fit = 2 * np.pi / (FOLLOW * mean_tail)
-        cmax = np.minimum(np.round(1.8 * RADII), np.floor(fit)).astype(int)
+        fit = 2 * np.pi / (FOLLOW * mean_tail * TK)
+        cmax = np.minimum(np.round(dens * RADII), np.floor(fit)).astype(int)
         self.track = np.repeat(np.arange(K), cmax + 3)
+        self.dir = np.asarray(dirs if dirs is not None else np.ones(K), float)[self.track]
         n = self.n = len(self.track)
         self.r = RADII[self.track]
         track_color = [tuple(a + (b - a) * k / (K - 1) for a, b in zip(INNER, OUTER)) for k in range(K)]
@@ -181,6 +193,7 @@ class Ring:
         self.L = TAIL * (1.0 + 0.7 * (self.size - 0.8) / 0.6) * np.minimum(1, (2.0 / self.r) ** 0.5)
         if tail_floor:
             self.L = np.maximum(self.L, tail_floor * (1.0 + 0.2 * (self.size - 0.8) / max(size_max - 0.8, 1e-6)))
+        self.L = self.L * TK[self.track]
         nb = spec.shape[1]
         edges = np.round(np.linspace(0, nb, K + 1)).astype(int)
         raw = np.stack([spec[:, edges[k]:edges[k + 1]].mean(1) for k in range(K)])
@@ -242,6 +255,8 @@ class Ring:
 
         self.alive = lifecycle(rng, F, self.track, 0.3 + (cmax[:, None] - 0.3) * level, beat_frames, beat, fps,
                                per_beat=4, life=LIFE, drop=20.0, protect=10.0, tick=tick, place=place)
+        # 上面都按顺时针算（θ 减小）；逆时针的几道整道镜像过来（step 是走过的角度，不分方向）
+        th *= self.dir[:, None]
 
     def tail_frames(self):
         """每颗光点逐帧的尾巴往前几帧 (n, F)：往前走过 L 那么长的弧要几帧；不往前超过这次出现的那一帧。"""
@@ -301,7 +316,7 @@ def fancy(ring, seed=7, spark_rate=40.0, kind_p=None):
         warm = 0.6 * np.array(WARM) + 0.4 * col[i]
         c = np.where((hue < 0.7)[:, None], warm[None, :], hsv(hue, 0.5))
         for key, v in (("li", np.full(k, i)), ("fb", t), ("life", rng.uniform(0.5, 1.6, k)),
-                       ("back", rng.uniform(0.1, 0.8, k)), ("side", rng.normal(0, 0.3, k)),
+                       ("back", rng.uniform(0.1, 0.8, k) * getattr(ring, "dir", np.ones(n))[i]), ("side", rng.normal(0, 0.3, k)),
                        ("ph", rng.uniform(0, 6.3, k)), ("big", (rng.random(k) < 0.25).astype(float)), ("col", c)):
             sp[key].append(v)
     out["sparks"] = {k: (np.concatenate(v) if v else np.zeros((0, 3) if k == "col" else 0)).astype(np.float32)
