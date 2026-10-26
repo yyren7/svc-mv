@@ -43,7 +43,7 @@ Style frames (the 2D side): ![](renders/frame_A_post.png) ![](renders/frame_B_po
 | `scripts/sample.py` | 15-second kinetic sample of the chorus |
 | `scripts/animatic.py` | The whole PV at low resolution: every set's shots moving to the song, cut on the downbeats |
 | `scripts/animatic_cut.py` | Joins the animatic's frames with the song into an MP4 |
-| `scripts/animatic_v4.py` | v4: the picture animatic. Section 5 of script v4 cut on the downbeats, round 2's illustrations in the 2D shots and stand-ins in the 3D ones (her prints in a row over black water, a sky, the hall's stills), every frame labelled with its section, shot, bar and the sung line |
+| `scripts/animatic_v4.py` | v4: the animatic in 3D. Section 5 of script v4 shot by shot in `v4_hall.py`'s hall, cut on the downbeats and rendered in Cycles at 640 px and 16 samples. The 3D shots carry the script's effects in the scene (lamps on the downbeats, KV' showing through, 表 and 裏 cut out of the KV, prints turning, lifting, wet and torn, ripples, rose ink as a volume, rain, cracks, shards, the walls falling to the sky, flying paper, the line-art flash, the roll, the dolly zoom, the Dutch angle, the reflection that is her 裏); the 2D shots are round 2's illustrations on a card filling the frame. Every frame is labelled with its section, shot, bar and time |
 | `scripts/v4_hall.py` | v4: the hall's look, stills at dawn and in rose light (`renders/v4_hall/`, dawn and rose in separate runs). Poly Haven plaster, concrete, lamps and pipes; the prints carry KV 211 with KV' behind it and round 2's pictures. In rose light a cold light on the fronts keeps the 表 readable over the 裏; without it only the 表's window frames show, and read as stripes |
 
 The sets show each other's pictures as prints: S1's polaroids are the S3 stills, and the style frames hang in
@@ -68,12 +68,16 @@ FPS=12 SAMPLES=24 WIDTH=640 $B -b --factory-startup -P $C/scripts/animatic.py --
 
 The animatic's parts are `title s1 s2 s3 s4 s5_omote s5_ura s6`. They can run side by side into the same folder.
 
-The v4 picture animatic runs on the server, where ComfyUI's venv has PIL (about two minutes for the whole song;
-`STEP=12` draws one frame a second, `animatic_v4.py <dir> 35 47` only bars 35–47):
+The v4 animatic renders on the server's GPU. Frames already in the folder are skipped, so bar ranges run side by side
+into one folder; delete the folder's frames before a full rerun. `AT=0.5` renders one frame from the middle of every
+shot (37 frames, about a minute), `ONLY=P0,P7` only those sections, `DRY=1` builds and poses every frame without
+rendering and saves the .blend.
 
 ```sh
+B=/root/autodl-tmp/tools/blender-5.2.2-linux-x64/blender
 P=/root/autodl-tmp/ComfyUI/venv/bin/python
-$P $C/scripts/animatic_v4.py $C/renders/animatic_v4/frames
+$B -b --factory-startup -P $C/scripts/animatic_v4.py -- $C/renders/animatic_v4/frames -3 58 &
+$B -b --factory-startup -P $C/scripts/animatic_v4.py -- $C/renders/animatic_v4/frames 58 120
 $P $C/scripts/animatic_cut.py $C/renders/animatic_v4/frames $C/audio/urao_mix.m4a $C/renders/animatic_v4/animatic_v4.mp4 12
 ```
 
