@@ -507,7 +507,12 @@ def props():
     S.float_print = V.sheet("float_print", 34.0, -4.0, V.print_mat("v4_q1_211", "v4_u4_211"), seed=94, top=0.012)
     S.float_print.rotation_euler = (0.0, math.pi / 2, 0.0)        # lying on the water, face up, its top at +X
     S.refl_omote = V.sheet("refl_omote", REFL.x, REFL.y, V.print_mat("v4_q1_211", "v4_u4_211"), seed=95, top=2.25)
-    S.refl_ura = V.sheet("refl_ura", REFL.x - 0.002, REFL.y, V.print_mat("v4_u4_211", "v4_q1_211"), seed=95, top=2.25)
+    glow, nt, out = V._nodes("refl_ura")             # lit by itself: the water reflects only a few percent
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Strength"].default_value = 8.0
+    nt.links.new(V._picture(nt, "v4_u4_211"), em.inputs["Color"])
+    nt.links.new(em.outputs[0], out.inputs["Surface"])
+    S.refl_ura = V.sheet("refl_ura", REFL.x - 0.002, REFL.y, glow, seed=95, top=2.25)
     for ob in (S.refl_omote, S.refl_ura):
         ob.scale = (0.5, 0.5, 0.5)                    # small and low, so the print and all of its reflection fit
     S.refl_omote.visible_glossy = False
