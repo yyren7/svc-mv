@@ -506,13 +506,13 @@ def props():
     S.c1_print = V.sheet("c1_print", C1C.x, C1C.y, V.print_mat("v4_c1_211", "v4_u1_211"), seed=92)
     S.float_print = V.sheet("float_print", 34.0, -4.0, V.print_mat("v4_q1_211", "v4_u4_211"), seed=94, top=0.012)
     S.float_print.rotation_euler = (0.0, math.pi / 2, 0.0)        # lying on the water, face up, its top at +X
-    S.refl_omote = V.sheet("refl_omote", REFL.x, REFL.y, V.print_mat("v4_q1_211", "v4_u4_211"), seed=95, top=2.5)
-    S.refl_ura = V.sheet("refl_ura", REFL.x + 0.002, REFL.y, V.print_mat("v4_u4_211", "v4_q1_211"), seed=95, top=2.5)
+    S.refl_omote = V.sheet("refl_omote", REFL.x, REFL.y, V.print_mat("v4_q1_211", "v4_u4_211"), seed=95, top=2.25)
+    S.refl_ura = V.sheet("refl_ura", REFL.x - 0.002, REFL.y, V.print_mat("v4_u4_211", "v4_q1_211"), seed=95, top=2.25)
     for ob in (S.refl_omote, S.refl_ura):
-        ob.scale = (0.55, 0.55, 0.55)                 # small and low, so the print and all of its reflection fit
+        ob.scale = (0.5, 0.5, 0.5)                    # small and low, so the print and all of its reflection fit
     S.refl_omote.visible_glossy = False
     for attr in ("visible_camera", "visible_transmission", "visible_diffuse", "visible_shadow"):
-        setattr(S.refl_ura, attr, False)             # only the water's mirror sees her 裏 (P7.3)
+        setattr(S.refl_ura, attr, False)             # only the water's mirror sees her 裏 (P7.3); in front, unshaded
     board()
     al = cyc.area_light
     S.lights = {
