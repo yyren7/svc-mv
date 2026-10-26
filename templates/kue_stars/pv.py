@@ -372,7 +372,7 @@ def build():
         # 不要横向光条；火星少一些、闪得慢；彗星的尾巴窄一些、暗一些。歌词那块（layout.QUIET）星环、星系压暗
         ring = sr.Ring(spec, d["loud"], FPS, float(d["grid_beat"]), float(d["grid_phase"]),
                        radii=sr.ORBIT_RADII, turns=sr.ORBIT_TURNS, dirs=sr.ORBIT_DIRS, tail_k=sr.ORBIT_TAIL_K,
-                       dens=2.4, tail_floor=1.75, size_max=1.1)
+                       dens=3.0, tail_floor=1.75, size_max=1.1)
         fx = sr.fancy(ring, kind_p=(0.24, 0.16, 0.14, 0.0, 0.12, 0.17, 0.17), spark_rate=14.0)
         of.star_ring_fancy(pic, ring, fx, audio, beat_gain=0.0, twinkle=(4.0, 10.0), halo_k=0.6, six_k=(0.5, 0.5),
                            cross_k=0.65, streak_gain=0.0, spark_flicker=7.0, trail={"comet": (1.7, 1.15)},
