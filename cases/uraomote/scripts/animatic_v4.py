@@ -585,7 +585,7 @@ def props():
         "float_sun": (al("float_sun", (31.9, -0.5, 6.0), FLOAT_C, 3.0, 8000, 900), 900.0),
         "cover": (al("cover", (32.1, 0.0, 6.5), (32.1, 0.0, 0.0), 4.0, 9000, 500, color="#9FB2FF"), 500.0),
         # cold light on the KV's back, for the one shot inside KV' (she looks back): rose on her, the paper cold
-        "kv_back": (al("kv_back", (4.6, -1.8, 4.2), (2.0, 0.0, 3.0), 2.0, 9000, 160, color="#7C94FF"), 160.0),
+        "kv_back": (al("kv_back", (4.6, -1.8, 4.2), (2.0, 0.0, 3.0), 2.0, 9000, 400, color="#7C94FF"), 400.0),
     }
     for ob, _ in S.lights.values():                  # no lamp as a bright slab in the water or a picture's glass
         ob.visible_glossy = False
@@ -1275,7 +1275,7 @@ def p4_chorus(u, t, b):
     elif cam == 1:                                                              # ink flowering on the water, lit from above
         c = FLOAT_C + Vector((0.0, 1.6, 0.0))                                   # beside the print lying there
         s = 0.4 + 2.6 * ease(v)
-        ink(S.ink, c + Vector((0, 0, -0.015)), (s, s, 0.014), 1.2, 0.08)
+        ink(S.ink, c + Vector((0, 0, -0.015)), (s, s, 0.014), 1.2, 0.15)
         light("float_sun", 2.0)
         look(c + Vector((-2.6, -0.8, 4.2)), c, lens=35, fstop=5.6)
     elif cam == 2:                                                              # round a print to its back
@@ -1494,7 +1494,7 @@ def p9_r0(u, t, b):
 def p9_back(u, t, b):
     if b < 98:                                                                  # she stops and looks back: KV'
         night(cold=0.0, rose=0.0, density=0.003)
-        into("kvu", 1.0, yaw=6 * (b - 97), cold=0.7, rose=0.3)
+        into("kvu", 1.0, yaw=6 * (b - 97), cold=0.8, rose=0.15)
         return
     night(cold=0.5, rose=0.45, density=0.004, red=1.0)
     a = ease((b - 98) / 0.6)
