@@ -424,10 +424,10 @@ def shards():
         # glass with a piece of her picture in it: the picture faint and see-through, the glass's reflection at the
         # grazing angles (lit cards of picture was what they were before)
         em = nt.nodes.new("ShaderNodeEmission")
-        em.inputs["Strength"].default_value = 0.5
+        em.inputs["Strength"].default_value = 0.7
         nt.links.new(tex.outputs["Color"], em.inputs["Color"])
         inner = nt.nodes.new("ShaderNodeMixShader")
-        inner.inputs["Fac"].default_value = 0.4
+        inner.inputs["Fac"].default_value = 0.25
         nt.links.new(em.outputs[0], inner.inputs[1])
         nt.links.new(nt.nodes.new("ShaderNodeBsdfTransparent").outputs[0], inner.inputs[2])
         gl = nt.nodes.new("ShaderNodeBsdfGlossy")
