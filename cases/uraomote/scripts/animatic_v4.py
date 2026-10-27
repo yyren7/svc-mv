@@ -667,9 +667,9 @@ def compositor():
     g.link(glare.outputs[0], kit.sock(lens.inputs, "Image"))
     kit.sock(lens.inputs, "Dispersion").default_value = 0.004
 
-    gam = g.node("CompositorNodeGamma")                                        # the darks lifted first, so the
+    gam = g.node("ShaderNodeGamma")                                            # the darks lifted first, so the
     kit.sock(gam.inputs, "Gamma").default_value = 0.4                           # negative of a dark hall has tones
-    g.link(lens.outputs[0], kit.sock(gam.inputs, "Image", "RGBA"))
+    g.link(lens.outputs[0], kit.sock(gam.inputs, "Color", "RGBA"))
     inv = g.node("CompositorNodeInvert")
     g.link(gam.outputs[0], kit.sock(inv.inputs, "Color", "RGBA"))
     art = g.node("ShaderNodeMix", data_type="RGBA", blend_type="MULTIPLY")
