@@ -217,8 +217,7 @@ def ink_volume(name, seed):
 
 def sill_glass():
     """M1 (script 6): a glass of clear water on the sill of a high window, for the first drop of ink."""
-    x, y = 7.0, V.WD / 2
-    A.rounded_box("sill", (2.6, 0.45, 0.06), 0.005, [S.plaster]).location = (x, y - 0.2, 5.97)
+    x, y = 7.0, V.WD / 2                            # on the sill the hall gives every window
     A.lathe("glass", [(0.0, 0.004), (0.026, 0.004), (0.029, 0.095), (0.031, 0.095), (0.0285, 0.0), (0.0, 0.0)],
             mats=[A.clear_glass()]).location = (x - 0.4, y - 0.2, 6.0)
     wm = A._principled("glass_water", **{"Base Color": (1, 1, 1, 1), "Transmission Weight": 1.0, "Roughness": 0.0,
