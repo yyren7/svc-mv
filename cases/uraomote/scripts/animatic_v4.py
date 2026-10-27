@@ -670,17 +670,18 @@ def compositor():
     g.link(glare.outputs[0], kit.sock(lens.inputs, "Image"))
     kit.sock(lens.inputs, "Dispersion").default_value = 0.004
 
-    def edges(sock):
+    def edges(sock, kind="Sobel"):
         f = g.node("CompositorNodeFilter")
-        kit.sock(f.inputs, "Type").default_value = "Sobel"
+        kit.sock(f.inputs, "Type").default_value = kind
         g.link(sock, kit.sock(f.inputs, "Image"))
         bw = g.node("CompositorNodeRGBToBW")
         g.link(f.outputs[0], bw.inputs[0])
         return bw.outputs[0]
-    # from the depth alone, as a change relative to the depth: the normal pass carries the water's and the
-    # walls' bump at every pixel, and its edges were white noise
-    dm = g.math("MULTIPLY", rl.outputs["Mist"], 40.0)
-    e = g.math("MULTIPLY", g.math("DIVIDE", edges(dm), g.math("MAXIMUM", dm, 0.5)), 14.0)
+    # the Laplacian of the disparity (1 / depth): a plane is linear in disparity across the frame, so only a step
+    # in depth or a crease draws, at any slant. The normal pass carried the water's and the walls' bump at every
+    # pixel (white noise), and the depth's gradient saturated on every slanted plane (ink)
+    disp = g.math("DIVIDE", 1.0, g.math("MAXIMUM", g.math("MULTIPLY", rl.outputs["Mist"], 40.0), 0.3))
+    e = g.math("MULTIPLY", g.math("ABSOLUTE", edges(disp, "Laplace")), 30.0)
     lines = g.node("ShaderNodeMapRange")
     g.link(e, lines.inputs["Value"])
     lines.inputs["From Min"].default_value, lines.inputs["From Max"].default_value = 0.25, 0.7
