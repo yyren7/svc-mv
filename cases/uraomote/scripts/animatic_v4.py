@@ -201,6 +201,8 @@ def water_ripple():
     g.link(bp.outputs["Normal"], bsdf.inputs["Normal"])
     bsdf.inputs["Emission Color"].default_value = m.srgb(ROSE)
     S.water_glow = bsdf.inputs["Emission Strength"]
+    S.water_bump = old.inputs["Strength"]                 # the water's own ripples, stilled for a shot (P7.3)
+    S.WATER_BUMP = old.inputs["Strength"].default_value
 
 
 def ink_volume(name, seed):
@@ -982,6 +984,7 @@ def reset(scene):
     haze(0.0)
     put(S.rip["a"], 0.0)
     put(S.water_glow, 0.0)
+    put(S.water_bump, S.WATER_BUMP)
     for ob in S.hidden:
         if not ob.hide_render:
             ob.hide_render = True
@@ -1610,9 +1613,10 @@ def p7_reflect(u, t, b):
     eye = REFL + Vector((-3.8, 0.5, 0.9))
     w = ease((u - 0.12) / 0.7)
     face, mirror = REFL + Vector((0, 0, 1.65)), REFL + Vector((-3.8 + 3.8 * 0.9 / (0.9 + 1.65), 0.5, 0.0))
-    # barely a ring: the water is a mirror, and a normal tilted a few degrees swings its reflection from the dark
-    # ceiling onto the lit print, so a ring at 1.6 m looked like chrome
-    ripple(last_beat(t), mirror.x, mirror.y, 0.08)
+    # the water stilled and barely a ring: a long lens close to a mirror sees a far virtual image, and a normal
+    # tilted a few degrees moves that image by most of a metre, so any ripple here was liquid chrome
+    put(S.water_bump, 0.0)
+    ripple(last_beat(t), mirror.x, mirror.y, 0.015)
     look(eye, face.lerp(mirror, w), lens=55, fstop=5.6, focus=face.lerp(eye + (mirror - eye) * 2.5, w))
 
 
