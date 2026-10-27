@@ -252,24 +252,39 @@ def sill_glass():
 
 
 def crack(name, seed, origin, ax, ay, length, width=0.008, parent=None):
-    """A rose crack: a jagged ribbon from `origin` in the plane of ax, ay. Its UV x runs along it, and the object's
-    'reveal' (0..1) is how much of it shows."""
+    """A rose crack: a jagged ribbon from `origin` in the plane of ax, ay, mostly straight with three sharp kinks
+    and two short branches, thinning to its tip. Its UV x runs along it (a branch's from where it leaves the main
+    line), and the object's 'reveal' (0..1) is how much of it shows. (A walk turning up to 45 degrees a step, at
+    one width and an emission of 8, was a neon squiggle, not a crack.)"""
     r = random.Random(seed)
     n, a = 26, r.uniform(-0.5, 0.5)
+    kinks = set(r.sample(range(4, n - 3), 3))
     pts = [Vector((0.0, 0.0))]
-    for _ in range(n):
-        a += r.uniform(-0.75, 0.75)
+    for i in range(n):
+        a += r.uniform(-0.22, 0.22) + (r.choice((-1, 1)) * r.uniform(0.5, 0.9) if i in kinks else 0.0)
         pts.append(pts[-1] + Vector((math.cos(a), math.sin(a))) * length / n)
-    verts, uvs = [], []
+    lines = [(pts, 0.0, 1.0, 1.0)]                   # points, uv x where it starts, uv x it spans, width scale
+    for i in sorted(r.sample(range(5, n - 6), 2)):   # the branches, off the main line at a steep angle
+        d = pts[i + 1] - pts[i]
+        b = math.atan2(d.y, d.x) + r.choice((-1, 1)) * r.uniform(0.6, 1.1)
+        q = [pts[i]]
+        for _ in range(r.randint(5, 8)):
+            b += r.uniform(-0.2, 0.2)
+            q.append(q[-1] + Vector((math.cos(b), math.sin(b))) * 0.6 * length / n)
+        lines.append((q, i / n, 0.2, 0.55))
+    verts, uvs, faces = [], [], []
     o, ax, ay = Vector(origin), Vector(ax), Vector(ay)
-    for i, p in enumerate(pts):
-        d = (pts[min(i + 1, n)] - pts[max(i - 1, 0)]).normalized()
-        side = Vector((-d.y, d.x)) * width * r.uniform(0.5, 1.5) / 2
-        for s in (-1, 1):
-            q = p + side * s
-            verts.append(o + ax * q.x + ay * q.y)
-            uvs.append((i / n, (s + 1) / 2))
-    ob = _mesh(name, verts, [(2 * i, 2 * i + 1, 2 * i + 3, 2 * i + 2) for i in range(n)], uvs, [S.crack_mat])
+    for q, u0, du, ws in lines:
+        k0, last = len(verts), len(q) - 1
+        for i, p in enumerate(q):
+            d = (q[min(i + 1, last)] - q[max(i - 1, 0)]).normalized()
+            side = Vector((-d.y, d.x)) * width * ws * (1.0 - 0.7 * i / last) * r.uniform(0.6, 1.4) / 2
+            for s in (-1, 1):
+                pq = p + side * s
+                verts.append(o + ax * pq.x + ay * pq.y)
+                uvs.append((u0 + du * i / last, (s + 1) / 2))
+        faces += [(k0 + 2 * i, k0 + 2 * i + 1, k0 + 2 * i + 3, k0 + 2 * i + 2) for i in range(last)]
+    ob = _mesh(name, verts, faces, uvs, [S.crack_mat])
     if parent is not None:
         ob.parent = parent
     ob["reveal"] = 0.0
@@ -287,7 +302,7 @@ def crack_material():
     show = g.math("LESS_THAN", sep.outputs["X"], attr.outputs["Fac"])
     em = g.node("ShaderNodeEmission")
     em.inputs["Color"].default_value = m.srgb(GLOW)
-    em.inputs["Strength"].default_value = 8.0
+    em.inputs["Strength"].default_value = 3.0        # bright, but short of a neon tube once the bloom takes it
     mix = g.node("ShaderNodeMixShader")
     g.link(show, mix.inputs["Fac"])
     g.link(g.node("ShaderNodeBsdfTransparent").outputs[0], mix.inputs[1])
@@ -299,7 +314,7 @@ def crack_material():
 def rain():
     """D5: rain, a block of fine streaks (crossed, so they read from any side) leaning with the wind, most of them
     hair-thin and a few heavier, that falls through itself. (At 2.5 mm and a brighter emission they were white
-    matchsticks over her face.)"""
+    matchsticks over her face; at a mix of 0.22 the near ones were still white sticks in the night shots.)"""
     r = random.Random(5)
     verts, faces = [], []
     for i in range(3200):
@@ -315,7 +330,7 @@ def rain():
     em = nt.nodes.new("ShaderNodeEmission")
     em.inputs["Color"].default_value = m.srgb("#D4E0F2")
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs["Fac"].default_value = 0.22
+    mix.inputs["Fac"].default_value = 0.14
     nt.links.new(nt.nodes.new("ShaderNodeBsdfTransparent").outputs[0], mix.inputs[1])
     nt.links.new(em.outputs[0], mix.inputs[2])
     nt.links.new(mix.outputs[0], out.inputs["Surface"])
@@ -648,7 +663,7 @@ def letters(kv):
     # the glyph's right along -Y and its up along +Z, as seen from the front of the print (from -X)
     turn = Matrix(((0, 0, -1, 0), (-1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
     S.letter_lamps = []
-    glow = _emission_mat("letter_lamp", ROSE, 6.0)[0]
+    glow = _emission_mat("letter_lamp", ROSE, 3.0)[0]     # (at 6 the letters were a neon sign)
     for k, (ch, z) in enumerate((("表", -1.05), ("裏", -1.95))):
         cu = bpy.data.curves.new(f"letter{k}", "FONT")
         cu.body, cu.font, cu.size, cu.extrude = ch, font, 1.0, 0.25
@@ -710,6 +725,12 @@ def board():
     kraft = kit._mix_rgba(nt, g.math("MULTIPLY", wave.outputs["Fac"], 0.25), kraft, m.srgb("#5E4228"))
     col = kit._mix_rgba(nt, geo.outputs["Backfacing"], pic, kraft)
     normal = V._cockle(nt, co)                                                  # cockle and fibre in the raking light
+    corr = g.node("ShaderNodeBump")                                             # and the corrugation as relief: as
+    corr.inputs["Strength"].default_value = 0.4                                 # colour bands alone the board was a
+    corr.inputs["Distance"].default_value = 0.004                               # flat pink-brown slab for a bar
+    g.link(wave.outputs["Fac"], corr.inputs["Height"])
+    g.link(normal, corr.inputs["Normal"])
+    normal = corr.outputs["Normal"]
     dif = g.node("ShaderNodeBsdfDiffuse")
     g.link(col, dif.inputs["Color"])
     g.link(normal, dif.inputs["Normal"])
@@ -744,8 +765,13 @@ def props():
                              amount=0.45 * H.RELIEF)
     S.c1_print = H.make_print("c1_print", C1C.x, C1C.y, "v4_c1_211", "v4_u1_211", seed=92, fit=True,
                               amount=0.4 * H.RELIEF)
-    S.float_print = V.sheet("float_print", 34.0, -4.0, V.print_mat("v4_q1_211", "v4_u4_211"), seed=94, top=0.012)
-    S.float_print.rotation_euler = (0.0, math.pi / 2, 0.0)        # lying on the water, face up, its top at +X
+    S.float_print = V.sheet("float_print", 34.0, -4.0, V.print_mat("v4_q1_211", "v4_u4_211"), seed=94, top=0.0)
+    # lying on the water, face up, its top at +X. Laid down, the sheet's bow and curl point into the water, so
+    # they are pressed to a few millimetres and the whole sheet held just over the surface (as hung, all but its
+    # edges lay under the water, and the shot from above saw a sliver of her face in a grey mirror of the ceiling)
+    S.float_print.rotation_euler = (0.0, math.pi / 2, 0.0)
+    S.float_print.scale = (0.12, 1.0, 1.0)
+    S.float_print.location = (34.0, -4.0, 0.03)
     S.refl_omote = V.sheet("refl_omote", REFL.x, REFL.y, V.print_mat("v4_q1_211", "v4_u4_211"), seed=95, top=2.25)
     glow, nt, out = V._nodes("refl_ura")             # lit by itself: the water reflects only a few percent
     em = nt.nodes.new("ShaderNodeEmission")
@@ -1371,7 +1397,7 @@ def p1_drop(u, t, b):
     scene = bpy.context.scene
     scene.cycles.samples = 4 * SAMPLES                                          # glass in glass in water
     scene.cycles.max_bounces = scene.cycles.transmission_bounces = 14           # glass, water, glass, the window's glass
-    sky("s1", 6.0)                                                              # the glass against the bright window
+    sky("s1", 3.0)                                                              # the glass against the bright window
     scene.view_settings.exposure = -0.5
     g, t15 = S.glass_at, at(15)
     if t15 - 0.35 <= t < t15:
@@ -1379,11 +1405,13 @@ def p1_drop(u, t, b):
         S.drop.location = g + Vector((0, 0, 0.065 + 0.6 * (t15 - t)))
     if t >= t15:
         v = ease((t - t15) / (at(16) - t15))
-        s = 0.006 + 0.02 * v
-        ink(S.glass_ink, g + Vector((0, 0, 0.05 - 0.015 * v)), (s, s, s * 1.3), 1.0, 0.05)
-    # from a little above the water's surface, so the drop meets it and the ink blooms down through the glass
-    # against the window (from below the rim the glass was a black tube)
-    look(g + Vector((-0.30, -0.20, 0.16)), g + Vector((0, 0, 0.06)), lens=85, fstop=2.8)
+        s = 0.006 + 0.016 * v
+        ink(S.glass_ink, g + Vector((0, 0, 0.045 - 0.012 * v)), (s, s, s * 1.1), 1.0, 0.05)
+    # level with the water, the glass between the camera and the window: the drop falls into the frame, meets the
+    # surface, and the ink blooms down through the lit column. (From below the rim the glass was a black tube, and
+    # from above it the water showed only the sill behind it, the bloom lost in the dark.)
+    focus = g + Vector((0, 0, 0.045))
+    look(g + Vector((0, -0.5, 0.05)), focus, lens=85, fstop=2.8, focus=focus)
 
 
 def p1_seep(u, t, b):
@@ -1401,11 +1429,17 @@ def p1_seep(u, t, b):
 
 
 def p1_top(u, t, b):
-    dawn(0.4)                                                                   # the water black, not the lit ceiling
+    # the hall dark but for the one lamp on the print, so the water round it is black (at dawn 0.4 it mirrored the
+    # lit ceiling as grey plaster, and a window as a white band across the frame)
+    night(cold=0.0, rose=0.0, sky_key="s1")
+    sky("s1", 0.15)
     light("float_sun", 3.5)
     v = ease((b - 20) / 4)
-    ink(S.ink, FLOAT_C + Vector((0, 0, -0.015)), (2.2 + 1.8 * v, 2.2 + 1.8 * v, 0.014), 0.6 + 0.8 * v, 0.0)
-    ripple(last_beat(t), FLOAT_C.x, FLOAT_C.y, 0.7)
+    # the ink spreads over her on the paper, small and dense enough to read from 5 m up (a 4 m pancake under the
+    # print, the same ink spread that thin, was invisible)
+    s = 0.7 + 1.1 * v
+    ink(S.ink, FLOAT_C + Vector((0.6, 0.0, 0.045)), (s, s, 0.02), 2.5, 0.0)
+    ripple(last_beat(t), FLOAT_C.x, FLOAT_C.y, 0.25)
     if b >= 23.75:
         S.cracks["face"]["reveal"] = ease((b - 23.75) * 4)                     # the first crack, across her face
     a = 0.3 * ease(u)                                                           # sinking towards her, turning a little
@@ -1448,7 +1482,7 @@ def p2_out(u, t, b):
     dawn(1 - (math.floor(b % 1 * 4) + 1) / 4)                                  # the light goes beat by beat
     for name in CRACKS_P2:
         S.cracks[name]["reveal"] = 1.0
-    look((3.2, -5.5, 1.0), (14, 1.5, 3.4), lens=24, fstop=5.6)
+    look((2.5, -6.4, 1.8), (14, 1.2, 3.4), lens=24, fstop=5.6)                 # (lower, the nearest print's back was half the frame)
 
 
 def p3_turn(u, t, b):
@@ -1466,7 +1500,8 @@ def p4_chorus(u, t, b):
     if beat == 3 and p < 0.5:                                                   # half a beat inside a chorus picture
         key = f"c{k % 4 + 1}"
         night(cold=0.0, rose=0.0)
-        into(key, 1.05 + 0.05 * p, yaw=6 - 12 * p, cold=0.7, rose=0.8)
+        zoom = 1.05 if k < 4 else 1.7                                           # the second time round, close on her
+        into(key, zoom + 0.05 * p, yaw=6 - 12 * p, cold=0.7, rose=0.8)
         seep(key, 0.3 + 0.7 * p, S.burst)
         return
     names = list(S.prints)
@@ -1513,10 +1548,12 @@ def p5_spill(u, t, b):
     light("c1_rose", 0.6)                                                       # less rose through the paper: its
     light("c1_cold", 2.4)                                                       # relief mottled the pink glow
     v = ease(u)
-    # from her face filling the frame back and aside, behind the last row: it was a print hanging in the hall
-    face = H.anchor(S.c1_print, "v4_c1_211", 1)["point"]
+    # from her face filling the frame back and aside, behind the last row: it was a print hanging in the hall.
+    # The frame starts a little off her face towards the picture's middle: the bare margin beside her head, under
+    # the same lamp as her dark picture, was a white bar down the side of the frame
+    face = H.anchor(S.c1_print, "v4_c1_211", 1)["point"] + Vector((0, -0.22, 0))
     eye = (face + Vector((-1.35, 0, 0.1))).lerp(Vector((27.2, -4.5, 3.8)), v)
-    look(eye, face.lerp(C1C, v), lens=35 - 7 * v, fstop=4)
+    look(eye, face.lerp(C1C, v), lens=40 - 12 * v, fstop=4)
     # the ink round her runs off the foot of the paper and pours into the water, then spreads
     ink(S.burst, (C1C.x, C1C.y - 0.1, 0.45), (0.12, 0.3, 0.5 * clamp(u * 3)), 1.6, 0.0)
     s = 0.2 + 3.5 * ease((u - 0.2) / 0.8)
@@ -1555,7 +1592,7 @@ def rain_at(t, lines=False):
     S.rain.hide_render = False
     S.rain.location = (S.eye.x, S.eye.y, -((t * 6.5) % 8.0))
     S.rain.scale = (1.0, 1.0, 4.0 if lines else 1.0)
-    put(S.rain_em.inputs["Strength"], 6.0 if lines else 0.6)
+    put(S.rain_em.inputs["Strength"], 2.5 if lines else 0.45)    # (6 made the lines white rods)
 
 
 def p6_rain(u, t, b):
@@ -1742,7 +1779,7 @@ def p10_f1(u, t, b):
 
 FAST = ["f1", "h_wide", "c1", "h_high", "r0", "h_low", "u2", "h_kv", "kv", "h_wide", "kvu", "h_low", "w2", "h_high",
         "f2", "h_kv"]
-FAST_VIEWS = {"h_wide": ((-1.5, -5, 0.9), (20, 1, 3.2), (0, 0, 1)), "h_high": ((6, -6, 8.5), (22, 2, 1.5), (0, 0, 1)),
+FAST_VIEWS = {"h_wide": ((-1.5, -5, 0.9), (20, 1, 3.2), (0, 0, 1)), "h_high": ((1, 0, 7.5), (20, 0, 1.5), (0, 0, 1)),
               "h_low": ((3, -2, 0.3), (20, 2, 2), (0, 0, 1)), "h_kv": ((-3, 0, 2.9), (2, 0, 2.9), (0, 0, 1))}
 
 
