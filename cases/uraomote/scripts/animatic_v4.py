@@ -671,25 +671,37 @@ def letters(kv):
 
 
 def board():
-    """Her cardboard in the rain (P6): W1 on the front, plain paper with a pencilled number on the back."""
+    """Her cardboard in the rain (P6): W1 on the front; on the back the kraft board, its corrugation as faint
+    bands, mottled, with a pencilled number. (Plain paper there, with W1's night sky uniform over the half the
+    camera crosses, was a flat lilac rectangle for a bar; the picture through it gave nothing to see.)"""
     mat, nt, out = V._nodes("board_w1")
-    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    g = kit.G(nt)
+    geo = g.node("ShaderNodeNewGeometry")
     co = V._coords(nt)
-    paper, pic = V._paper(nt, co), V._picture(nt, "v4_w1_211")
-    ghost = kit._mix_rgba(nt, 0.3, paper, V._multiply(nt, paper, pic))        # the picture showing through, reversed
-    col = kit._mix_rgba(nt, geo.outputs["Backfacing"], pic, ghost)
-    normal = V._cockle(nt, co)                                                  # paper's cockle and fibre in the raking light
-    dif = nt.nodes.new("ShaderNodeBsdfDiffuse")
-    nt.links.new(col, dif.inputs["Color"])
-    nt.links.new(normal, dif.inputs["Normal"])
-    tr = nt.nodes.new("ShaderNodeBsdfTranslucent")                             # and the lit front coming through it:
-    nt.links.new(V._multiply(nt, paper, pic), tr.inputs["Color"])              # from behind, her picture in the cold
-    nt.links.new(normal, tr.inputs["Normal"])                                  # light, reversed (a flat lilac board
-    mix = nt.nodes.new("ShaderNodeMixShader")                                   # without it)
-    mix.inputs["Fac"].default_value = 0.4
-    nt.links.new(dif.outputs[0], mix.inputs[1])
-    nt.links.new(tr.outputs[0], mix.inputs[2])
-    nt.links.new(mix.outputs[0], out.inputs["Surface"])
+    pic = V._picture(nt, "v4_w1_211")
+    wave = g.node("ShaderNodeTexWave")
+    wave.bands_direction = "Z"
+    for name, val in (("Scale", 40.0), ("Distortion", 1.5), ("Detail", 1.0)):
+        wave.inputs[name].default_value = val
+    g.link(co, wave.inputs["Vector"])
+    nz = g.node("ShaderNodeTexNoise")
+    nz.inputs["Scale"].default_value, nz.inputs["Detail"].default_value = 3.0, 4.0
+    g.link(co, nz.inputs["Vector"])
+    kraft = kit._mix_rgba(nt, nz.outputs["Fac"], m.srgb("#7E5D3C"), m.srgb("#9A7652"))
+    kraft = kit._mix_rgba(nt, g.math("MULTIPLY", wave.outputs["Fac"], 0.12), kraft, m.srgb("#5E4228"))
+    col = kit._mix_rgba(nt, geo.outputs["Backfacing"], pic, kraft)
+    normal = V._cockle(nt, co)                                                  # cockle and fibre in the raking light
+    dif = g.node("ShaderNodeBsdfDiffuse")
+    g.link(col, dif.inputs["Color"])
+    g.link(normal, dif.inputs["Normal"])
+    tr = g.node("ShaderNodeBsdfTranslucent")                                    # a little of the lit front comes through
+    g.link(V._multiply(nt, kraft, pic), tr.inputs["Color"])
+    g.link(normal, tr.inputs["Normal"])
+    mix = g.node("ShaderNodeMixShader")
+    mix.inputs["Fac"].default_value = 0.12
+    g.link(dif.outputs[0], mix.inputs[1])
+    g.link(tr.outputs[0], mix.inputs[2])
+    g.link(mix.outputs[0], out.inputs["Surface"])
     S.board = V.sheet("w1_board", W1C.x, W1C.y, mat, seed=93, top=V.SHEET_H + 0.02)
     cu = bpy.data.curves.new("pencil", "FONT")
     cu.body, cu.size = "No. 17", 0.13
@@ -699,7 +711,7 @@ def board():
         pass
     num = bpy.data.objects.new("pencil", cu)
     m._link(num)
-    cu.materials.append(A._principled("pencil", **{"Base Color": m.srgb("#5E5E66"), "Roughness": 0.9})[0])
+    cu.materials.append(A._principled("pencil", **{"Base Color": m.srgb("#2E2825"), "Roughness": 0.9})[0])
     num.parent = S.board
     # seen from behind (+X): its right along +Y
     num.matrix_basis = Matrix.Translation((0.03, -0.9, -3.95)) @ Matrix(((0, 0, 1, 0), (1, 0, 0, 0), (0, 1, 0, 0),
