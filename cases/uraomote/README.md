@@ -40,9 +40,11 @@ and a stain the size of the sheet is a disc, not a soak (the stain is the size o
 rim; the wisps absorb). The rose never fills the air: the haze stays cool, and the red is only where a rose lamp
 lands on paper or that paper's reflection in the water. Every 2D shot sets its own exposure; the hall's would wash
 it or sink it, and a dawn sun behind translucent paper washes it from behind. A still frame longer than a bar
-needs a move in it, even an orthographic one widening a step on each downbeat. A line-art frame renders without
-depth of field: the blur is what turned the normals into noise. The far wall is at x 40: a camera 4 m behind a
-print's back must still be inside the hall.
+needs a move in it, even an orthographic one widening a step on each downbeat. A line drawing from render passes
+does not work at animatic samples: edges of the normal pass are the water's and walls' bump at every pixel, the
+depth pass is not anti-aliased, and even the averaged mist pass is noise under a Laplacian; the beat flash is the
+frame's negative on paper instead. The far wall is at x 40: a camera 4 m behind a print's back must still be inside
+the hall. The water is a mirror and never a lamp: any emission on it reads as a flat red floor.
 
 Judge a run by its contact sheets, not by single frames: `AT=0.25,0.5,0.75` (three frames of every shot, six
 minutes) into `tmp/`, `sheet.py` on it, read the sheet; a full run only after the sheet holds. The full run's
