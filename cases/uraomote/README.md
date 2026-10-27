@@ -48,9 +48,13 @@ the hall. The water is a mirror and never a lamp: any emission on it reads as a 
 
 What the first 1280 px cut taught, off its sheets and a dozen full frames: the 3D in a picture's dimensional part
 has to behave like the thing it stands for. Hair strands pointing out from the head were whiskers, and two of them
-hung loose in the sky through the parallax of a long strand lifted towards the lens; hair hangs down and a little
-out, short flyaways on the crown only, each strand the picture's colour where it roots (black ones were scratches
-on a dark print). Rain 2.5 mm wide and bright is matchsticks over her face; hair-thin, dim, leaning with the wind,
+hung loose in the sky through the parallax of a long strand lifted towards the lens; strands that simply hung were
+right on the portraits and wrong on everyone running, leaping or lying down. A strand follows the hair's own flow:
+the hair mask's long axis, pointed at the tips (the end farther from her face; against the face's centroid it went
+up on a portrait whose hair frames the face), a little out from the head and a little off the paper; each the
+picture's colour where it roots (black ones were scratches on a dark print), rooted only on the hair's bulk where
+the picture is dark (the mask's strays and painted flyaways in the sky), and none on C1, whose every strand was a
+scratch under the spill's light. Rain 2.5 mm wide and bright is matchsticks over her face; hair-thin, dim, leaning with the wind,
 it is rain. Even grey cards of one size are cards; torn paper is small, uneven, and some of it carries the picture.
 An ink volume seen from above is a black disc; the chorus's ink is the rose flowering on her paper. A camera that
 flies at a print spends half a bar on blurred brushstrokes unless it crosses fast on a wide lens with the paper
