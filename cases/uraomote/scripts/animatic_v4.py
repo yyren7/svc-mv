@@ -528,6 +528,9 @@ def strands(p, name, n=36, seed=0):
         rgb = pix[iy - 1:iy + 2, ix - 1:ix + 2, :3].mean(axis=(0, 1))
         if 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] > 0.5:               # not hair where the picture is light:
             continue                                                            # the mask's strays in her sky
+        y, x, e = ys[i], xs[i], max(3, w // 70)                                 # nor on a painted flyaway out in the
+        if mk[max(0, y - e):y + e + 1, max(0, x - e):x + e + 1].mean() < 0.3:    # sky: the edge of the hair's bulk
+            continue
         roots.append((pu, pv))
         jit = r.uniform(-0.2, 0.2)
         if crown:                                                               # a flyaway: short, up and out
@@ -930,8 +933,8 @@ def setup():
                     "u2": (S.q_print, _pic("u2"), True), "c1": (S.c1_print, _pic("c1"), False)})
     S.hair_mats, S.strands = {}, []
     for key, (p, name, on_back) in S.where.items():                           # her hair off the paper, on the hero prints
-        if not on_back:
-            strands(p, name, seed=sum(map(ord, key)))
+        if not on_back:                                                         # (few on C1: she lies across the page,
+            strands(p, name, n=10 if key == "c1" else 36, seed=sum(map(ord, key)))   # hanging strands were scratches)
     S.home = {ob.name: (ob.location.copy(), ob.rotation_euler.copy())
               for ob in list(S.prints.values()) + S.panels + [S.kv]}
     S.everything_lit = S.dawn + S.cold + S.fronts + S.bulbs + list(S.behind.values()) + list(S.lights.values())
@@ -1237,7 +1240,8 @@ def p0_paper(u, t, b):
     lt.data.energy = e
     z = 4.7 - 1.2 * u                                                           # through the frame, over the cut 表
     cyc._aim(lt, (1.0, 1.0, z), (2.0, 0.55, z))
-    bpy.context.scene.view_settings.exposure = -1.0                             # the band shows the fibre, not white
+    sky("s1", 0.12)                                                             # the picture's sky, a portal in the paper,
+    bpy.context.scene.view_settings.exposure = -0.8                             # was the white: it is dark before dawn
     # the paper filling the frame (aimed at its edge, half the frame was the dark hall past it)
     look((0.6, 0.3, 4.2), (2.0, 0.55, 4.0), lens=60, fstop=2.8, focus=(2.0, 0.55, 4.0))
 
@@ -1592,7 +1596,7 @@ def p7_reflect(u, t, b):
     eye = REFL + Vector((-3.2, 0.5, 1.1))
     w = ease((u - 0.12) / 0.7)
     face, mirror = REFL + Vector((0, 0, 1.65)), REFL + Vector((-3.2 + 3.2 * 1.1 / (1.1 + 1.65), 0.5, 0.0))
-    ripple(last_beat(t), mirror.x, mirror.y, 1.0)
+    ripple(last_beat(t), mirror.x, mirror.y, 0.3)                              # gentle: at 1.6 m a full ring was chrome
     look(eye, face.lerp(mirror, w), lens=50, fstop=5.6, focus=face.lerp(eye + (mirror - eye) * 2.5, w))
 
 
