@@ -941,7 +941,9 @@ def setup():
     # where a 2D shot's picture is: the print, the picture's name, and whether it is on the print's back
     S.where = {key: (S.prints[f"stage_{key}"], _pic(key), False) for key in STAGE}
     S.where.update({"kv": (S.kv, _pic("kv"), False), "kvu": (S.kv, _pic("kvu"), True),
-                    "a5": (S.prints["print_2_-3.2"], _pic("a5"), False), "q1": (S.q_print, _pic("q1"), False),
+                    # row 2 hangs q1, a5, a1 (FRONTS from k 4): a5 is the middle print. Pointed at the first, the
+                    # shot showed q1 under a5's relief, anchors and strands (strands loose in her sky)
+                    "a5": (S.prints["print_2_+0.0"], _pic("a5"), False), "q1": (S.q_print, _pic("q1"), False),
                     "u2": (S.q_print, _pic("u2"), True), "c1": (S.c1_print, _pic("c1"), False)})
     S.hair_mats, S.strands = {}, []
     for key, (p, name, on_back) in S.where.items():                           # her hair off the paper, on the hero prints
