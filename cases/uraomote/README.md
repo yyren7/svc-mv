@@ -57,7 +57,15 @@ flies at a print spends half a bar on blurred brushstrokes unless it crosses fas
 wet. A print's bare border is paper without ink: behind a rose lamp it glows like a strip light unless it lets
 through less. Under a raking lamp a close print's relief mottles the paper and the pink coming through it: the two
 prints seen closest carry a flatter relief. A reflection shot framed from the water's edge at 3 m showed her collar
-and its mirror image: to read as 表 and 裏 it needs her face and her reflected face both in frame.
+and its mirror image: to read as 表 and 裏 it needs her face and her reflected face both in frame, and a 16:9
+frame holding a whole portrait print over its whole reflection leaves the print a sixth of the width, so P7 tilts
+from her face down over the water line into her reflected face instead. Under that tilt the water had to be stilled
+and the beat ring made almost nothing: a long lens close to a mirror sees a far virtual image, and a normal tilted
+a few degrees moves that image by most of a metre (liquid chrome in three check rounds). A 2D shot's key must point
+at the print that actually hangs the picture: `v4_hall.hang` deals FRONTS from k 4 in row 2 (q1, a5, a1), and the
+A5 shot aimed at the first of them showed q1 under A5's relief, anchors and strands, with strands loose in the sky.
+In P0 the white was not the lamp but the picture's sky portal, lit at the hall's default: a shot before dawn sets
+the sky dark itself.
 
 Judge a run by its contact sheets, not by single frames: `AT=0.25,0.5,0.75` (three frames of every shot, six
 minutes) into `tmp/`, `sheet.py` on it, read the sheet; a full run only after the sheet holds. The full run's
