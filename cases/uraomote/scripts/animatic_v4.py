@@ -295,21 +295,25 @@ def crack_material():
 
 
 def rain():
-    """D5: rain, a block of thin streaks (crossed, so they read from any side) that falls through itself."""
+    """D5: rain, a block of fine streaks (crossed, so they read from any side) leaning with the wind, most of them
+    hair-thin and a few heavier, that falls through itself. (At 2.5 mm and a brighter emission they were white
+    matchsticks over her face.)"""
     r = random.Random(5)
     verts, faces = [], []
-    for i in range(2200):
+    for i in range(3200):
         x, y, z = r.uniform(-7, 7), r.uniform(-7, 7), r.uniform(0, 16)
-        ln, w = r.uniform(0.25, 0.45), 0.0025
+        ln, w = r.uniform(0.3, 0.7), r.uniform(0.0006, 0.0016)
+        lx, ly = 0.07 * ln + r.uniform(-0.01, 0.01), 0.03 * ln + r.uniform(-0.01, 0.01)   # the wind, along +X
         for dx, dy in ((w, 0), (0, w)):
             k = len(verts)
-            verts += [(x - dx, y - dy, z), (x + dx, y + dy, z), (x + dx, y + dy, z + ln), (x - dx, y - dy, z + ln)]
+            verts += [(x - dx, y - dy, z), (x + dx, y + dy, z), (x + dx + lx, y + dy + ly, z + ln),
+                      (x - dx + lx, y - dy + ly, z + ln)]
             faces.append((k, k + 1, k + 2, k + 3))
     mat, nt, out = V._nodes("rain")
     em = nt.nodes.new("ShaderNodeEmission")
-    em.inputs["Color"].default_value = m.srgb("#DCE6F5")
+    em.inputs["Color"].default_value = m.srgb("#D4E0F2")
     mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs["Fac"].default_value = 0.35
+    mix.inputs["Fac"].default_value = 0.22
     nt.links.new(nt.nodes.new("ShaderNodeBsdfTransparent").outputs[0], mix.inputs[1])
     nt.links.new(em.outputs[0], mix.inputs[2])
     nt.links.new(mix.outputs[0], out.inputs["Surface"])
@@ -319,16 +323,39 @@ def rain():
 
 
 def confetti():
-    """D5: torn paper, 360 scraps in one mesh whose corners are set per frame by scraps()."""
+    """D5: torn paper, 360 scraps in one mesh whose corners are set per frame by scraps(): small torn quads, few
+    of them big, two thirds bare paper and a third carrying a piece of the KV. (Even grey cards of one size read
+    as cards, not as a picture torn up.)"""
     n = 360
     r = random.Random(11)
-    S.scrap = [dict(a=r.uniform(0, 2 * math.pi), rad=r.uniform(0.1, 1.0), h=r.uniform(-0.5, 0.5),
-                    w=r.uniform(0.04, 0.09), spin=Vector((r.uniform(-1, 1), r.uniform(-1, 1), r.uniform(-1, 1))),
-                    rate=r.uniform(2.0, 6.0), fall=r.uniform(0.6, 1.4), ph=r.uniform(0, 6.3)) for _ in range(n)]
-    mat, b = A._principled("scrap", **{"Base Color": m.srgb("#D8D1C4"), "Roughness": 0.8,
-                                       "Emission Color": m.srgb(PAPER), "Emission Strength": 0.06})
+    S.scrap = []
+    for _ in range(n):
+        w = 0.02 + 0.06 * r.random() ** 2
+        S.scrap.append(dict(a=r.uniform(0, 2 * math.pi), rad=r.uniform(0.1, 1.0), h=r.uniform(-0.5, 0.5), w=w,
+                            corners=[(sx * w * r.uniform(0.55, 1.0), sy * w * r.uniform(0.4, 0.85))
+                                     for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))],
+                            spin=Vector((r.uniform(-1, 1), r.uniform(-1, 1), r.uniform(-1, 1))),
+                            rate=r.uniform(2.0, 6.0), fall=r.uniform(0.6, 1.4), ph=r.uniform(0, 6.3)))
+    paper = A._principled("scrap", **{"Base Color": m.srgb("#D8D1C4"), "Roughness": 0.8,
+                                      "Emission Color": m.srgb(PAPER), "Emission Strength": 0.06})[0]
+    printed, nt, out = V._nodes("scrap_printed")
+    tex = nt.nodes.new("ShaderNodeTexImage")
+    tex.image = bpy.data.images.load(_path("kv"), check_existing=True)
+    nt.links.new(nt.nodes.new("ShaderNodeTexCoord").outputs["UV"], tex.inputs["Vector"])
+    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    bsdf.inputs["Roughness"].default_value = 0.8
+    bsdf.inputs["Emission Strength"].default_value = 0.08
+    nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(tex.outputs["Color"], bsdf.inputs["Emission Color"])
+    nt.links.new(bsdf.outputs[0], out.inputs["Surface"])
+    uvs = []
+    for _ in range(n):                                                          # each printed scrap a piece of the KV
+        u0, v0, su = r.uniform(0.05, 0.85), r.uniform(0.05, 0.85), r.uniform(0.04, 0.1)
+        uvs += [(u0, v0), (u0 + su, v0), (u0 + su, v0 + 0.7 * su), (u0, v0 + 0.7 * su)]
     S.conf = _mesh("confetti", [(0, 0, 0)] * (4 * n), [(4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3) for i in range(n)],
-                   mats=[mat])
+                   uvs, mats=[paper, printed])
+    for i, poly in enumerate(S.conf.data.polygons):
+        poly.material_index = 1 if i % 3 == 0 else 0
     S.conf.visible_shadow = False
 
 
@@ -375,8 +402,7 @@ def scraps(center, t, radius=4.0, height=3.0, swirl=0.0, fall=0.0, n=None):
             Matrix.Rotation(s["ph"], 3, "Z")
         if f > 0.98:
             rot = Matrix.Rotation(s["ph"], 3, "Z")       # lying flat on the water
-        w = s["w"]
-        for cx, cy in ((-w, -0.7 * w), (w, -0.7 * w), (w, 0.7 * w), (-w, 0.7 * w)):
+        for cx, cy in s["corners"]:
             co.extend(p + rot @ Vector((cx, cy, 0.0)))
     S.conf.data.vertices.foreach_set("co", co)
     S.conf.data.update()
@@ -426,10 +452,39 @@ def shards():
                              away=home + Vector((r.uniform(-6, 6), r.uniform(-4, 4), r.uniform(2, 6)))))
 
 
-def strands(p, name, n=40, seed=0):
+_PIX = {}
+
+
+def _pixels(name):
+    """The picture's pixels as (H, W, 4) floats as stored (sRGB), rows from the bottom: read from a copy of the
+    image, so the print's own texture keeps its colour space."""
+    if name not in _PIX:
+        img = bpy.data.images.load(os.path.join(V.ART, f"{name}_00001_.png"))
+        w, h = img.size
+        _PIX[name] = np.array(img.pixels[:], dtype=np.float32).reshape(h, w, 4)
+        bpy.data.images.remove(img)
+    return _PIX[name]
+
+
+def _lin(c):
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+def _hair_mat(rgb):
+    """A strand's material: the picture's colour where it roots, a little darker (a thin hair against the light),
+    quantised so a few materials serve every strand of every print."""
+    key = tuple(round(float(c) * 0.85 * 12) / 12 for c in rgb)
+    if key not in S.hair_mats:
+        S.hair_mats[key] = A._principled(f"hair_{len(S.hair_mats)}", **{
+            "Base Color": tuple(_lin(c) for c in key) + (1.0,), "Roughness": 0.5})[0]
+    return S.hair_mats[key]
+
+
+def strands(p, name, n=36, seed=0):
     """Her hair lifting off the paper: thin 3D strands rooted on the relief along the hair's edge (from the parts
-    map), pointing out from the hair and a little towards the viewer, swaying in the hall's air (sway(), per frame).
-    The 3D inside the picture's dimensional part; a child of the print, so it goes where the print goes."""
+    map), each the picture's colour where it roots, hanging as hair hangs (down and a little out from the head,
+    a few short flyaways on the crown), just off the paper, swaying in the hall's air (sway(), per frame). The 3D
+    inside the picture's dimensional part; a child of the print, so it goes where the print goes."""
     parts = H._load(os.path.join(H.MAPS, f"{name}_parts.png"))
     mk, face = parts[..., 0] > 0.5, parts[..., 1] > 0.5
     if not mk.any():
@@ -444,28 +499,53 @@ def strands(p, name, n=40, seed=0):
         return
     my, mx = np.nonzero(mk)
     cu_, cv_ = (mx.mean() + 0.5) / w, (my.mean() + 0.5) / h
+    pix = _pixels(name)
+    ph, pw = pix.shape[:2]
     r = random.Random(seed)
     W, Hh = H.size_of(p)
+    k = W / 4.2
     inv = p.matrix_world.inverted()
     cu = bpy.data.curves.new(f"{p.name}_hair", "CURVE")
-    cu.dimensions, cu.bevel_depth, cu.bevel_resolution, cu.fill_mode = "3D", 0.0035 * W / 4.2, 2, "FULL"
-    cu.materials.append(S.hair_mat)
-    items = []
-    for _ in range(n):
-        i = r.randrange(len(xs))
+    cu.dimensions, cu.bevel_depth, cu.bevel_resolution, cu.fill_mode = "3D", 0.0022 * k, 2, "FULL"
+    items, roots = [], []
+    order = list(range(len(xs)))
+    r.shuffle(order)
+    for i in order:
+        if len(items) >= n:
+            break
         pu, pv = (xs[i] + 0.5) / w, (ys[i] + 0.5) / h
+        if any(abs(pu - a) < 0.025 and abs(pv - b) < 0.025 for a, b in roots):  # along the edge, not in tufts
+            continue
         dy, dz = -(pu - cu_) * W, (pv - cv_) * Hh
         norm = math.hypot(dy, dz)
         if norm < 1e-3:
             continue
-        d = Vector((-0.35, dy / norm, dz / norm)).normalized()
+        ny, nz = dy / norm, dz / norm
+        crown = nz > 0.55
+        if crown and r.random() < 0.6:
+            continue
+        roots.append((pu, pv))
+        jit = r.uniform(-0.2, 0.2)
+        if crown:                                                               # a flyaway: short, up and out
+            d = Vector((-0.08, 0.5 * ny + jit, 0.75)).normalized()
+            L, droop = r.uniform(0.04, 0.10) * k, 0.1
+        else:                                                                   # hair: down, a little out, drooping
+            d = Vector((-0.10, 0.55 * ny + jit, -0.85 + 0.3 * max(nz, 0.0))).normalized()
+            L, droop = r.uniform(0.08, 0.30) * k, 0.3
+        iy, ix = min(ph - 2, max(1, int(pv * ph))), min(pw - 2, max(1, int(pu * pw)))
+        mat = _hair_mat(pix[iy - 1:iy + 2, ix - 1:ix + 2, :3].mean(axis=(0, 1)))
+        if cu.materials.find(mat.name) < 0:
+            cu.materials.append(mat)
         sp = cu.splines.new("NURBS")
         sp.points.add(5)
         sp.order_u, sp.use_endpoint_u = 4, True
+        sp.material_index = cu.materials.find(mat.name)
         for j, pt in enumerate(sp.points):
-            pt.radius = 1.0 - 0.8 * j / 5                                       # fine at the tip
-        items.append(dict(sp=sp, root=inv @ H.picture_point(p, name, pu, pv, lift=0.004), d=d,
-                          L=r.uniform(0.1, 0.38) * W / 4.2, ph=r.uniform(0, 6.3), w=r.uniform(0.6, 1.4)))
+            pt.radius = 1.0 - 0.85 * j / 5                                      # fine at the tip
+        items.append(dict(sp=sp, root=inv @ H.picture_point(p, name, pu, pv, lift=0.004), d=d, L=L, droop=droop,
+                          ph=r.uniform(0, 6.3), w=r.uniform(0.6, 1.4)))
+    if not items:
+        return
     ob = bpy.data.objects.new(cu.name, cu)
     m._link(ob)
     ob.parent = p
@@ -473,14 +553,14 @@ def strands(p, name, n=40, seed=0):
 
 
 def sway(t):
-    """The strands in the air: each bends with its own slow wave and sinks towards its tip; hidden with its print."""
+    """The strands in the air: each bends with its own slow wave and droops towards its tip; hidden with its print."""
     for st in S.strands:
         for it in st["items"]:
             root, d, L = it["root"], it["d"], it["L"]
-            a = 0.35 * math.sin(it["w"] * t + it["ph"])
+            a = 0.25 * math.sin(it["w"] * t + it["ph"])
             for j, pt in enumerate(it["sp"].points):
                 s = j / 5
-                q = root + d * (L * s) + Vector((0.0, a * L * s * s, -0.45 * L * s * s))
+                q = root + d * (L * s) + Vector((0.0, a * L * s * s, -it["droop"] * L * s * s))
                 pt.co = (q.x, q.y, q.z, 1.0)
         hidden = st["parent"].hide_render
         if st["ob"].hide_render != hidden:
@@ -588,9 +668,13 @@ def board():
     """Her cardboard in the rain (P6): W1 on the front, plain paper with a pencilled number on the back."""
     mat, nt, out = V._nodes("board_w1")
     geo = nt.nodes.new("ShaderNodeNewGeometry")
-    col = kit._mix_rgba(nt, geo.outputs["Backfacing"], V._picture(nt, "v4_w1_211"), m.srgb(PAPER))
+    co = V._coords(nt)
+    paper, pic = V._paper(nt, co), V._picture(nt, "v4_w1_211")
+    ghost = kit._mix_rgba(nt, 0.3, paper, V._multiply(nt, paper, pic))        # the picture showing through, reversed
+    col = kit._mix_rgba(nt, geo.outputs["Backfacing"], pic, ghost)
     dif = nt.nodes.new("ShaderNodeBsdfDiffuse")
     nt.links.new(col, dif.inputs["Color"])
+    nt.links.new(V._cockle(nt, co), dif.inputs["Normal"])                      # paper's cockle and fibre in the raking light
     nt.links.new(dif.outputs[0], out.inputs["Surface"])
     S.board = V.sheet("w1_board", W1C.x, W1C.y, mat, seed=93, top=V.SHEET_H + 0.02)
     cu = bpy.data.curves.new("pencil", "FONT")
@@ -610,8 +694,11 @@ def board():
 
 def props():
     """The prints and lights of single shots, beyond the last row of the hall (x 29-40)."""
-    S.q_print = H.make_print("q_print", QC.x, QC.y, "v4_q1_211", "v4_u2_211", seed=91, fit=True)
-    S.c1_print = H.make_print("c1_print", C1C.x, C1C.y, "v4_c1_211", "v4_u1_211", seed=92, fit=True)
+    # the two prints seen closest, under raking lamps: a flatter relief, or its grain mottles the paper
+    S.q_print = H.make_print("q_print", QC.x, QC.y, "v4_q1_211", "v4_u2_211", seed=91, fit=True,
+                             amount=0.45 * H.RELIEF)
+    S.c1_print = H.make_print("c1_print", C1C.x, C1C.y, "v4_c1_211", "v4_u1_211", seed=92, fit=True,
+                              amount=0.4 * H.RELIEF)
     S.float_print = V.sheet("float_print", 34.0, -4.0, V.print_mat("v4_q1_211", "v4_u4_211"), seed=94, top=0.012)
     S.float_print.rotation_euler = (0.0, math.pi / 2, 0.0)        # lying on the water, face up, its top at +X
     S.refl_omote = V.sheet("refl_omote", REFL.x, REFL.y, V.print_mat("v4_q1_211", "v4_u4_211"), seed=95, top=2.25)
@@ -629,7 +716,7 @@ def props():
     board()
     al = cyc.area_light
     S.lights = {
-        "sweep": (al("sweep", (1.0, 1.5, 5.0), (2.0, 1.0, 4.7), 1.5, 9000, 5, size_y=0.06, spread_deg=12), 5.0),
+        "sweep": (al("sweep", (1.0, 1.0, 4.7), (2.0, 0.55, 4.7), 1.5, 9000, 30, size_y=0.3, spread_deg=14), 30.0),
         "q_cold": (al("q_cold", QC + Vector((-3.0, -1.5, 0.7)), QC, 2.0, 9000, 300, color="#7C94FF"), 300.0),
         "q_rose": (al("q_rose", QC + Vector((3.0, 1.5, 0.1)), QC, 2.0, 2000, 400, color=ROSE), 400.0),
         "c1_rose": (al("c1_rose", C1C + Vector((0.9, 0, 0.3)), C1C + Vector((0, 0, 0.3)), 2.0, 2000, 260, size_y=3.6,
@@ -830,8 +917,7 @@ def setup():
     S.where.update({"kv": (S.kv, _pic("kv"), False), "kvu": (S.kv, _pic("kvu"), True),
                     "a5": (S.prints["print_2_-3.2"], _pic("a5"), False), "q1": (S.q_print, _pic("q1"), False),
                     "u2": (S.q_print, _pic("u2"), True), "c1": (S.c1_print, _pic("c1"), False)})
-    S.hair_mat = A._principled("hair_strand", **{"Base Color": m.srgb("#1A1826"), "Roughness": 0.45})[0]
-    S.strands = []
+    S.hair_mats, S.strands = {}, []
     for key, (p, name, on_back) in S.where.items():                           # her hair off the paper, on the hero prints
         if not on_back:
             strands(p, name, seed=sum(map(ord, key)))
@@ -1099,7 +1185,7 @@ def rain_in(p, t):
     S.rain.scale = (0.5, W / 14.0, 0.5)                   # spread through the depth between the camera and the paper,
     S.rain.location = (p.location.x - 3.6, p.location.y,  # so it is rain, not a curtain of lines
                        p.location.z - Hh - 0.5 * ((t * 6.5) % 8.0))
-    put(S.rain_em.inputs["Strength"], 0.6)
+    put(S.rain_em.inputs["Strength"], 0.45)
 
 
 def ripple_in(key, t0, amp=1.0, part=0):
@@ -1138,10 +1224,11 @@ def p0_paper(u, t, b):
     S.kv.rotation_euler.z = 0.012 * math.sin(2 * math.pi * t / 2.6)          # the sheet breathing
     lt, e = S.lights["sweep"]                                                   # a band of cold light down the paper
     lt.data.energy = e
-    z = 5.4 - 1.6 * u
-    cyc._aim(lt, (1.0, 1.5, z), (2.0, 1.0, z))
-    bpy.context.scene.view_settings.exposure = -1.2                             # the band shows the fibre, not white
-    look((0.9, 0.7, 4.5), (2.03, 1.15, 4.3), lens=60, fstop=2.8)
+    z = 4.7 - 1.2 * u                                                           # through the frame, over the cut 表
+    cyc._aim(lt, (1.0, 1.0, z), (2.0, 0.55, z))
+    bpy.context.scene.view_settings.exposure = -0.7                             # the band shows the fibre, not white
+    # the paper filling the frame (aimed at its edge, half the frame was the dark hall past it)
+    look((0.6, 0.3, 4.2), (2.0, 0.55, 4.0), lens=60, fstop=2.8, focus=(2.0, 0.55, 4.0))
 
 
 P0_ORTHO = [4.2, 5.6, 7.1, 8.6]                                                 # the frame a step wider on each downbeat
@@ -1327,19 +1414,19 @@ def p4_chorus(u, t, b):
     if cam == 0:                                                                # low along a row, between the prints
         y = 5.5 - 11 * v
         look((8.1, y, 0.35), (14, y - 1.5, 2.2), lens=24, fstop=5.6)
-    elif cam == 1:                                                              # ink flowering on the water, lit from above
-        c = FLOAT_C + Vector((0.0, 1.6, 0.0))                                   # beside the print lying there
-        s = 0.4 + 2.6 * ease(v)
-        ink(S.ink, c + Vector((0, 0, -0.015)), (s, s, 0.014), 1.2, 0.15)
-        light("float_sun", 2.0)
-        look(c + Vector((-2.6, -0.8, 4.2)), c, lens=35, fstop=5.6)
+    elif cam == 1:                                                              # Q1's print: the rose flowering on her
+        light("q_cold", 0.6)                                                    # (the ink as a volume on the water
+        light("q_rose", 0.3 + 0.5 * v)                                          # read as a black disc from above)
+        seep("q1", 0.2 + 0.8 * ease(v), S.ink)
+        look(QC + Vector((-3.4 + 0.6 * v, 1.1 - 0.5 * v, 0.3)), QC + Vector((0, 0, 0.35)), lens=40, fstop=4)
     elif cam == 2:                                                              # round a print to its back
         c = S.prints["print_3_-1.6"].location + Vector((0, 0, -2.1))
         ang = math.radians(-25 + 230 * ease(v))
         look(c + Vector((-math.cos(ang) * 3.2, math.sin(ang) * 3.2, -0.4)), c, lens=28, fstop=4)
-    elif cam == 3:                                                              # through a print
-        x = 6.8 + 5.5 * v ** 1.5
-        look((x, 0.15, 2.9), (x + 5, 0.15, 2.9), lens=24, fstop=5.6)
+    elif cam == 3:                                                              # through a print, quickly: a wide lens,
+        x = 6.8 + 7.0 * v                                                       # the paper wet so the light comes through
+        wet(S.prints["print_2_+0.0"], V.WET + 0.5)
+        look((x, 0.15, 2.9), (x + 5, 0.15, 2.9), lens=20, fstop=5.6, focus=(max(10.0, x + 2.0), 0.15, 2.9))
     else:                                                                       # from under the water
         look((4.0 + 1.5 * v, -0.8, -0.012), (12, 0.5, 4.5), lens=20, fstop=8)
     tb = at(math.floor(b) + beat / 4)
@@ -1358,8 +1445,8 @@ def p4_chorus(u, t, b):
 
 def p5_spill(u, t, b):
     night(cold=0.25, rose=0.6)
-    light("c1_rose")
-    light("c1_cold", 2.0)
+    light("c1_rose", 0.6)                                                       # less rose through the paper: its
+    light("c1_cold", 2.4)                                                       # relief mottled the pink glow
     v = ease(u)
     # from her face filling the frame back and aside, behind the last row: it was a print hanging in the hall
     face = H.anchor(S.c1_print, "v4_c1_211", 1)["point"]
@@ -1403,7 +1490,7 @@ def rain_at(t, lines=False):
     S.rain.hide_render = False
     S.rain.location = (S.eye.x, S.eye.y, -((t * 6.5) % 8.0))
     S.rain.scale = (1.0, 1.0, 4.0 if lines else 1.0)
-    S.rain_em.inputs["Strength"].default_value = 6.0 if lines else 0.8
+    put(S.rain_em.inputs["Strength"], 6.0 if lines else 0.6)
 
 
 def p6_rain(u, t, b):
@@ -1471,7 +1558,7 @@ def p7_ura(u, t, b):
         night(cold=0.1, rose=0.3)
         light("refl_cold")
         light("refl_rose")
-        look(REFL + Vector((-3.0, 0.6, 0.12)), REFL, lens=28, fstop=5.6)
+        look(REFL + Vector((-5.0, 0.6, 1.2)), REFL + Vector((0, 0, 0.3)), lens=22, fstop=5.6)
     elif key:
         night(cold=0.0, rose=0.0, density=0.003)
         into(key, 1.05 + 0.08 * v, yaw=-6 + 12 * v, cold=0.6, rose=0.7)      # rose on her, the paper still cold
@@ -1488,10 +1575,12 @@ def p7_reflect(u, t, b):
     light("refl_rose")
     flash = t - at(math.floor(b)) < 2 / FPS                                     # once a bar the reflection is 表 again
     S.refl_ura.visible_glossy, S.refl_omote.visible_glossy = not flash, flash
-    # the whole print and the whole of its reflection, the water line across the middle; a slow slide past,
-    # and every beat a ring through her reflection
-    ripple(last_beat(t), REFL.x, REFL.y, 0.6)
-    look(REFL + Vector((-3.0, 0.6 - 1.2 * u, 0.12)), REFL, lens=28 + 2 * u, fstop=5.6)
+    # her face in the print and her other face in the reflection both in frame (from the water's edge at 3 m only
+    # her collar and its mirror image were); a slow slide past, sinking a little towards the water, and every beat a
+    # ring through her reflected face, which lies on the water in front of the print
+    ripple(last_beat(t), REFL.x - 1.1, REFL.y, 1.0)
+    look(REFL + Vector((-5.0 + 0.4 * u, 0.6 - 1.2 * u, 1.2 - 0.3 * u)), REFL + Vector((0, 0, 0.3)),
+         lens=22 + 2 * u, fstop=5.6)
 
 
 def p7_crack(u, t, b):

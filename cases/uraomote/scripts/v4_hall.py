@@ -168,12 +168,14 @@ def print_mat(front, back, wet=WET, size=None):
 
     def inked(name):
         col, alpha = _picture(nt, name, MARGIN, size=size)
-        return kit._mix_rgba(nt, alpha, paper, _multiply(nt, paper, col))
+        return kit._mix_rgba(nt, alpha, paper, _multiply(nt, paper, col)), alpha
 
-    f, b = inked(front), inked(back)
+    (f, fa), (b, ba) = inked(front), inked(back)
     geo = nt.nodes.new("ShaderNodeNewGeometry")
     facing = kit._mix_rgba(nt, geo.outputs["Backfacing"], f, b)
-    through = _multiply(nt, f, b)
+    # the bare border lets through a third of what the picture does: with the rose lamp behind, a print's foot
+    # margin glowed like a strip light under it
+    through = _multiply(nt, _multiply(nt, f, b), kit._mix_rgba(nt, fa, (0.35, 0.35, 0.35, 1.0), (1.0, 1.0, 1.0, 1.0)))
     normal = _cockle(nt, co)
     bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
     bsdf.inputs["Roughness"].default_value = 0.72
