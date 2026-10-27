@@ -430,14 +430,16 @@ def strands(p, name, n=40, seed=0):
     """Her hair lifting off the paper: thin 3D strands rooted on the relief along the hair's edge (from the parts
     map), pointing out from the hair and a little towards the viewer, swaying in the hall's air (sway(), per frame).
     The 3D inside the picture's dimensional part; a child of the print, so it goes where the print goes."""
-    mk = H._load(os.path.join(H.MAPS, f"{name}_parts.png"))[..., 0] > 0.5
+    parts = H._load(os.path.join(H.MAPS, f"{name}_parts.png"))
+    mk, face = parts[..., 0] > 0.5, parts[..., 1] > 0.5
     if not mk.any():
         return
     h, w = mk.shape
-    inner = mk.copy()
-    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+    inner, near_face = mk.copy(), face.copy()
+    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1), (2, 0), (-2, 0), (0, 2), (0, -2)):
         inner &= np.roll(mk, (dy, dx), axis=(0, 1))
-    ys, xs = np.nonzero(mk & ~inner)
+        near_face |= np.roll(face, (dy, dx), axis=(0, 1))
+    ys, xs = np.nonzero(mk & ~inner & ~near_face)                              # the hair's outer edge, not along her face
     if len(xs) < 8:
         return
     my, mx = np.nonzero(mk)
