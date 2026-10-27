@@ -672,7 +672,7 @@ def compositor():
     art = g.node("ShaderNodeMix", data_type="RGBA", blend_type="MULTIPLY")
     kit.sock(art.inputs, "Factor", "VALUE").default_value = 1.0
     g.link(inv.outputs[0], kit.sock(art.inputs, "A", "RGBA"))
-    kit.sock(art.inputs, "B", "RGBA").default_value = m.srgb(PAPER)
+    kit.sock(art.inputs, "B", "RGBA").default_value = m.srgb("#CFC8BA")     # paper in shadow: a flash, not a strobe
     mix = g.node("ShaderNodeMix", data_type="RGBA")
     S.lineart = kit.sock(mix.inputs, "Factor", "VALUE")
     g.link(lens.outputs[0], kit.sock(mix.inputs, "A", "RGBA"))
@@ -1273,8 +1273,8 @@ def p4_chorus(u, t, b):
     else:                                                                       # from under the water
         look((4.0 + 1.5 * v, -0.8, -0.012), (12, 0.5, 4.5), lens=20, fstop=8)
     tb = at(math.floor(b) + beat / 4)
-    if beat == 0 and t - tb < 2 / FPS:
-        S.lineart.default_value = 1.0                                           # D4: two frames as the negative on paper
+    if beat == 0 and t - tb < 1.5 / FPS:
+        S.lineart.default_value = 1.0                                           # D4: one frame as the negative on paper
     if beat == 1:
         c = S.eye + S.fwd * 4.0
         ripple(tb, c.x, c.y, 1.0)
@@ -1453,8 +1453,8 @@ def p8_shards(u, t, b):
     eye, target = (Vector(v) for v in SHARD_CUTS[n % len(SHARD_CUTS)])
     eye = eye + (target - eye).normalized() * 0.8 * q
     look(eye, target, lens=28, fstop=4)
-    if q < 0.25:
-        S.lineart.default_value = 1.0                                           # each cut lands on the negative first
+    if q < 0.09:
+        S.lineart.default_value = 1.0                                           # each cut lands on one frame of the negative
 
 
 def p9_run(u, t, b):
