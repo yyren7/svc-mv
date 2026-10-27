@@ -356,11 +356,15 @@ def dust(t, center=(2.0, 0.0, 0.0)):
     S.dust.data.update()
 
 
-def scraps(center, t, radius=4.0, height=3.0, swirl=0.0, fall=0.0):
-    """Place the scraps round `center`, turning by `swirl` and dropping to the water by `fall` (0..1)."""
+def scraps(center, t, radius=4.0, height=3.0, swirl=0.0, fall=0.0, n=None):
+    """Place the scraps round `center`, turning by `swirl` and dropping to the water by `fall` (0..1); `n` of them,
+    the rest put away under the floor."""
     S.conf.hide_render = False
     co = []
-    for s in S.scrap:
+    for i, s in enumerate(S.scrap):
+        if n is not None and i >= n:
+            co.extend([center[0], center[1], -5.0] * 4)
+            continue
         a = s["a"] + swirl * t * (1.3 - s["rad"])
         p = Vector((center[0] + math.cos(a) * s["rad"] * radius, center[1] + math.sin(a) * s["rad"] * radius,
                     center[2] + s["h"] * height))
@@ -1008,7 +1012,7 @@ def into(key, zoom=1.0, cx=None, cy=None, lens=35.0, fstop=2.8, cold=1.0, rose=0
         if p.name in S.behind:
             behind(p, rose)
         if p.name in S.front_of:
-            energy(S.front_of[p.name], 300.0 * cold)
+            energy(S.front_of[p.name], 200.0 * cold)
     if sky_key:
         sky(sky_key, 2.0 if sky_key == "s1" else 0.5)
     haze(0.002, "#E4ECF4", 0.3)
@@ -1101,7 +1105,7 @@ def p0_lights(u, t, b):
 def p0_through(u, t, b):
     for i in range(4):
         light(f"kv{i}")
-    behind(S.kv, 0.25 + 1.2 * ease(u))
+    behind(S.kv, 0.25 + 0.7 * ease(u))
     wet(S.kv, V.WET + 0.3 * ease(u))
     haze(0.004, "#F2D8E0", 0.3)
     dust(t)
@@ -1114,7 +1118,7 @@ def kv_lit():
     for i in range(4):
         light(f"kv{i}")
     night(cold=0.1, rose=0.12)
-    behind(S.kv, 1.45)
+    behind(S.kv, 0.7)
     wet(S.kv, V.WET + 0.3)
     bpy.context.scene.view_settings.exposure = 0.4                              # the lit print is paper, not white
 
@@ -1249,14 +1253,14 @@ def p4_chorus(u, t, b):
     if beat == 3 and p < 0.5:                                                   # half a beat inside a chorus picture
         key = f"c{k % 4 + 1}"
         night(cold=0.0, rose=0.0)
-        into(key, 1.05 + 0.05 * p, yaw=6 - 12 * p, cold=0.5, rose=1.0)
+        into(key, 1.05 + 0.05 * p, yaw=6 - 12 * p, cold=0.7, rose=0.8)
         seep(key, 0.3 + 0.7 * p, S.burst)
         return
     names = list(S.prints)
     red = ease((b - 41) / 5)
     night(cold=1.0 - 0.4 * red, rose=lambda n: clamp((b - 41 - 0.22 * names.index(n)) / 0.5),
           density=0.004 + 0.003 * red, red=red)
-    bpy.context.scene.view_settings.exposure = 1.3 - 0.3 * red
+    bpy.context.scene.view_settings.exposure = 1.6 - 0.3 * red
     cam = k % 5
     if cam == 0:                                                                # low along a row, between the prints
         y = 5.5 - 11 * v
@@ -1305,14 +1309,14 @@ def p5_spill(u, t, b):
 
 
 def p5_full(u, t, b):
-    night(cold=0.35, rose=0.7, density=0.0045, red=1.0)
+    night(cold=0.35, rose=0.4, density=0.003, red=1.0)
     put(S.water_glow, 0.08 * ease(u * 2))                                       # the inked water, a little lit from below
     light("under", 0.12 * ease(u * 2))
     look((-1.5, -5.0, 0.8), (20, 1, 3.2), lens=24, fstop=5.6)
 
 
 def p5_vertigo(u, t, b):
-    night(cold=0.4, rose=0.7, density=0.0045, red=1.0)
+    night(cold=0.4, rose=0.4, density=0.003, red=1.0)
     put(S.water_glow, 0.08)
     light("under", 0.12)
     for key in STAGE:                                                           # the camera backs out through their places
@@ -1358,7 +1362,7 @@ def p6_w1(u, t, b):
 
 def p6_w2(u, t, b):
     night(cold=0.0, rose=0.0, density=0.003)
-    into("w2", 1.05 + 0.08 * u, yaw=4 - 8 * u, cold=0.6, rose=0.35)
+    into("w2", 1.05 + 0.08 * u, yaw=4 - 8 * u, cold=0.9, rose=0.35)
     rain_in(S.where["w2"][0], t)
 
 
@@ -1366,7 +1370,7 @@ def p6_side(u, t, b):
     night(cold=0.2, rose=0.0, density=0.005)
     light("w1_cold")
     light("w1_rose", 0.5 if b < 65 else 0.12)         # behind: plain paper and a pencilled number, in the cold
-    light("w1_back", 0.0 if b < 65 else ease((b - 65) * 1.5))
+    light("w1_back", 0.0 if b < 65 else 0.35 * ease((b - 65) * 1.5))
     ang = math.radians(90 * ease(b - 64) if b < 65 else 90 + 90 * ease((b - 65) * 1.5))   # a line, then its back
     look(W1C + Vector((-math.cos(ang) * 4.0, -math.sin(ang) * 4.0, -1.0)), W1C, lens=40, fstop=4)
     rain_at(t)
@@ -1383,7 +1387,7 @@ def p6_lines(u, t, b):
 
 
 def p7_night():
-    night(cold=0.25, rose=1.0, density=0.004)
+    night(cold=0.3, rose=0.6, density=0.004)
 
 
 def p7_roll(u, t, b):
@@ -1402,10 +1406,10 @@ def p7_ura(u, t, b):
         night(cold=0.1, rose=0.3)
         light("refl_cold")
         light("refl_rose")
-        look(REFL + Vector((-4.2, 0.4, 0.25)), REFL, lens=24, fstop=5.6)
+        look(REFL + Vector((-3.0, 0.2, 0.25)), REFL + Vector((0, 0, 0.3)), lens=28, fstop=5.6)
     elif key:
         night(cold=0.0, rose=0.0, density=0.003)
-        into(key, 1.05 + 0.08 * v, yaw=-6 + 12 * v, cold=0.5, rose=0.7)      # rose on her, the paper still cold
+        into(key, 1.05 + 0.08 * v, yaw=-6 + 12 * v, cold=0.6, rose=0.7)      # rose on her, the paper still cold
         if key == "u1":                                                         # her water takes the beat
             ripple_in("u1", last_beat(t), 0.8)
     else:                                                                       # the hall, upside down
@@ -1420,7 +1424,7 @@ def p7_reflect(u, t, b):
     flash = t - at(math.floor(b)) < 2 / FPS                                     # once a bar the reflection is 表 again
     S.refl_ura.visible_glossy, S.refl_omote.visible_glossy = not flash, flash
     # the whole print and the whole of its reflection, the water line across the middle; a slow slide past
-    look(REFL + Vector((-4.2, 0.4 - 0.8 * u, 0.25)), REFL, lens=24 + 2 * u, fstop=5.6)
+    look(REFL + Vector((-3.0, 0.2 - 0.4 * u, 0.25)), REFL + Vector((0, 0, 0.3)), lens=28 + 2 * u, fstop=5.6)
 
 
 def p7_crack(u, t, b):
@@ -1430,13 +1434,13 @@ def p7_crack(u, t, b):
     look((9.0, 3.0, 3.0), (11.0, 7.0, 8.4), lens=35, fstop=5.6)
 
 
-SHARD_CUTS = [((10, 2, 7), (18, 5, 8)), ((14, 6, 9), (20, 2, 6)), ((20, 1.5, 6), (24, 6, 9.5)),
-              ((24, 4, 8), (14, 3, 7)), ((12, 4, 5.5), (22, 4.5, 9)), ((17, 6.2, 7.5), (17, 0, 7)),
-              ((26, 2, 9), (12, 5, 6))]
+SHARD_CUTS = [((10, 2, 7), (16, 6.5, 9.5)), ((14, 6, 9), (18, 1, 5)), ((20, 1.5, 6), (22, 7, 10.5)),
+              ((24, 4, 8), (16, 2, 6)), ((12, 4, 5.5), (18, 6.5, 10)), ((17, 6.2, 7.5), (17, -2, 6)),
+              ((26, 2, 9), (16, 6, 6))]                                      # never straight down the hall: the far wall is a slab
 
 
 def p8_shards(u, t, b):
-    night(cold=0.6, rose=0.6, density=0.003)
+    night(cold=0.6, rose=0.4, density=0.003)
     w = ease((b - 86.75) * 4) if b >= 86.75 else 0.0                            # the last beat: they line up into KV'
     for s in S.shards:
         ob = s["ob"]
@@ -1462,7 +1466,7 @@ def p8_shards(u, t, b):
 
 
 def p9_run(u, t, b):
-    night(cold=0.7, rose=1.0, density=0.004, red=1.0)
+    night(cold=0.7, rose=0.6, density=0.004, red=1.0)
     x = 5.6 + 4.0 * (b - 87)                                                    # through a print on every downbeat
     for r, name in enumerate(PATH):
         tear(name, ease((b - (87 + r) + 0.12) / 0.5))
@@ -1474,16 +1478,16 @@ def p9_r0(u, t, b):
     night(cold=0.45, rose=1.0, density=0.004, red=1.0)
     for name in PATH:
         tear(name, 1.0)
-    into("r0", 1.0 + 0.3 * ease(u), cold=0.7, rose=1.0)                        # torn, the hall shows behind it
+    into("r0", 1.0 + 0.3 * ease(u), cold=0.8, rose=1.0)                        # torn, the hall shows behind it
     tear("stage_r0", ease(b - 96) if b >= 96 else 0.0)
 
 
 def p9_back(u, t, b):
     if b < 98:                                                                  # she stops and looks back: KV'
         night(cold=0.0, rose=0.0, density=0.003)
-        into("kvu", 1.0, yaw=6 * (b - 97), cold=0.45, rose=0.6)
+        into("kvu", 1.0, yaw=6 * (b - 97), cold=0.5, rose=0.6)
         return
-    night(cold=0.45, rose=1.0, density=0.004, red=1.0)
+    night(cold=0.5, rose=0.6, density=0.004, red=1.0)
     a = ease((b - 98) / 0.6)
     for k, p in enumerate(S.prints.values()):                                   # every print behind her lifts
         lift(p, 65 * a * (0.8 + 0.2 * math.sin(k * 2.3)))
@@ -1507,7 +1511,7 @@ def p10_walls(u, t, b):
 
 def p10_f1(u, t, b):
     night(cold=0.0, rose=0.0, density=0.003)
-    into("f1", 1.15, cy=0.62 - 0.25 * u, cold=0.8, rose=0.5)
+    into("f1", 1.15, cy=0.62 - 0.25 * u, cold=0.9, rose=0.5)
     scraps(S.eye + S.fwd * 2.4, t, radius=3.2, height=2.8, swirl=1.2 + u)      # the paper flying round her
 
 
@@ -1523,7 +1527,7 @@ def p10_fast(u, t, b):
     cold = int(b % 1 * 4) % 2 == 0                                              # cold and rose change places each beat
     if not key.startswith("h_"):
         night(cold=0.0, rose=0.0, density=0.003)
-        into(key, 1.08, cold=1.0 if cold else 0.15, rose=0.0 if cold else 1.0)
+        into(key, 1.08, cold=1.0 if cold else 0.2, rose=0.0 if cold else 1.0)
         return
     if cold:
         dawn(1.0, "s3")
@@ -1537,7 +1541,7 @@ def p10_fast(u, t, b):
 def p10_f2(u, t, b):
     if b < 115.75:
         night(cold=0.0, rose=0.0, density=0.003)
-        into("f2", 1.05 + 0.05 * u, yaw=-5 + 10 * u, cold=0.5, rose=0.6)
+        into("f2", 1.05 + 0.05 * u, yaw=-5 + 10 * u, cold=0.6, rose=0.6)
         return
     night(cold=0.3, rose=0.3)
     look((32, 0, 9), (32, 0, 0), lens=35, up=(-1, 0, 0))
@@ -1561,7 +1565,7 @@ def p11_back(u, t, b):
     left = 6 - math.floor((t - at(116)) / (LAST_BEAT - at(116)) * 6)           # the lamps under the letters go out
     for k, lamp in enumerate(getattr(S, "letter_lamps", [])):
         lamp.hide_render = k >= left
-    scraps((32.1, 0, 0), t, radius=4.5, height=0.0, fall=1.0)
+    scraps((32.1, 0, 0), t, radius=4.5, height=0.0, fall=1.0, n=110)
 
 
 SHOTS = [
