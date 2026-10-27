@@ -667,8 +667,11 @@ def compositor():
     g.link(glare.outputs[0], kit.sock(lens.inputs, "Image"))
     kit.sock(lens.inputs, "Dispersion").default_value = 0.004
 
+    gam = g.node("CompositorNodeGamma")                                        # the darks lifted first, so the
+    kit.sock(gam.inputs, "Gamma").default_value = 0.4                           # negative of a dark hall has tones
+    g.link(lens.outputs[0], kit.sock(gam.inputs, "Image", "RGBA"))
     inv = g.node("CompositorNodeInvert")
-    g.link(lens.outputs[0], kit.sock(inv.inputs, "Color", "RGBA"))
+    g.link(gam.outputs[0], kit.sock(inv.inputs, "Color", "RGBA"))
     art = g.node("ShaderNodeMix", data_type="RGBA", blend_type="MULTIPLY")
     kit.sock(art.inputs, "Factor", "VALUE").default_value = 1.0
     g.link(inv.outputs[0], kit.sock(art.inputs, "A", "RGBA"))
@@ -1273,7 +1276,7 @@ def p4_chorus(u, t, b):
     else:                                                                       # from under the water
         look((4.0 + 1.5 * v, -0.8, -0.012), (12, 0.5, 4.5), lens=20, fstop=8)
     tb = at(math.floor(b) + beat / 4)
-    if beat == 0 and t - tb < 1.5 / FPS:
+    if beat == 0 and t - tb < 1.0 / FPS:
         S.lineart.default_value = 1.0                                           # D4: one frame as the negative on paper
     if beat == 1:
         c = S.eye + S.fwd * 4.0
@@ -1453,7 +1456,7 @@ def p8_shards(u, t, b):
     eye, target = (Vector(v) for v in SHARD_CUTS[n % len(SHARD_CUTS)])
     eye = eye + (target - eye).normalized() * 0.8 * q
     look(eye, target, lens=28, fstop=4)
-    if q < 0.09:
+    if q < 0.05:
         S.lineart.default_value = 1.0                                           # each cut lands on one frame of the negative
 
 
