@@ -584,6 +584,8 @@ def props():
         "under": (al("under", (V.L / 2, 0, 0.12), (V.L / 2, 0, 3), 40, 2000, 2500, size_y=14, color=ROSE), 2500.0),
         "float_sun": (al("float_sun", (31.9, -0.5, 6.0), FLOAT_C, 3.0, 8000, 900), 900.0),
         "cover": (al("cover", (32.1, 0.0, 6.5), (32.1, 0.0, 0.0), 4.0, 9000, 500, color="#9FB2FF"), 500.0),
+        # cold light on the KV's back, for the one shot inside KV' (she looks back): rose on her, the paper cold
+        "kv_back": (al("kv_back", (4.6, -1.8, 4.2), (2.0, 0.0, 3.0), 2.0, 9000, 160, color="#7C94FF"), 160.0),
     }
     for ob, _ in S.lights.values():                  # no lamp as a bright slab in the water or a picture's glass
         ob.visible_glossy = False
@@ -649,8 +651,9 @@ def compositor():
     edges in the normal and depth passes, mixed in by S.lineart."""
     scene = bpy.context.scene
     vl = bpy.context.view_layer
-    vl.use_pass_normal = True
-    vl.use_pass_z = True
+    vl.use_pass_mist = True                           # mist is averaged over the samples; the depth pass is not,
+    mist = scene.world.mist_settings                 # and its sub-pixel jitter made every slanted plane a field of noise
+    mist.start, mist.depth, mist.falloff = 0.0, 40.0, "LINEAR"
     tree = bpy.data.node_groups.new("anim_post", "CompositorNodeTree")
     scene.compositing_node_group = tree
     kit._iface(tree, "Image", "OUTPUT", "NodeSocketColor")
@@ -676,11 +679,11 @@ def compositor():
         return bw.outputs[0]
     # from the depth alone, as a change relative to the depth: the normal pass carries the water's and the
     # walls' bump at every pixel, and its edges were white noise
-    dm = g.math("MINIMUM", rl.outputs["Depth"], 40.0)
-    e = g.math("MULTIPLY", g.math("DIVIDE", edges(dm), g.math("MAXIMUM", dm, 0.5)), 18.0)
+    dm = g.math("MULTIPLY", rl.outputs["Mist"], 40.0)
+    e = g.math("MULTIPLY", g.math("DIVIDE", edges(dm), g.math("MAXIMUM", dm, 0.5)), 14.0)
     lines = g.node("ShaderNodeMapRange")
     g.link(e, lines.inputs["Value"])
-    lines.inputs["From Min"].default_value, lines.inputs["From Max"].default_value = 0.2, 0.6
+    lines.inputs["From Min"].default_value, lines.inputs["From Max"].default_value = 0.25, 0.7
     art = g.node("ShaderNodeMix", data_type="RGBA")
     g.link(lines.outputs["Result"], kit.sock(art.inputs, "Factor", "VALUE"))
     kit.sock(art.inputs, "A", "RGBA").default_value = m.srgb(PAPER)
@@ -1015,6 +1018,8 @@ def into(key, zoom=1.0, cx=None, cy=None, lens=35.0, fstop=2.8, cold=1.0, rose=0
             behind(p, rose)
         if p.name in S.front_of:
             energy(S.front_of[p.name], 200.0 * cold)
+        if on_back and p is S.kv:
+            light("kv_back", cold)
     if sky_key:
         sky(sky_key, 2.0 if sky_key == "s1" else 0.5)
     haze(0.002, "#E4ECF4", 0.3)
