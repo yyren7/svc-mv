@@ -421,15 +421,23 @@ def shards():
         tex.image = bpy.data.images.load(_path(key), check_existing=True)
         uv = nt.nodes.new("ShaderNodeTexCoord")
         nt.links.new(uv.outputs["UV"], tex.inputs["Vector"])
+        # glass with a piece of her picture in it: the picture faint and see-through, the glass's reflection at the
+        # grazing angles (lit cards of picture was what they were before)
         em = nt.nodes.new("ShaderNodeEmission")
-        em.inputs["Strength"].default_value = 0.9
+        em.inputs["Strength"].default_value = 0.5
         nt.links.new(tex.outputs["Color"], em.inputs["Color"])
+        inner = nt.nodes.new("ShaderNodeMixShader")
+        inner.inputs["Fac"].default_value = 0.4
+        nt.links.new(em.outputs[0], inner.inputs[1])
+        nt.links.new(nt.nodes.new("ShaderNodeBsdfTransparent").outputs[0], inner.inputs[2])
         gl = nt.nodes.new("ShaderNodeBsdfGlossy")
-        gl.inputs["Roughness"].default_value = 0.04
+        gl.inputs["Roughness"].default_value = 0.02
+        lw = nt.nodes.new("ShaderNodeLayerWeight")
+        lw.inputs["Blend"].default_value = 0.35
         mix = nt.nodes.new("ShaderNodeMixShader")
-        mix.inputs["Fac"].default_value = 0.7
-        nt.links.new(gl.outputs[0], mix.inputs[1])
-        nt.links.new(em.outputs[0], mix.inputs[2])
+        nt.links.new(lw.outputs["Fresnel"], mix.inputs["Fac"])
+        nt.links.new(inner.outputs[0], mix.inputs[1])
+        nt.links.new(gl.outputs[0], mix.inputs[2])
         nt.links.new(mix.outputs[0], out.inputs["Surface"])
         mats[key] = mat
     S.shards = []
@@ -1410,6 +1418,8 @@ def p2_whip(u, t, b):
     dawn()
     k, v = min(3, math.floor(b) - 24), b % 1
     p, side = S.prints[WHIP[k][0]], WHIP[k][1]
+    bpy.context.scene.view_settings.exposure = 0.5                              # the held print was white: the sun
+    wet(p, 0.06)                                                                # behind it, through the paper
     eye = Vector((p.location.x - 2.3, p.location.y, 2.9))
     # whip in from looking along the row (up at the windows), hold on the print, whip out the other way
     yaw = side * 90 * (1 - ease(v / 0.3)) if v < 0.6 else -side * 90 * ease((v - 0.6) / 0.4)
@@ -1428,7 +1438,8 @@ def p2_wind(u, t, b):
         behind(p, 0.6 * a)                                                      # lit from behind for an instant
     for name in CRACKS_P2:
         S.cracks[name]["reveal"] = 1.0
-    look((3.2, -5.5, 1.0), (14, 1.5, 3.4), lens=24, fstop=5.6)
+    # higher and further out than before: the nearest print's dark back, lifting, filled half the frame
+    look((2.5, -6.4, 2.4), (14, 1.2, 3.6), lens=24, fstop=5.6)
 
 
 def p2_out(u, t, b):
@@ -1459,8 +1470,9 @@ def p4_chorus(u, t, b):
     names = list(S.prints)
     red = ease((b - 41) / 5)
     night(cold=1.0 - 0.4 * red, rose=lambda n: clamp((b - 41 - 0.22 * names.index(n)) / 0.5),
-          density=0.004 + 0.003 * red, red=red)
-    bpy.context.scene.view_settings.exposure = 1.8 - 0.3 * red
+          density=0.003 + 0.002 * red, red=red)
+    bpy.context.scene.view_settings.exposure = 1.5 - 0.3 * red                 # (at 1.8 in that haze the near prints
+    #                                                                              went milky white)
     cam = k % 5
     if cam == 0:                                                                # low along a row, between the prints
         y = 5.5 - 11 * v
@@ -1615,9 +1627,9 @@ def p7_ura(u, t, b):
         into(key, 1.05 + 0.08 * v, yaw=-6 + 12 * v, cold=0.6, rose=0.7)      # rose on her, the paper still cold
         if key == "u1":                                                         # her water takes the beat
             ripple_in("u1", last_beat(t), 0.8)
-    else:                                                                       # the hall, upside down
+    else:                                                                       # the hall, upside down, drifting in
         p7_night()
-        look((-1.0 + 3.0 * v, -2.4, 0.35), (16, 0.5, 1.2), lens=24, roll=180)
+        look((-1.0 + 6.0 * v, -2.4 + 0.8 * v, 0.35), (16 + 2.0 * v, 0.5, 1.2), lens=24, roll=180)
 
 
 def p7_reflect(u, t, b):
