@@ -25,6 +25,7 @@ import sys
 
 import bmesh
 import bpy
+import numpy as np
 from mathutils import Matrix, Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -425,6 +426,65 @@ def shards():
                              away=home + Vector((r.uniform(-6, 6), r.uniform(-4, 4), r.uniform(2, 6)))))
 
 
+def strands(p, name, n=40, seed=0):
+    """Her hair lifting off the paper: thin 3D strands rooted on the relief along the hair's edge (from the parts
+    map), pointing out from the hair and a little towards the viewer, swaying in the hall's air (sway(), per frame).
+    The 3D inside the picture's dimensional part; a child of the print, so it goes where the print goes."""
+    mk = H._load(os.path.join(H.MAPS, f"{name}_parts.png"))[..., 0] > 0.5
+    if not mk.any():
+        return
+    h, w = mk.shape
+    inner = mk.copy()
+    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        inner &= np.roll(mk, (dy, dx), axis=(0, 1))
+    ys, xs = np.nonzero(mk & ~inner)
+    if len(xs) < 8:
+        return
+    my, mx = np.nonzero(mk)
+    cu_, cv_ = (mx.mean() + 0.5) / w, (my.mean() + 0.5) / h
+    r = random.Random(seed)
+    W, Hh = H.size_of(p)
+    inv = p.matrix_world.inverted()
+    cu = bpy.data.curves.new(f"{p.name}_hair", "CURVE")
+    cu.dimensions, cu.bevel_depth, cu.bevel_resolution, cu.fill_mode = "3D", 0.0035 * W / 4.2, 2, "FULL"
+    cu.materials.append(S.hair_mat)
+    items = []
+    for _ in range(n):
+        i = r.randrange(len(xs))
+        pu, pv = (xs[i] + 0.5) / w, (ys[i] + 0.5) / h
+        dy, dz = -(pu - cu_) * W, (pv - cv_) * Hh
+        norm = math.hypot(dy, dz)
+        if norm < 1e-3:
+            continue
+        d = Vector((-0.35, dy / norm, dz / norm)).normalized()
+        sp = cu.splines.new("NURBS")
+        sp.points.add(5)
+        sp.order_u, sp.use_endpoint_u = 4, True
+        for j, pt in enumerate(sp.points):
+            pt.radius = 1.0 - 0.8 * j / 5                                       # fine at the tip
+        items.append(dict(sp=sp, root=inv @ H.picture_point(p, name, pu, pv, lift=0.004), d=d,
+                          L=r.uniform(0.1, 0.38) * W / 4.2, ph=r.uniform(0, 6.3), w=r.uniform(0.6, 1.4)))
+    ob = bpy.data.objects.new(cu.name, cu)
+    m._link(ob)
+    ob.parent = p
+    S.strands.append(dict(ob=ob, parent=p, items=items))
+
+
+def sway(t):
+    """The strands in the air: each bends with its own slow wave and sinks towards its tip; hidden with its print."""
+    for st in S.strands:
+        for it in st["items"]:
+            root, d, L = it["root"], it["d"], it["L"]
+            a = 0.35 * math.sin(it["w"] * t + it["ph"])
+            for j, pt in enumerate(it["sp"].points):
+                s = j / 5
+                q = root + d * (L * s) + Vector((0.0, a * L * s * s, -0.45 * L * s * s))
+                pt.co = (q.x, q.y, q.z, 1.0)
+        hidden = st["parent"].hide_render
+        if st["ob"].hide_render != hidden:
+            st["ob"].hide_render = hidden
+
+
 def halves(p):
     """A print in two halves (left and right of the image), each hinged at its outer clip, for tearing (D6)."""
     out = []
@@ -768,6 +828,11 @@ def setup():
     S.where.update({"kv": (S.kv, _pic("kv"), False), "kvu": (S.kv, _pic("kvu"), True),
                     "a5": (S.prints["print_2_-3.2"], _pic("a5"), False), "q1": (S.q_print, _pic("q1"), False),
                     "u2": (S.q_print, _pic("u2"), True), "c1": (S.c1_print, _pic("c1"), False)})
+    S.hair_mat = A._principled("hair_strand", **{"Base Color": m.srgb("#1A1826"), "Roughness": 0.45})[0]
+    S.strands = []
+    for key, (p, name, on_back) in S.where.items():                           # her hair off the paper, on the hero prints
+        if not on_back:
+            strands(p, name, seed=sum(map(ord, key)))
     S.home = {ob.name: (ob.location.copy(), ob.rotation_euler.copy())
               for ob in list(S.prints.values()) + S.panels + [S.kv]}
     S.everything_lit = S.dawn + S.cold + S.fronts + S.bulbs + list(S.behind.values()) + list(S.lights.values())
@@ -1255,7 +1320,7 @@ def p4_chorus(u, t, b):
     red = ease((b - 41) / 5)
     night(cold=1.0 - 0.4 * red, rose=lambda n: clamp((b - 41 - 0.22 * names.index(n)) / 0.5),
           density=0.004 + 0.003 * red, red=red)
-    bpy.context.scene.view_settings.exposure = 1.6 - 0.3 * red
+    bpy.context.scene.view_settings.exposure = 1.8 - 0.3 * red
     cam = k % 5
     if cam == 0:                                                                # low along a row, between the prints
         y = 5.5 - 11 * v
@@ -1368,7 +1433,9 @@ def p6_side(u, t, b):
     light("w1_rose", 0.5 if b < 65 else 0.12)         # behind: plain paper and a pencilled number, in the cold
     light("w1_back", 0.0 if b < 65 else 0.35 * ease((b - 65) * 1.5))
     ang = math.radians(90 * ease(b - 64) if b < 65 else 90 + 90 * ease((b - 65) * 1.5))   # a line, then its back
-    look(W1C + Vector((-math.cos(ang) * 4.0, -math.sin(ang) * 4.0, -1.0)), W1C, lens=40, fstop=4)
+    v = ease((b - 65) * 1.2) if b >= 65 else 0.0                                # then in, to the pencilled number
+    look(W1C + Vector((-math.cos(ang) * 4.0, -math.sin(ang) * 4.0, -1.0)), W1C + Vector((0, -0.6 * v, -1.9 * v)),
+         lens=40 + 30 * v, fstop=4)
     rain_at(t)
 
 
@@ -1419,7 +1486,9 @@ def p7_reflect(u, t, b):
     light("refl_rose")
     flash = t - at(math.floor(b)) < 2 / FPS                                     # once a bar the reflection is 表 again
     S.refl_ura.visible_glossy, S.refl_omote.visible_glossy = not flash, flash
-    # the whole print and the whole of its reflection, the water line across the middle; a slow slide past
+    # the whole print and the whole of its reflection, the water line across the middle; a slow slide past,
+    # and every beat a ring through her reflection
+    ripple(last_beat(t), REFL.x, REFL.y, 0.6)
     look(REFL + Vector((-3.0, 0.6 - 1.2 * u, 0.12)), REFL, lens=28 + 2 * u, fstop=5.6)
 
 
@@ -1616,6 +1685,7 @@ def main():
         S.t, S.b = t, max(bar_at(t), bar)          # rounding can put a shot's first frame just before it
         reset(scene)
         fn((t - starts[k]) / (starts[k + 1] - starts[k]), t, S.b)
+        sway(t)
         scene.render.stamp_note_text = f"{sec} {title}  |  bar {math.floor(S.b)}.{int(S.b % 1 * 4) + 1}  |  " \
                                        f"{int(t // 60)}:{t % 60:04.1f}"
         scene.render.filepath = path(f)

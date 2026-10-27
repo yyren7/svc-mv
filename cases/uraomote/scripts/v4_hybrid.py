@@ -88,7 +88,16 @@ def depth_relief(name, amount=RELIEF, size=None):
     flat plane (its sky, water, mirrors stay in the paper), rising towards the viewer (-X) elsewhere."""
     d = _load(os.path.join(MAPS, f"{name}_depth.png"))[..., 0]
     flat = _load(os.path.join(MAPS, f"{name}_flat.png"))[..., :3].max(axis=2)
-    d = _soften(_blocks(d * (1.0 - flat), 8), passes=4)    # the depth's fine grain would mottle the paper under a raking lamp
+    # the depth's grain (cloth folds, the model's noise) would mottle the paper under a raking lamp: smoothed hard,
+    # then her silhouette put back as a step from the parts map, so the relief is a bas-relief, not a bumpy sheet
+    d = _soften(_blocks(d * (1.0 - flat), 8), passes=8)
+    parts = os.path.join(MAPS, f"{name}_parts.png")
+    if os.path.exists(parts):
+        fig = _soften(_blocks(_load(parts)[..., :3].max(axis=2), 8), passes=1)
+        if fig.shape != d.shape:
+            fig = fig[(np.arange(d.shape[0]) * fig.shape[0] // d.shape[0])[:, None],
+                      (np.arange(d.shape[1]) * fig.shape[1] // d.shape[1])[None, :]]
+        d = d * (0.3 + 0.7 * fig)
     h, w = d.shape
     mu, mv, rw, rh, s = _layout(w, h, size)
 
