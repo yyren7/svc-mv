@@ -59,7 +59,8 @@ DUTCH = (87, 99)                                     # bars with the Dutch angle
 HOLE = Vector((2.0, 0.78, 3.95))                     # 表 cut out of the KV
 FLOAT_C = Vector((31.9, -4.0, 0.0))                  # the print lying on the water (P1.5)
 # the props of single shots stand beyond the last row, clear of the two top-down shots (x 29.8-34.1)
-QC = Vector((36.5, 0.0, 2.9))                        # Q1 / Q2's print (P3)
+QC = Vector((33.5, 0.0, 2.9))                        # Q1 / Q2's print (P3); the far wall is at x 40, and the
+#                                                      camera inside its back picture stands 4 m behind it
 W1C = Vector((35.5, 5.0, 2.1))                       # her cardboard in the rain (P6)
 C1C = Vector((29.0, -1.6, 2.6))                      # C1's print, its ink running off into the water (P5.1)
 REFL = Vector((38.0, -5.0, 0.0))                     # a 表 print whose reflection is her 裏 (P7.3, U3)
@@ -218,7 +219,8 @@ def ink_volume(name, seed):
     dens = g.math("MULTIPLY", g.math("MULTIPLY", g.math("SUBTRACT", nz.outputs["Fac"], 0.42, clamp=True), 12.0), fall)
     k, glow = _value(nt), _value(nt)
     vol = g.node("ShaderNodeVolumePrincipled")
-    vol.inputs["Color"].default_value = m.srgb(ROSE)
+    vol.inputs["Color"].default_value = m.srgb("#8C2446")                 # ink scatters dark, it is not a lamp
+    vol.inputs["Absorption Color"].default_value = m.srgb("#5A1030")
     vol.inputs["Emission Color"].default_value = m.srgb(GLOW)
     g.link(g.math("MULTIPLY", dens, k), vol.inputs["Density"])
     g.link(g.math("MULTIPLY", dens, glow), vol.inputs["Emission Strength"])
@@ -322,11 +324,36 @@ def confetti():
     S.scrap = [dict(a=r.uniform(0, 2 * math.pi), rad=r.uniform(0.1, 1.0), h=r.uniform(-0.5, 0.5),
                     w=r.uniform(0.04, 0.09), spin=Vector((r.uniform(-1, 1), r.uniform(-1, 1), r.uniform(-1, 1))),
                     rate=r.uniform(2.0, 6.0), fall=r.uniform(0.6, 1.4), ph=r.uniform(0, 6.3)) for _ in range(n)]
-    mat, b = A._principled("scrap", **{"Base Color": m.srgb(PAPER), "Roughness": 0.8,
-                                       "Emission Color": m.srgb(PAPER), "Emission Strength": 0.35})
+    mat, b = A._principled("scrap", **{"Base Color": m.srgb("#D8D1C4"), "Roughness": 0.8,
+                                       "Emission Color": m.srgb(PAPER), "Emission Strength": 0.06})
     S.conf = _mesh("confetti", [(0, 0, 0)] * (4 * n), [(4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3) for i in range(n)],
                    mats=[mat])
     S.conf.visible_shadow = False
+
+
+def motes():
+    """Dust in the light before the KV (P0): 320 specks in one mesh, drifting and sinking, placed by dust()."""
+    n = 320
+    r = random.Random(17)
+    S.mote = [dict(p=Vector((r.uniform(-0.9, -0.1), r.uniform(-1.3, 0.4), r.uniform(1.4, 4.4))), ph=r.uniform(0, 6.3),
+                   v=r.uniform(0.03, 0.08), s=r.uniform(0.004, 0.009)) for _ in range(n)]
+    mat = _emission_mat("mote", "#FFF4E8", 3.0)[0]
+    S.dust = _mesh("motes", [(0, 0, 0)] * (4 * n), [(4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3) for i in range(n)],
+                   mats=[mat])
+    _only_camera(S.dust)
+
+
+def dust(t, center=(2.0, 0.0, 0.0)):
+    S.dust.hide_render = False
+    co = []
+    for mt in S.mote:
+        p = Vector(center) + mt["p"] + Vector((0.03 * math.sin(0.7 * t + mt["ph"]), 0.05 * math.sin(0.5 * t + 1.3 * mt["ph"]),
+                                               3.0 - (mt["v"] * t + mt["ph"]) % 3.0))
+        s = mt["s"]
+        for dy, dz in ((-s, -s), (s, -s), (s, s), (-s, s)):
+            co.extend(p + Vector((0.0, dy, dz)))
+    S.dust.data.vertices.foreach_set("co", co)
+    S.dust.data.update()
 
 
 def scraps(center, t, radius=4.0, height=3.0, swirl=0.0, fall=0.0):
@@ -556,8 +583,8 @@ def props():
         ob.visible_glossy = False
     for i, (target, z) in enumerate((((2, 0.78, 3.95), 0), ((2, 0.78, 3.05), 0), ((2, -0.3, 3.9), 0),
                                      ((2, -0.3, 2.2), 0))):
-        S.lights[f"kv{i}"] = (al(f"kv{i}", Vector(target) + Vector((-2.6, 0, 2.0)), target, 0.5, 5200, 60,
-                                 spread_deg=38), 60.0)
+        S.lights[f"kv{i}"] = (al(f"kv{i}", Vector(target) + Vector((-2.6, 0, 2.0)), target, 0.5, 5200, 40,
+                                 spread_deg=38), 40.0)
 
 
 def cards():
@@ -730,6 +757,7 @@ def setup():
     S.halves = {name: halves(S.prints[name]) for name in PATH + ["stage_r0"]}
     rain()
     confetti()
+    motes()
     shards()
     letters(S.kv)
     compositor()
@@ -744,7 +772,7 @@ def setup():
     S.home = {ob.name: (ob.location.copy(), ob.rotation_euler.copy())
               for ob in list(S.prints.values()) + S.panels + [S.kv]}
     S.everything_lit = S.dawn + S.cold + S.fronts + S.bulbs + list(S.behind.values()) + list(S.lights.values())
-    S.hidden = [S.rain, S.conf, S.drop, S.zero, S.ink["ob"], S.burst["ob"], S.glass_ink["ob"]] + \
+    S.hidden = [S.rain, S.conf, S.dust, S.drop, S.zero, S.ink["ob"], S.burst["ob"], S.glass_ink["ob"]] + \
         [s["ob"] for s in S.shards] + [ob for hv in S.halves.values() for ob, _ in hv] + \
         [ob for ob, _ in S.card_halves] + getattr(S, "letter_lamps", [])
     return scene
@@ -752,34 +780,53 @@ def setup():
 
 # ---------------------------------------------------------------- what a shot sets
 
+def put(sock, v):
+    """Set a socket's value only when it changes: setting it again, even to the same value, makes Cycles rebuild
+    the material or light, and forty hybrid prints make that most of a frame's time."""
+    cur = sock.default_value
+    if isinstance(v, (int, float)):
+        if cur != v:
+            sock.default_value = v
+    elif tuple(cur) != tuple(v):
+        sock.default_value = v
+
+
 def reset(scene):
     """The hall at rest, every light off, nothing in the air: each shot then sets what it needs."""
     for ob, _ in S.everything_lit:
-        ob.data.energy = 0.0
+        if ob.data.energy != 0.0:
+            ob.data.energy = 0.0
     for s in S.lamp_glow:
-        s.default_value = 0.0
-    S.sky_em.inputs["Strength"].default_value = 0.0
+        put(s, 0.0)
+    put(S.sky_em.inputs["Strength"], 0.0)
     haze(0.0)
-    S.rip["a"].default_value = 0.0
-    S.water_glow.default_value = 0.0
+    put(S.rip["a"], 0.0)
+    put(S.water_glow, 0.0)
     for ob in S.hidden:
-        ob.hide_render = True
+        if not ob.hide_render:
+            ob.hide_render = True
     for p in S.prints.values():
-        p.hide_render = False
+        if p.hide_render:
+            p.hide_render = False
     for name, (loc, rot) in S.home.items():
         ob = bpy.data.objects[name]
-        ob.location, ob.rotation_euler = loc, rot
+        if ob.location != loc:
+            ob.location = loc
+        if ob.rotation_euler != rot:
+            ob.rotation_euler = rot
     for mix in S.mix.values():
-        mix.inputs["Fac"].default_value = V.WET
+        put(mix.inputs["Fac"], V.WET)
     for name in H.RINGS:
         H.ring(name, 0.0, 0.0, 0.0, 0.0)
     for name in H.STAINS:
         H.stain(name, 0.0, 0.0, -1.0)
     for ob in S.cracks.values():
-        ob["reveal"] = 0.0
-    S.refl_omote.visible_glossy, S.refl_ura.visible_glossy = False, True
-    S.lineart.default_value = 0.0
-    S.glare.default_value = 0.4
+        if ob["reveal"] != 0.0:
+            ob["reveal"] = 0.0
+    if S.refl_omote.visible_glossy or not S.refl_ura.visible_glossy:
+        S.refl_omote.visible_glossy, S.refl_ura.visible_glossy = False, True
+    put(S.lineart, 0.0)
+    put(S.glare, 0.4)
     scene.view_settings.view_transform = "AgX"
     scene.view_settings.exposure = 0.0
     scene.cycles.samples = SAMPLES
@@ -790,53 +837,62 @@ def reset(scene):
 
 
 def haze(density, color="#E4ECF4", anisotropy=0.3):
-    S.haze.hide_render = density <= 0
-    S.haze_vol.inputs["Density"].default_value = density
-    S.haze_vol.inputs["Color"].default_value = m.srgb(color)
-    S.haze_vol.inputs["Anisotropy"].default_value = anisotropy
+    if S.haze.hide_render != (density <= 0):
+        S.haze.hide_render = density <= 0
+    put(S.haze_vol.inputs["Density"], density)
+    put(S.haze_vol.inputs["Color"], m.srgb(color))
+    put(S.haze_vol.inputs["Anisotropy"], anisotropy)
 
 
 def sky(key, strength):
     """The painted sky behind the high windows, and behind every picture's window."""
-    S.sky_tex.image = S.images[key]
-    S.sky_em.inputs["Strength"].default_value = strength
-    for tex in H.SKY_TEX:
-        tex.image = S.images[key]
+    if S.sky_tex.image is not S.images[key]:
+        S.sky_tex.image = S.images[key]
+        for tex in H.SKY_TEX:
+            tex.image = S.images[key]
+    put(S.sky_em.inputs["Strength"], strength)
+    for em in H.SKY_EM:                                  # a picture's sky no brighter than the hall's
+        put(em.inputs["Strength"], 0.6 * strength)
+
+
+def energy(ob, e):
+    if ob.data.energy != e:
+        ob.data.energy = e
 
 
 def dawn(a=1.0, sky_key="s1"):
     """表: the cold sun through the high windows, by `a`."""
     for ob, e in S.dawn:
-        ob.data.energy = e * a
+        energy(ob, e * a)
     sky(sky_key, 2.5 * max(a, 0.15))
     haze(0.01 * max(a, 0.2), "#E4ECF4", 0.25)
-    bpy.context.scene.view_settings.exposure = 1.5
+    bpy.context.scene.view_settings.exposure = 1.2
 
 
 def night(cold=1.0, rose=0.0, sky_key="s2", density=0.0035, red=0.0):
     """裏: cold light on the fronts by `cold`, the rose lamp behind each print by `rose` (a number, or a function of
     the print's name); `red` turns the haze from pink to rose."""
     for ob, e in S.cold + S.fronts:
-        ob.data.energy = e * cold
+        energy(ob, e * cold)
     for name, (ob, e) in S.behind.items():
-        ob.data.energy = e * (rose(name) if callable(rose) else rose)
+        energy(ob, e * (rose(name) if callable(rose) else rose))
     sky(sky_key, 0.5)
-    haze(density, "#F02858" if red > 0.5 else "#F2D8E0", 0.4)
-    bpy.context.scene.view_settings.exposure = 0.8
+    haze(density, "#D8A0B4" if red > 0.5 else "#E6D4DC", 0.4)    # the air never saturated: the rose stays small
+    bpy.context.scene.view_settings.exposure = 1.1
 
 
 def light(name, a=1.0):
     ob, e = S.lights[name]
-    ob.data.energy = e * a
+    energy(ob, e * a)
 
 
 def behind(p, a):
     ob, e = S.behind[p.name]
-    ob.data.energy = e * a
+    energy(ob, e * a)
 
 
 def wet(p, w):
-    S.mix[p.name].inputs["Fac"].default_value = w
+    put(S.mix[p.name].inputs["Fac"], w)
 
 
 def ripple(t0, x, y, amp=1.0):
@@ -915,7 +971,7 @@ def card(key, zoom=1.0, cx=0.5, cy=0.5, seep=0.0, gap=0.0, tint=None, tint_a=0.0
 
 
 def into(key, zoom=1.0, cx=None, cy=None, lens=35.0, fstop=2.8, cold=1.0, rose=0.0, yaw=0.0, pitch=0.0,
-         sky_key=None):
+         sky_key=None, exposure=0.6):
     """A 2D shot: the camera in front of the print that carries picture `key`, the frame covering the picture's
     width over `zoom`, centred on (cx, cy) of the picture (0..1 from its bottom left; by default her face, from
     the parts map). The picture's planes are the hall's and its figure a relief, so the shot is inside the picture,
@@ -950,10 +1006,11 @@ def into(key, zoom=1.0, cx=None, cy=None, lens=35.0, fstop=2.8, cold=1.0, rose=0
         if p.name in S.behind:
             behind(p, rose)
         if p.name in S.front_of:
-            S.front_of[p.name].data.energy = 220.0 * cold
+            energy(S.front_of[p.name], 300.0 * cold)
     if sky_key:
         sky(sky_key, 2.0 if sky_key == "s1" else 0.5)
     haze(0.002, "#E4ECF4", 0.3)
+    bpy.context.scene.view_settings.exposure = exposure     # the picture's own exposure, whatever the hall's is
 
 
 def seep(key, v, blob=None):
@@ -961,19 +1018,20 @@ def seep(key, v, blob=None):
     and, with `blob`, a wisp of ink in the air just off the paper, running down."""
     p, name, _ = S.where[key]
     hair = H.anchor(p, name, 0)
-    H.stain(p.name, *H.sheet_uv(p, name, *hair["uv"]), 0.04 + 0.42 * v)
+    H.stain(p.name, *H.sheet_uv(p, name, *hair["uv"]), 0.02 + 0.11 * v)   # hair-sized: the stain, not a disc
     if blob is not None:
-        ink(blob, hair["point"] + Vector((-0.03, 0.0, -0.25 * v)), (0.06 + 0.04 * v, 0.22 + 0.3 * v, 0.4 + 0.5 * v),
-            0.9, 0.3)
+        ink(blob, hair["point"] + Vector((-0.03, 0.0, -0.2 * v)), (0.04 + 0.02 * v, 0.1 + 0.14 * v, 0.2 + 0.4 * v),
+            1.6, 0.0)
 
 
 def rain_in(p, t):
     """The rain inside a picture: the block of streaks as a slab just in front of the print `p`, over its face."""
     W, Hh = H.size_of(p)
     S.rain.hide_render = False
-    S.rain.scale = (0.05, W / 14.0, 0.5)
-    S.rain.location = (p.location.x - 0.4, p.location.y, p.location.z - Hh - 0.5 * ((t * 6.5) % 8.0))
-    S.rain_em.inputs["Strength"].default_value = 1.2
+    S.rain.scale = (0.5, W / 14.0, 0.5)                   # spread through the depth between the camera and the paper,
+    S.rain.location = (p.location.x - 3.6, p.location.y,  # so it is rain, not a curtain of lines
+                       p.location.z - Hh - 0.5 * ((t * 6.5) % 8.0))
+    put(S.rain_em.inputs["Strength"], 0.6)
 
 
 def ripple_in(key, t0, amp=1.0, part=0):
@@ -1018,38 +1076,55 @@ def p0_paper(u, t, b):
     look((0.9, 0.7, 4.5), (2.03, 1.15, 4.3), lens=60, fstop=2.8)
 
 
+P0_ORTHO = [4.2, 5.6, 7.1, 8.6]                                                 # the frame a step wider on each downbeat
+
+
+def p0_frame(b):
+    k = min(3, math.floor(b))
+    o = P0_ORTHO[k] + (P0_ORTHO[min(3, k + 1)] - P0_ORTHO[k]) * ease((b - k) / 0.5)
+    return o, 0.5 - 0.22 * b                                                    # and drifting slowly across
+
+
 def p0_lights(u, t, b):
     for i in range(4):
         light(f"kv{i}", clamp((b - i) * 6))                                     # a lamp on every downbeat
     behind(S.kv, 0.25)                                                          # the letters glow a little
     haze(0.004, "#E4ECF4", 0.3)
-    look((-6, 0, 2.9), (2, 0, 2.9), ortho=8.6)
+    dust(t)                                                                     # the lamps find the dust in the air
+    o, y = p0_frame(b)
+    look((-6, y, 2.9 + 0.35 * (8.6 - o) / 4.4), (2, y, 2.9 + 0.35 * (8.6 - o) / 4.4), ortho=o)
+    bpy.context.scene.view_settings.exposure = -0.4                             # paper, not a light box
 
 
 def p0_through(u, t, b):
     for i in range(4):
         light(f"kv{i}")
-    behind(S.kv, 0.25 + 1.8 * ease(u))
+    behind(S.kv, 0.25 + 1.2 * ease(u))
     wet(S.kv, V.WET + 0.3 * ease(u))
     haze(0.004, "#F2D8E0", 0.3)
-    look((-6, 0, 2.9), (2, 0, 2.9), ortho=8.6 - 0.4 * ease(u))
+    dust(t)
+    o, y = p0_frame(b)
+    look((-6, y, 2.9), (2, y, 2.9), ortho=o - 0.4 * ease(u))
+    bpy.context.scene.view_settings.exposure = -0.4
 
 
 def kv_lit():
     for i in range(4):
         light(f"kv{i}")
     night(cold=0.1, rose=0.12)
-    behind(S.kv, 2.05)
+    behind(S.kv, 1.45)
     wet(S.kv, V.WET + 0.3)
 
 
 def p0_space(u, t, b):
     kv_lit()
+    dust(t)
     look((-5.5, 2.5 - 5.0 * ease(u), 2.9), (2, 0, 2.9), lens=35, fstop=5.6)
 
 
 def p0_dive(u, t, b):
     kv_lit()
+    dust(t)
     e0 = Vector((-5.5, -2.5, 2.9))
     d = (HOLE - e0).normalized()
     s = 1.25 * u ** 2.2                                                         # accelerating; 1 is the cut-out
@@ -1061,16 +1136,18 @@ def p1_hall(u, t, b):
     dawn()
     r1 = sorted(row(1), key=lambda p: -p.location.y)
     r1[math.floor(b) % 4].rotation_euler.z = 0.1 * math.sin(math.pi * min(1.0, b % 1 * 2))   # one turns in the wind
-    y = 6.0 - 12.0 * u
-    look((2.9, y, 0.55), (8.0, y - 1.2, 2.3), lens=28, fstop=4, focus=(6.0, y - 0.6, 2.0))
+    # three layers: a print's edge close and dark, the row lit by the sun across it, the windows and their beams
+    # above and beyond; the camera low among the prints, drifting down the hall towards the light
+    x = 1.0 + 6.0 * u
+    look((x, -5.6, 1.1), (x + 6.0, 6.0, 5.2), lens=24, fstop=4, focus=(x + 3.0, 0.0, 3.0))
 
 
 def p1_eyes(u, t, b):
     dawn(0.6)
     if b < 13:                                                                  # A6 not drawn: Q1
-        into("a5", 1.05 + 0.05 * u, yaw=-3 + 6 * u, cold=0.4, sky_key="s1")
+        into("a5", 1.05 + 0.05 * u, yaw=-3 + 6 * u, cold=0.7, sky_key="s1")
     else:
-        into("q1", 1.1, yaw=4 - 8 * (b - 13), cold=0.5, sky_key="s1")
+        into("q1", 1.1, yaw=4 - 8 * (b - 13), cold=0.8, sky_key="s1")
 
 
 def p1_drop(u, t, b):
@@ -1086,7 +1163,7 @@ def p1_drop(u, t, b):
     if t >= t15:
         v = ease((t - t15) / (at(16) - t15))
         s = 0.006 + 0.02 * v
-        ink(S.glass_ink, g + Vector((0, 0, 0.05 - 0.015 * v)), (s, s, s * 1.3), 1.0, 0.4)
+        ink(S.glass_ink, g + Vector((0, 0, 0.05 - 0.015 * v)), (s, s, s * 1.3), 1.0, 0.05)
     look(g + Vector((-0.30, -0.22, 0.05)), g + Vector((0, 0, 0.035)), lens=85, fstop=2.8)
 
 
@@ -1099,7 +1176,7 @@ def p1_seep(u, t, b):
         return
     dawn()
     g = S.glass_at
-    ink(S.glass_ink, g + Vector((0, 0, 0.035)), (0.026, 0.026, 0.03), 1.2, 0.5)
+    ink(S.glass_ink, g + Vector((0, 0, 0.035)), (0.026, 0.026, 0.03), 1.2, 0.05)
     eye = Vector((5.35, 3.45, 4.85))
     look(eye, g + Vector((0, 0, 0.04)), lens=50, fstop=1.4, focus=0.9 + ((g - eye).length - 0.9) * ease(b - 19))
 
@@ -1108,11 +1185,12 @@ def p1_top(u, t, b):
     dawn(0.4)                                                                   # the water black, not the lit ceiling
     light("float_sun", 1.5)
     v = ease((b - 20) / 4)
-    ink(S.ink, FLOAT_C + Vector((0, 0, -0.015)), (2.2 + 1.8 * v, 2.2 + 1.8 * v, 0.014), 0.6 + 0.8 * v, 0.2)
+    ink(S.ink, FLOAT_C + Vector((0, 0, -0.015)), (2.2 + 1.8 * v, 2.2 + 1.8 * v, 0.014), 0.6 + 0.8 * v, 0.0)
     ripple(last_beat(t), FLOAT_C.x, FLOAT_C.y, 0.7)
     if b >= 23.75:
         S.cracks["face"]["reveal"] = ease((b - 23.75) * 4)                     # the first crack, across her face
-    look(FLOAT_C + Vector((0, 0, 7.2)), FLOAT_C, lens=35, fstop=8, up=(1, 0, 0))
+    a = 0.3 * ease(u)                                                           # sinking towards her, turning a little
+    look(FLOAT_C + Vector((0, 0, 7.2 - 2.4 * ease(u))), FLOAT_C, lens=35, fstop=8, up=(math.cos(a), math.sin(a), 0))
 
 
 WHIP = [("print_1_-1.6", 1), ("print_2_+3.2", -1), ("print_3_+1.6", 1), ("print_4_-3.2", -1)]
@@ -1173,7 +1251,7 @@ def p4_chorus(u, t, b):
     red = ease((b - 41) / 5)
     night(cold=1.0 - 0.4 * red, rose=lambda n: clamp((b - 41 - 0.22 * names.index(n)) / 0.5),
           density=0.004 + 0.003 * red, red=red)
-    bpy.context.scene.view_settings.exposure = 1.2 - 0.4 * red
+    bpy.context.scene.view_settings.exposure = 1.3 - 0.3 * red
     cam = k % 5
     if cam == 0:                                                                # low along a row, between the prints
         y = 5.5 - 11 * v
@@ -1181,7 +1259,7 @@ def p4_chorus(u, t, b):
     elif cam == 1:                                                              # straight down: ink flowering
         c = Vector((32.0, 3.6, 0.0))
         s = 0.4 + 2.6 * ease(v)
-        ink(S.ink, c + Vector((0, 0, -0.015)), (s, s, 0.014), 1.2, 0.6)
+        ink(S.ink, c + Vector((0, 0, -0.015)), (s, s, 0.014), 1.2, 0.0)
         look(c + Vector((0, 0, 5.5)), c, lens=35, up=(1, 0, 0))
     elif cam == 2:                                                              # round a print to its back
         c = S.prints["print_3_-1.6"].location + Vector((0, 0, -2.1))
@@ -1195,16 +1273,16 @@ def p4_chorus(u, t, b):
     tb = at(math.floor(b) + beat / 4)
     if beat == 0 and t - tb < 2 / FPS:
         S.lineart.default_value = 1.0                                           # D4: two frames of line art
+        S.cam.data.dof.use_dof = False                                          # a drawing has no blur; blur is noise
     if beat == 1:
         c = S.eye + S.fwd * 4.0
         ripple(tb, c.x, c.y, 1.0)
         for q in S.prints.values():                                             # every print swayed by the pulse
             q.rotation_euler.z = 0.06 * math.exp(-(t - tb) / 0.2) * math.sin(12 * (t - tb))
-    if beat == 2:
+    if beat == 2:                                                               # ink blooms on the water ahead
         c = S.eye + S.fwd * 5.0
-        c.z = max(0.3, min(c.z, 4.0))
-        s = 0.3 + 1.6 * ease(p)
-        ink(S.burst, c, (s, s, s * 0.8), 1.5 * (1 - p), 1.2)                    # a burst of ink
+        s = 0.3 + 2.2 * ease(p)
+        ink(S.burst, (c.x, c.y, -0.015), (s, s, 0.014), 1.4 * (1 - 0.5 * p), 0.0)
 
 
 def p5_spill(u, t, b):
@@ -1216,27 +1294,30 @@ def p5_spill(u, t, b):
     eye = (C1C + Vector((-1.35, 0, 0.3))).lerp(Vector((27.2, -4.5, 3.8)), v)
     look(eye, C1C, lens=35 - 7 * v, fstop=4)
     # the ink round her runs off the foot of the paper and pours into the water, then spreads
-    ink(S.burst, (C1C.x, C1C.y - 0.1, 0.45), (0.3, 0.7, 0.5 * clamp(u * 3)), 1.4, 1.0)
+    ink(S.burst, (C1C.x, C1C.y - 0.1, 0.45), (0.12, 0.3, 0.5 * clamp(u * 3)), 1.6, 0.0)
     s = 0.2 + 3.5 * ease((u - 0.2) / 0.8)
-    ink(S.ink, (C1C.x - 0.4, C1C.y, -0.015), (s, s, 0.014), 1.4, 0.6)
+    ink(S.ink, (C1C.x - 0.4, C1C.y, -0.015), (s, s, 0.014), 1.4, 0.0)
 
 
 def p5_full(u, t, b):
-    night(cold=0.25, rose=1.0, density=0.006, red=1.0)
-    S.water_glow.default_value = 0.8 * ease(u * 2)                              # the red water lights them from below
-    light("under", ease(u * 2))
+    night(cold=0.25, rose=1.0, density=0.0045, red=1.0)
+    put(S.water_glow, 0.12 * ease(u * 2))                                       # the inked water, a little lit from below
+    light("under", 0.2 * ease(u * 2))
     look((-1.5, -5.0, 0.8), (20, 1, 3.2), lens=24, fstop=5.6)
 
 
 def p5_vertigo(u, t, b):
-    night(cold=0.3, rose=1.0, density=0.006, red=1.0)
-    S.water_glow.default_value = 0.8
-    light("under")
+    night(cold=0.3, rose=1.0, density=0.0045, red=1.0)
+    put(S.water_glow, 0.12)
+    light("under", 0.2)
     d = 3.5 + 10.5 * ease(u)                                                    # back away, zoom in: she stays
     look((2 - d, 0, 2.9), (2, 0, 2.9), lens=24 * d / 3.5, fstop=8)
 
 
 def p5_cut(u, t, b):
+    if b >= 56.25:                                                              # one beat of black, then the rain
+        p6_rain(0.0, t, b)
+        return
     scene = bpy.context.scene
     scene.view_settings.exposure = -10.0
     scene.cycles.samples, scene.cycles.use_denoising = 1, False
@@ -1313,7 +1394,7 @@ def p7_ura(u, t, b):
         night(cold=0.1, rose=0.3)
         light("refl_cold")
         light("refl_rose")
-        look(REFL + Vector((-3.7, 0, 0.1)), REFL + Vector((0, 0, 0.1)), lens=14, fstop=8)
+        look(REFL + Vector((-3.0, 0.4, 0.3)), REFL, lens=32, fstop=5.6)
     elif key:
         night(cold=0.0, rose=0.0, density=0.003)
         into(key, 1.05 + 0.08 * v, yaw=-6 + 12 * v, cold=0.35, rose=1.0)
@@ -1330,7 +1411,8 @@ def p7_reflect(u, t, b):
     light("refl_rose")
     flash = t - at(math.floor(b)) < 2 / FPS                                     # once a bar the reflection is 表 again
     S.refl_ura.visible_glossy, S.refl_omote.visible_glossy = not flash, flash
-    look(REFL + Vector((-3.7, 0.3 * u, 0.1)), REFL + Vector((0, 0, 0.1)), lens=14 + 1.5 * u, fstop=8)   # in front of float_print
+    # her foot and her reflection's head share the frame, the water line across its middle; a slow slide past
+    look(REFL + Vector((-3.0, 0.4 - 0.8 * u, 0.3)), REFL, lens=32 + 3 * u, fstop=5.6)
 
 
 def p7_crack(u, t, b):
@@ -1368,6 +1450,7 @@ def p8_shards(u, t, b):
     look(eye, target, lens=28, fstop=4)
     if q < 0.25:
         S.lineart.default_value = 1.0                                           # each cut lands on line art first
+        S.cam.data.dof.use_dof = False
 
 
 def p9_run(u, t, b):
@@ -1417,7 +1500,7 @@ def p10_walls(u, t, b):
 def p10_f1(u, t, b):
     night(cold=0.0, rose=0.0, density=0.003)
     into("f1", 1.15, cy=0.62 - 0.25 * u, cold=0.8, rose=0.5)
-    scraps(S.eye + S.fwd * 2.4, t, radius=2.2, height=1.8, swirl=1.2 + u)      # the paper flying round her
+    scraps(S.eye + S.fwd * 2.4, t, radius=3.2, height=2.8, swirl=1.2 + u)      # the paper flying round her
 
 
 FAST = ["f1", "h_wide", "c1", "h_top", "r0", "h_low", "u2", "h_kv", "kv", "h_wide", "kvu", "h_low", "w2", "h_top",

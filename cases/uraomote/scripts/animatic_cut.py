@@ -15,7 +15,7 @@ LOOK = ("[0:v]format=gbrp,split[base][hi];"                                  # p
         "[hi]lutrgb=r='clip((val-170)*3,0,255)':g='clip((val-170)*2.4,0,255)':b='clip((val-170)*2,0,255)',"
         "gblur=sigma=22[glow];"
         "[base][glow]blend=all_mode=screen:all_opacity=0.4,format=gbrp,"
-        "vignette=angle=PI/4.6,noise=alls=9:allf=t+u,format=yuv420p[v]")
+        "vignette=angle=PI/4.6,noise=alls=5:allf=t,format=yuv420p[v]")
 
 
 def ffmpeg():

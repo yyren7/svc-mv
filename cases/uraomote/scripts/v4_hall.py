@@ -441,16 +441,16 @@ def rose_light(prints):
         lamp.visible_glossy = False
         behind[p.name] = (lamp, 160.0)
     moon = bpy.data.lights.new("moon", "SUN")
-    moon.energy = 0.7
+    moon.energy = 2.5                                # a moon that lays real shafts through the windows
     moon.angle = math.radians(1.0)
     moon.color = m.srgb("#8FA4FF")[:3]
     mob = bpy.data.objects.new("moon", moon)
     m._link(mob)
     mob.rotation_mode = "QUATERNION"
     mob.rotation_quaternion = Vector((0.2, -0.75, -0.62)).normalized().to_track_quat("-Z", "Y")
-    fill = cyc.area_light("fill", (L / 2, 0, H - 0.5), (L / 2, 0, 0), 30, 9000, 90, size_y=10, color="#5A78FF")
+    fill = cyc.area_light("fill", (L / 2, 0, H - 0.5), (L / 2, 0, 0), 30, 9000, 140, size_y=10, color="#5A78FF")
     front = cyc.area_light("front", (-6.0, 0, 4.0), (L / 2, 0, 2.5), 14, 9000, 260, size_y=6, color="#7C94FF")
-    return behind, [(mob, 0.7), (fill, 90.0), (front, 260.0)]
+    return behind, [(mob, 2.5), (fill, 140.0), (front, 260.0)]
 
 
 def haze(dawn):

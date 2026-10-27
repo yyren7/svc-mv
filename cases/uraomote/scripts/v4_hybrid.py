@@ -30,6 +30,7 @@ MAPS = os.path.join(V.ART, "maps")
 RELIEF = float(os.environ.get("RELIEF", 0.14))
 SKY_DIST, SKY_H = 2.5, 7.0                  # the sky behind a window: a 16:9 picture this far behind the paper, this tall
 SKY_TEX = []                                # every print's sky portal image node: a shot swaps the sky in all at once
+SKY_EM = []                                 # and their emission nodes: the sky in a picture as bright as the hall's sky
 RINGS = {}                                  # print name -> the ring in its water (x, y, r, a values), for ripples
 STAINS = {}                                 # print name -> the rose stain soaking into it (u, v, r values)
 ROSE = "#F0285A"
@@ -181,6 +182,7 @@ def _sky_portal(nt, sky, picture, size=None):
     g.link(frame.outputs["Result"], kit.sock(lit.inputs, "B", "RGBA"))
     em = g.node("ShaderNodeEmission", {"Strength": 1.6})
     g.link(kit.sock(lit.outputs, "Result", "RGBA"), em.inputs["Color"])
+    SKY_EM.append(em)
     glass = g.node("ShaderNodeBsdfGlossy", {"Roughness": 0.03})
     mix = g.node("ShaderNodeMixShader")
     mix.inputs["Fac"].default_value = 0.15
@@ -234,15 +236,27 @@ def _stain(nt, name):
     centre = g.node("ShaderNodeCombineXYZ")
     g.link(st["u"], centre.inputs["X"])
     g.link(st["v"], centre.inputs["Y"])
-    d = g.vmath("DISTANCE", uv.outputs["UV"], centre.outputs[0])
-    edge = g.node("ShaderNodeMapRange", {"To Min": 0.85, "To Max": 0.0}, interpolation_type="SMOOTHSTEP")
+    # ink soaks along the fibre, so the edge is ragged (noise moves the distance) and darker than the middle,
+    # as a wet stain dries: a wine, not a glowing pink
+    nz = g.node("ShaderNodeTexNoise", {"Scale": 26.0, "Detail": 5.0, "Roughness": 0.7})
+    g.link(uv.outputs["UV"], nz.inputs["Vector"])
+    d = g.math("ADD", g.vmath("DISTANCE", uv.outputs["UV"], centre.outputs[0]),
+               g.math("MULTIPLY", g.math("SUBTRACT", nz.outputs["Fac"], 0.5), 0.05))
+    edge = g.node("ShaderNodeMapRange", {"To Min": 0.9, "To Max": 0.0}, interpolation_type="SMOOTHSTEP")
     g.link(d, edge.inputs["Value"])
-    g.link(g.math("SUBTRACT", st["r"], 0.1), edge.inputs["From Min"])
-    g.link(g.math("ADD", st["r"], 0.1), edge.inputs["From Max"])
+    g.link(g.math("SUBTRACT", st["r"], 0.03), edge.inputs["From Min"])
+    g.link(g.math("ADD", st["r"], 0.03), edge.inputs["From Max"])
+    rim = g.node("ShaderNodeMapRange", {"From Min": 0.0, "From Max": 0.025, "To Min": 1.0, "To Max": 0.55},
+                 interpolation_type="SMOOTHSTEP")
+    g.link(g.math("ABSOLUTE", g.math("SUBTRACT", d, st["r"])), rim.inputs["Value"])
     inked = g.node("ShaderNodeMix", data_type="RGBA", blend_type="MULTIPLY")
     kit.sock(inked.inputs, "Factor", "VALUE").default_value = 1.0
     g.link(src, kit.sock(inked.inputs, "A", "RGBA"))
-    kit.sock(inked.inputs, "B", "RGBA").default_value = m.srgb(ROSE)
+    wine = g.node("ShaderNodeMix", data_type="RGBA")
+    g.link(rim.outputs["Result"], kit.sock(wine.inputs, "Factor", "VALUE"))
+    kit.sock(wine.inputs, "A", "RGBA").default_value = m.srgb("#B0405C")      # the stain's middle, thinned
+    kit.sock(wine.inputs, "B", "RGBA").default_value = m.srgb("#4A0A20")      # its rim, where the pigment gathers
+    g.link(kit.sock(wine.outputs, "Result", "RGBA"), kit.sock(inked.inputs, "B", "RGBA"))
     col = kit._mix_rgba(nt, g.math("MULTIPLY", edge.outputs["Result"], g.math("GREATER_THAN", st["r"], 0.0)), src,
                         kit.sock(inked.outputs, "Result", "RGBA"))
     nt.links.new(col, bsdf.inputs["Base Color"])
@@ -260,7 +274,8 @@ def stain(name, u, v, r):
     st = STAINS.get(name)
     if st is None:
         return
-    st["u"].default_value, st["v"].default_value, st["r"].default_value = u, v, r
+    for k, val in (("u", u), ("v", v), ("r", r)):
+        _put(st[k], val)
 
 
 def hybrid_mat(name, front, back, sky, size=None):
@@ -316,14 +331,19 @@ def make_print(name, x, y, front, back, seed, sky="v4_s1_211", top=V.TOP, amount
     return ob
 
 
+def _put(sock, v):
+    if sock.default_value != v:                 # setting a value again makes Cycles rebuild the material
+        sock.default_value = v
+
+
 def ring(name, y, z, r, a):
     """The ripple in print `name`'s water: centre (y, z) in the sheet's own coordinates (z down from the top edge),
     radius and height; a = 0 puts it away."""
     rg = RINGS.get(name)
     if rg is None:
         return
-    rg["y"].default_value, rg["z"].default_value = y, z
-    rg["r"].default_value, rg["a"].default_value = r, a
+    for k, v in (("y", y), ("z", z), ("r", r), ("a", a)):
+        _put(rg[k], v)
 
 
 def main():
