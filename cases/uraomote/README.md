@@ -17,8 +17,8 @@ downbeats.
 | File | What it does |
 |---|---|
 | `scripts/case.py` | This case's folders; puts the pipeline's `scripts/` on `sys.path` |
-| `scripts/animatic_cut.py` | Joins the animatic's frames with the song into an MP4 |
-| `scripts/animatic_v4.py` | v4: the animatic in 3D. Section 5 of script v4 shot by shot in `v4_hall.py`'s hall, cut on the downbeats and rendered in Cycles at 640 px and 16 samples. The 3D shots carry the script's effects in the scene (lamps on the downbeats, KV' showing through, 表 and 裏 cut out of the KV, prints turning, lifting, wet and torn, ripples, rose ink as a volume, rain, cracks, shards, the walls falling to the sky, flying paper, the line-art flash, the roll, the dolly zoom, the Dutch angle, the reflection that is her 裏); the 2D shots are round 2's illustrations on a card filling the frame. Every frame is labelled with its section, shot, bar and time |
+| `scripts/animatic_v4.py` | v4: the animatic in 3D. Section 5 of script v4 shot by shot in `v4_hall.py`'s hall, cut on the downbeats and rendered in Cycles at 640 px and 16 samples. Every print is a hybrid print (`v4_hybrid.make_print`), and the 2D shots go *into* a print (`into()`): the camera in front of the print that carries the picture, the frame as wide as the picture, centred on her face from the parts map, the picture's planes alive and 3D things at its depth (ink soaking in from her hair and a wisp of it in the air, rain inside the picture, a ripple on her water on the beat). The nine pictures that hang nowhere else are staged as prints before row 0 (`STAGE`, wide ones on sheets turned on their side), out of the way of the cameras. The 3D shots carry the script's effects in the scene (lamps on the downbeats, KV' showing through, 表 and 裏 cut out of the KV, prints turning, lifting, wet and torn, ripples, rose ink as a volume, rain, cracks, shards, the walls falling to the sky, flying paper, the line-art flash, the roll, the dolly zoom, the Dutch angle, the reflection that is her 裏). Every frame is labelled with its section, shot, bar and time |
+| `scripts/animatic_cut.py` | Joins the animatic's frames with the song into an MP4, and puts the film's finish on (halation, vignette, grain; `LOOK=0` for none) |
 | `scripts/v4_hall.py` | v4: the hall's look, stills at dawn and in rose light (`renders/v4_hall/`, dawn and rose in separate runs). Plaster over a steel frame (columns, cross beams, purlins), the high windows in steel frames with old glass, a damp band above the water; the prints are paper, with a bare border, fibre and a slow cockle. Dawn is one sun through the windows and the sky's light through them, nothing else: the beams in the haze carry the picture. In rose light a cold front light keeps the 表 readable over the 裏 glowing through, and a cold moon is the night's only other light |
 | `scripts/maps.py` | For the hybrid prints: each illustration's depth map (Depth Anything V2) and a map of its flat planes, sky or window, water, mirror (CLIPSeg; a picture whose whole background is one plane takes everything far as that plane). Runs on the server; `art/v4/maps/`, with a `_check.jpg` per picture to judge the masks |
 | `scripts/v4_hybrid.py` | The 2D picture and the 3D hall set into each other: a print's sky, water and mirrors become the hall's own surfaces (a sky plane behind the paper that shifts with the camera and keeps the picture's window frame, the hall's black water mirroring its lamps and beams, mirror glass), and the figure rises off the paper as a relief from the depth map, so light rakes it and the camera finds parallax. Stills of the KV at dawn and U1 in rose light, `renders/v4_hybrid/` |
@@ -28,6 +28,12 @@ downbeats.
 The pictures do not hang in the hall as cards; each side is set into the other. The flat planes of a picture, its
 sky, its water, its mirrors, are the hall's surfaces, and the hall's things sit in the picture's depth. Judge every
 shot by that: does the 3D enter the picture and the picture enter the 3D, or is it a card again?
+
+What the good Blender MVs taught (Vaundy『ZERO』, ヨルシカ『晴る』, あんスタ『Dear World』, King Gnu『SPECIALZ』 in
+CGWORLD): lock the camera before the art; one subject a shot, three layers of depth; cut by subtraction, let a
+pause carry the feeling; light the hero and keep the darks, with off-screen panels for the rim; colour at the
+boundary of light and shadow, the one warm colour (the rose) small; near things at high detail, far things low;
+grade the whole but do not flatten the sections. The finish (halation, vignette, grain) goes on in the cut.
 
 ## Running
 

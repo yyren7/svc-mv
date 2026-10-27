@@ -231,12 +231,14 @@ def ink_volume(name, seed):
 def sill_glass():
     """M1 (script 6): a glass of clear water on the sill of a high window, for the first drop of ink."""
     x, y = 7.0, V.WD / 2                            # on the sill the hall gives every window
-    A.lathe("glass", [(0.0, 0.004), (0.026, 0.004), (0.029, 0.095), (0.031, 0.095), (0.0285, 0.0), (0.0, 0.0)],
-            mats=[A.clear_glass()]).location = (x - 0.4, y - 0.2, 6.0)
+    glass = A.lathe("glass", [(0.0, 0.004), (0.026, 0.004), (0.029, 0.095), (0.031, 0.095), (0.0285, 0.0), (0.0, 0.0)],
+                    mats=[A.clear_glass()])
+    glass.location = (x - 0.4, y - 0.2, 6.0)
     wm = A._principled("glass_water", **{"Base Color": (1, 1, 1, 1), "Transmission Weight": 1.0, "Roughness": 0.0,
                                          "IOR": 1.33})[0]
-    A.lathe("glass_water", [(0.0, 0.0045), (0.0257, 0.0045), (0.0272, 0.065), (0.0, 0.065)],
-            mats=[wm]).location = (x - 0.4, y - 0.2, 6.0)
+    water = A.lathe("glass_water", [(0.0, 0.0045), (0.0257, 0.0045), (0.0272, 0.065), (0.0, 0.065)], mats=[wm])
+    water.location = (x - 0.4, y - 0.2, 6.0)
+    glass.visible_shadow = water.visible_shadow = False   # no caustics here: the light goes through as a photographer expects
     S.glass_at = Vector((x - 0.4, y - 0.2, 6.0))
     S.glass_ink = ink_volume("glass_ink", 3.0)
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.0035, segments=16, ring_count=8)
@@ -781,6 +783,7 @@ def reset(scene):
     scene.view_settings.view_transform = "AgX"
     scene.view_settings.exposure = 0.0
     scene.cycles.samples = SAMPLES
+    scene.cycles.max_bounces = scene.cycles.transmission_bounces = 6
     scene.cycles.use_denoising = True
     S.cam.data.type = "PERSP"
     S.cam.data.dof.use_dof = True
@@ -1072,8 +1075,10 @@ def p1_eyes(u, t, b):
 
 def p1_drop(u, t, b):
     dawn()
-    bpy.context.scene.cycles.samples = 4 * SAMPLES                              # glass in glass in water
-    bpy.context.scene.view_settings.exposure = -0.8                             # the window behind not blown out
+    scene = bpy.context.scene
+    scene.cycles.samples = 4 * SAMPLES                                          # glass in glass in water
+    scene.cycles.max_bounces = scene.cycles.transmission_bounces = 14           # glass, water, glass, the window's glass
+    scene.view_settings.exposure = -0.8                                         # the window behind not blown out
     g, t15 = S.glass_at, at(15)
     if t15 - 0.35 <= t < t15:
         S.drop.hide_render = False
