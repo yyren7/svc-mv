@@ -524,16 +524,19 @@ def strands(p, name, n=36, seed=0):
         crown = nz > 0.55
         if crown and r.random() < 0.6:
             continue
+        iy, ix = min(ph - 2, max(1, int(pv * ph))), min(pw - 2, max(1, int(pu * pw)))
+        rgb = pix[iy - 1:iy + 2, ix - 1:ix + 2, :3].mean(axis=(0, 1))
+        if 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] > 0.5:               # not hair where the picture is light:
+            continue                                                            # the mask's strays in her sky
         roots.append((pu, pv))
         jit = r.uniform(-0.2, 0.2)
         if crown:                                                               # a flyaway: short, up and out
             d = Vector((-0.08, 0.5 * ny + jit, 0.75)).normalized()
             L, droop = r.uniform(0.04, 0.10) * k, 0.1
-        else:                                                                   # hair: down, a little out, drooping
-            d = Vector((-0.10, 0.55 * ny + jit, -0.85 + 0.3 * max(nz, 0.0))).normalized()
-            L, droop = r.uniform(0.08, 0.30) * k, 0.3
-        iy, ix = min(ph - 2, max(1, int(pv * ph))), min(pw - 2, max(1, int(pu * pw)))
-        mat = _hair_mat(pix[iy - 1:iy + 2, ix - 1:ix + 2, :3].mean(axis=(0, 1)))
+        else:                                                                   # hair: out from the head and down,
+            d = Vector((-0.10, 0.6 * ny + jit, 0.6 * nz - 0.75)).normalized()  # drooping (straight down on a figure
+            L, droop = r.uniform(0.08, 0.28) * k, 0.3                           # lying across the page was drips)
+        mat = _hair_mat(rgb)
         if cu.materials.find(mat.name) < 0:
             cu.materials.append(mat)
         sp = cu.splines.new("NURBS")
@@ -672,10 +675,18 @@ def board():
     paper, pic = V._paper(nt, co), V._picture(nt, "v4_w1_211")
     ghost = kit._mix_rgba(nt, 0.3, paper, V._multiply(nt, paper, pic))        # the picture showing through, reversed
     col = kit._mix_rgba(nt, geo.outputs["Backfacing"], pic, ghost)
+    normal = V._cockle(nt, co)                                                  # paper's cockle and fibre in the raking light
     dif = nt.nodes.new("ShaderNodeBsdfDiffuse")
     nt.links.new(col, dif.inputs["Color"])
-    nt.links.new(V._cockle(nt, co), dif.inputs["Normal"])                      # paper's cockle and fibre in the raking light
-    nt.links.new(dif.outputs[0], out.inputs["Surface"])
+    nt.links.new(normal, dif.inputs["Normal"])
+    tr = nt.nodes.new("ShaderNodeBsdfTranslucent")                             # and the lit front coming through it:
+    nt.links.new(V._multiply(nt, paper, pic), tr.inputs["Color"])              # from behind, her picture in the cold
+    nt.links.new(normal, tr.inputs["Normal"])                                  # light, reversed (a flat lilac board
+    mix = nt.nodes.new("ShaderNodeMixShader")                                   # without it)
+    mix.inputs["Fac"].default_value = 0.4
+    nt.links.new(dif.outputs[0], mix.inputs[1])
+    nt.links.new(tr.outputs[0], mix.inputs[2])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
     S.board = V.sheet("w1_board", W1C.x, W1C.y, mat, seed=93, top=V.SHEET_H + 0.02)
     cu = bpy.data.curves.new("pencil", "FONT")
     cu.body, cu.size = "No. 17", 0.13
@@ -716,7 +727,7 @@ def props():
     board()
     al = cyc.area_light
     S.lights = {
-        "sweep": (al("sweep", (1.0, 1.0, 4.7), (2.0, 0.55, 4.7), 1.5, 9000, 30, size_y=0.3, spread_deg=14), 30.0),
+        "sweep": (al("sweep", (1.0, 1.0, 4.7), (2.0, 0.55, 4.7), 1.5, 9000, 10, size_y=0.2, spread_deg=14), 10.0),
         "q_cold": (al("q_cold", QC + Vector((-3.0, -1.5, 0.7)), QC, 2.0, 9000, 300, color="#7C94FF"), 300.0),
         "q_rose": (al("q_rose", QC + Vector((3.0, 1.5, 0.1)), QC, 2.0, 2000, 400, color=ROSE), 400.0),
         "c1_rose": (al("c1_rose", C1C + Vector((0.9, 0, 0.3)), C1C + Vector((0, 0, 0.3)), 2.0, 2000, 260, size_y=3.6,
@@ -1226,7 +1237,7 @@ def p0_paper(u, t, b):
     lt.data.energy = e
     z = 4.7 - 1.2 * u                                                           # through the frame, over the cut 表
     cyc._aim(lt, (1.0, 1.0, z), (2.0, 0.55, z))
-    bpy.context.scene.view_settings.exposure = -0.7                             # the band shows the fibre, not white
+    bpy.context.scene.view_settings.exposure = -1.0                             # the band shows the fibre, not white
     # the paper filling the frame (aimed at its edge, half the frame was the dark hall past it)
     look((0.6, 0.3, 4.2), (2.0, 0.55, 4.0), lens=60, fstop=2.8, focus=(2.0, 0.55, 4.0))
 
@@ -1557,8 +1568,8 @@ def p7_ura(u, t, b):
     if key == "U3":                                                             # two of her across the water line
         night(cold=0.1, rose=0.3)
         light("refl_cold")
-        light("refl_rose")
-        look(REFL + Vector((-5.0, 0.6, 1.2)), REFL + Vector((0, 0, 0.3)), lens=22, fstop=5.6)
+        light("refl_rose")                                                      # the print and all of its reflection
+        look(REFL + Vector((-4.4, 0.5, 1.1)), REFL + Vector((0, 0, 0.3)), lens=24, fstop=5.6)
     elif key:
         night(cold=0.0, rose=0.0, density=0.003)
         into(key, 1.05 + 0.08 * v, yaw=-6 + 12 * v, cold=0.6, rose=0.7)      # rose on her, the paper still cold
@@ -1572,15 +1583,17 @@ def p7_ura(u, t, b):
 def p7_reflect(u, t, b):
     night(cold=0.1, rose=0.3)
     light("refl_cold")
-    light("refl_rose")
+    light("refl_rose", 0.6)
     flash = t - at(math.floor(b)) < 2 / FPS                                     # once a bar the reflection is 表 again
     S.refl_ura.visible_glossy, S.refl_omote.visible_glossy = not flash, flash
-    # her face in the print and her other face in the reflection both in frame (from the water's edge at 3 m only
-    # her collar and its mirror image were); a slow slide past, sinking a little towards the water, and every beat a
-    # ring through her reflected face, which lies on the water in front of the print
-    ripple(last_beat(t), REFL.x - 1.1, REFL.y, 1.0)
-    look(REFL + Vector((-5.0 + 0.4 * u, 0.6 - 1.2 * u, 1.2 - 0.3 * u)), REFL + Vector((0, 0, 0.3)),
-         lens=22 + 2 * u, fstop=5.6)
+    # after U3's whole print over its whole reflection: from her face in the print, a slow tilt down the paper,
+    # over the water line, into her other face lying reflected on the water in front of the print (both faces in
+    # one frame leave the print a sixth of the width), and every beat a ring through that reflected face
+    eye = REFL + Vector((-3.2, 0.5, 1.1))
+    w = ease((u - 0.12) / 0.7)
+    face, mirror = REFL + Vector((0, 0, 1.65)), REFL + Vector((-3.2 + 3.2 * 1.1 / (1.1 + 1.65), 0.5, 0.0))
+    ripple(last_beat(t), mirror.x, mirror.y, 1.0)
+    look(eye, face.lerp(mirror, w), lens=50, fstop=5.6, focus=face.lerp(eye + (mirror - eye) * 2.5, w))
 
 
 def p7_crack(u, t, b):
