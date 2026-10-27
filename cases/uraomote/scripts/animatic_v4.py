@@ -492,6 +492,7 @@ def strands(p, name, n=36, seed=0):
     if not mk.any():
         return
     h, w = mk.shape
+    W, Hh = H.size_of(p)
     inner, near_face = mk.copy(), face.copy()
     for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1), (2, 0), (-2, 0), (0, 2), (0, -2)):
         inner &= np.roll(mk, (dy, dx), axis=(0, 1))
@@ -501,10 +502,20 @@ def strands(p, name, n=36, seed=0):
         return
     my, mx = np.nonzero(mk)
     cu_, cv_ = (mx.mean() + 0.5) / w, (my.mean() + 0.5) / h
+    # the hair's flow: the mask's long axis, pointing away from her face (down on an upright portrait, back on a
+    # running figure, along the pillow on a sleeping one). Strands that simply hung were right on the portraits
+    # and wrong on everyone running, leaping or lying down
+    pts = np.stack([(mx + 0.5) / w * W, (my + 0.5) / h * Hh], axis=1)
+    axis = np.linalg.eigh(np.cov(pts.T))[1][:, -1]
+    fy, fx = np.nonzero(face)
+    away = np.array([cu_ * W, cv_ * Hh]) - (np.array([(fx.mean() + 0.5) / w * W, (fy.mean() + 0.5) / h * Hh])
+                                            if len(fx) else np.array([cu_ * W, Hh]))
+    if float(np.dot(axis, away)) < 0:
+        axis = -axis
+    flow = Vector((0.0, -float(axis[0]), float(axis[1])))                     # the picture's right is the sheet's -Y
     pix = _pixels(name)
     ph, pw = pix.shape[:2]
     r = random.Random(seed)
-    W, Hh = H.size_of(p)
     k = W / 4.2
     inv = p.matrix_world.inverted()
     cu = bpy.data.curves.new(f"{p.name}_hair", "CURVE")
@@ -523,8 +534,7 @@ def strands(p, name, n=36, seed=0):
         if norm < 1e-3:
             continue
         ny, nz = dy / norm, dz / norm
-        crown = nz > 0.55
-        if crown and r.random() < 0.6:
+        if nz > 0.55 and flow.z < -0.5 and r.random() < 0.6:                  # few on the crown of a portrait
             continue
         iy, ix = min(ph - 2, max(1, int(pv * ph))), min(pw - 2, max(1, int(pu * pw)))
         rgb = pix[iy - 1:iy + 2, ix - 1:ix + 2, :3].mean(axis=(0, 1))
@@ -534,13 +544,10 @@ def strands(p, name, n=36, seed=0):
         if mk[max(0, y - e):y + e + 1, max(0, x - e):x + e + 1].mean() < 0.3:    # sky: the edge of the hair's bulk
             continue
         roots.append((pu, pv))
-        jit = r.uniform(-0.2, 0.2)
-        if crown:                                                               # a flyaway: short, up and out
-            d = Vector((-0.08, 0.5 * ny + jit, 0.75)).normalized()
-            L, droop = r.uniform(0.04, 0.10) * k, 0.1
-        else:                                                                   # hair: out from the head and down,
-            d = Vector((-0.10, 0.6 * ny + jit, 0.6 * nz - 0.75)).normalized()  # drooping (straight down on a figure
-            L, droop = r.uniform(0.08, 0.28) * k, 0.3                           # lying across the page was drips)
+        # with the flow, a little out from the head and a little off the paper, each its own way
+        d = (0.65 * flow + 0.35 * Vector((0.0, ny, nz))
+             + Vector((-0.1, r.uniform(-0.15, 0.15), r.uniform(-0.15, 0.15)))).normalized()
+        L, droop = r.uniform(0.08, 0.28) * k, 0.15
         mat = _hair_mat(rgb)
         if cu.materials.find(mat.name) < 0:
             cu.materials.append(mat)
@@ -1183,7 +1190,7 @@ def into(key, zoom=1.0, cx=None, cy=None, lens=35.0, fstop=2.8, cold=1.0, rose=0
         light("q_cold", cold)
         light("q_rose", rose)
     elif p is S.c1_print:
-        light("c1_cold", cold)
+        light("c1_cold", 2.4 * cold)                 # C1's lamp is set for the spill; alone it left her in the dark
         light("c1_rose", rose)
     else:
         if p.name in S.behind:
