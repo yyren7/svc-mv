@@ -46,9 +46,23 @@ depth pass is not anti-aliased, and even the averaged mist pass is noise under a
 frame's negative on paper instead. The far wall is at x 40: a camera 4 m behind a print's back must still be inside
 the hall. The water is a mirror and never a lamp: any emission on it reads as a flat red floor.
 
+What the first 1280 px cut taught, off its sheets and a dozen full frames: the 3D in a picture's dimensional part
+has to behave like the thing it stands for. Hair strands pointing out from the head were whiskers, and two of them
+hung loose in the sky through the parallax of a long strand lifted towards the lens; hair hangs down and a little
+out, short flyaways on the crown only, each strand the picture's colour where it roots (black ones were scratches
+on a dark print). Rain 2.5 mm wide and bright is matchsticks over her face; hair-thin, dim, leaning with the wind,
+it is rain. Even grey cards of one size are cards; torn paper is small, uneven, and some of it carries the picture.
+An ink volume seen from above is a black disc; the chorus's ink is the rose flowering on her paper. A camera that
+flies at a print spends half a bar on blurred brushstrokes unless it crosses fast on a wide lens with the paper
+wet. A print's bare border is paper without ink: behind a rose lamp it glows like a strip light unless it lets
+through less. Under a raking lamp a close print's relief mottles the paper and the pink coming through it: the two
+prints seen closest carry a flatter relief. A reflection shot framed from the water's edge at 3 m showed her collar
+and its mirror image: to read as 表 and 裏 it needs her face and her reflected face both in frame.
+
 Judge a run by its contact sheets, not by single frames: `AT=0.25,0.5,0.75` (three frames of every shot, six
 minutes) into `tmp/`, `sheet.py` on it, read the sheet; a full run only after the sheet holds. The full run's
-sheets, a frame a second, sit beside its mp4.
+sheets, a frame a second, sit beside its mp4. At 1280 px pull a dozen full frames of the shots in question too:
+strands, rain and relief grain are invisible in a 640 px tile.
 
 ## Running
 
