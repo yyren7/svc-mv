@@ -332,7 +332,7 @@ def crack_material(name):
     show = g.math("LESS_THAN", sep.outputs["X"], reveal)
     em = g.node("ShaderNodeEmission")
     em.inputs["Color"].default_value = m.srgb(GLOW)
-    em.inputs["Strength"].default_value = 3.0        # bright, but short of a neon tube once the bloom takes it
+    em.inputs["Strength"].default_value = 2.5        # bright, but short of a neon tube once the bloom takes it
     mix = g.node("ShaderNodeMixShader")
     g.link(show, mix.inputs["Fac"])
     g.link(g.node("ShaderNodeBsdfTransparent").outputs[0], mix.inputs[1])
@@ -1009,7 +1009,8 @@ def setup():
     crack("face", 60, (-0.02, 0.62, -1.55), (0, -1, 0), (0, 0, -0.25), 1.3, width=0.012, parent=S.float_print)
     for k in range(4):                                                 # P7.4: one window giving way
         crack(f"win7_{k}", 70 + k, (11.0, V.WD / 2 - 0.02, 8.3), (math.cos(k * 1.6), 0, math.sin(k * 1.6)),
-              (-math.sin(k * 1.6), 0, math.cos(k * 1.6)), 1.6, width=0.045)   # (seen from 8 m: 0.025 was a hair)
+              (-math.sin(k * 1.6), 0, math.cos(k * 1.6)), 1.6, width=0.035)   # (seen from 8 m: 0.025 was a hair,
+    #                                                                                 0.045 a neon tube)
     S.halves = {name: halves(S.prints[name]) for name in PATH + ["stage_r0"]}
     rain()
     confetti()
