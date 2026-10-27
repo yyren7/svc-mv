@@ -528,7 +528,7 @@ def strands(p, name, n=36, seed=0):
         rgb = pix[iy - 1:iy + 2, ix - 1:ix + 2, :3].mean(axis=(0, 1))
         if 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] > 0.5:               # not hair where the picture is light:
             continue                                                            # the mask's strays in her sky
-        y, x, e = ys[i], xs[i], max(3, w // 70)                                 # nor on a painted flyaway out in the
+        y, x, e = ys[i], xs[i], max(4, w // 25)                                 # nor on a painted flyaway out in the
         if mk[max(0, y - e):y + e + 1, max(0, x - e):x + e + 1].mean() < 0.3:    # sky: the edge of the hair's bulk
             continue
         roots.append((pu, pv))
@@ -688,7 +688,7 @@ def board():
     nz.inputs["Scale"].default_value, nz.inputs["Detail"].default_value = 3.0, 4.0
     g.link(co, nz.inputs["Vector"])
     kraft = kit._mix_rgba(nt, nz.outputs["Fac"], m.srgb("#7E5D3C"), m.srgb("#9A7652"))
-    kraft = kit._mix_rgba(nt, g.math("MULTIPLY", wave.outputs["Fac"], 0.12), kraft, m.srgb("#5E4228"))
+    kraft = kit._mix_rgba(nt, g.math("MULTIPLY", wave.outputs["Fac"], 0.25), kraft, m.srgb("#5E4228"))
     col = kit._mix_rgba(nt, geo.outputs["Backfacing"], pic, kraft)
     normal = V._cockle(nt, co)                                                  # cockle and fibre in the raking light
     dif = g.node("ShaderNodeBsdfDiffuse")
@@ -742,7 +742,7 @@ def props():
     board()
     al = cyc.area_light
     S.lights = {
-        "sweep": (al("sweep", (1.0, 1.0, 4.7), (2.0, 0.55, 4.7), 1.5, 9000, 10, size_y=0.2, spread_deg=14), 10.0),
+        "sweep": (al("sweep", (1.0, 1.0, 4.7), (2.0, 0.55, 4.7), 1.5, 9000, 3, size_y=0.6, spread_deg=30), 3.0),
         "q_cold": (al("q_cold", QC + Vector((-3.0, -1.5, 0.7)), QC, 2.0, 9000, 300, color="#7C94FF"), 300.0),
         "q_rose": (al("q_rose", QC + Vector((3.0, 1.5, 0.1)), QC, 2.0, 2000, 400, color=ROSE), 400.0),
         "c1_rose": (al("c1_rose", C1C + Vector((0.9, 0, 0.3)), C1C + Vector((0, 0, 0.3)), 2.0, 2000, 260, size_y=3.6,
@@ -945,8 +945,8 @@ def setup():
                     "u2": (S.q_print, _pic("u2"), True), "c1": (S.c1_print, _pic("c1"), False)})
     S.hair_mats, S.strands = {}, []
     for key, (p, name, on_back) in S.where.items():                           # her hair off the paper, on the hero prints
-        if not on_back:                                                         # (few on C1: she lies across the page,
-            strands(p, name, n=10 if key == "c1" else 36, seed=sum(map(ord, key)))   # hanging strands were scratches)
+        if not on_back and key != "c1":                                         # (none on C1: she lies across the page,
+            strands(p, name, seed=sum(map(ord, key)))                           # and every strand there was a scratch)
     S.home = {ob.name: (ob.location.copy(), ob.rotation_euler.copy())
               for ob in list(S.prints.values()) + S.panels + [S.kv]}
     S.everything_lit = S.dawn + S.cold + S.fronts + S.bulbs + list(S.behind.values()) + list(S.lights.values())
@@ -1547,7 +1547,7 @@ def p6_side(u, t, b):
     night(cold=0.2, rose=0.0, density=0.005)
     light("w1_cold")
     light("w1_rose", 0.5 if b < 65 else 0.12)         # behind: plain paper and a pencilled number, in the cold
-    light("w1_back", 0.0 if b < 65 else 0.35 * ease((b - 65) * 1.5))
+    light("w1_back", 0.0 if b < 65 else 0.6 * ease((b - 65) * 3))              # cold, raking the kraft
     ang = math.radians(90 * ease(b - 64) if b < 65 else 90 + 90 * ease((b - 65) * 1.5))   # a line, then its back
     v = ease((b - 65) * 1.2) if b >= 65 else 0.0                                # then in, to the pencilled number
     look(W1C + Vector((-math.cos(ang) * 4.0, -math.sin(ang) * 4.0, -1.0)), W1C + Vector((0, -0.6 * v, -1.9 * v)),
@@ -1605,11 +1605,13 @@ def p7_reflect(u, t, b):
     # after U3's whole print over its whole reflection: from her face in the print, a slow tilt down the paper,
     # over the water line, into her other face lying reflected on the water in front of the print (both faces in
     # one frame leave the print a sixth of the width), and every beat a ring through that reflected face
-    eye = REFL + Vector((-3.2, 0.5, 1.1))
+    eye = REFL + Vector((-3.8, 0.5, 0.9))
     w = ease((u - 0.12) / 0.7)
-    face, mirror = REFL + Vector((0, 0, 1.65)), REFL + Vector((-3.2 + 3.2 * 1.1 / (1.1 + 1.65), 0.5, 0.0))
-    ripple(last_beat(t), mirror.x, mirror.y, 0.3)                              # gentle: at 1.6 m a full ring was chrome
-    look(eye, face.lerp(mirror, w), lens=50, fstop=5.6, focus=face.lerp(eye + (mirror - eye) * 2.5, w))
+    face, mirror = REFL + Vector((0, 0, 1.65)), REFL + Vector((-3.8 + 3.8 * 0.9 / (0.9 + 1.65), 0.5, 0.0))
+    # barely a ring: the water is a mirror, and a normal tilted a few degrees swings its reflection from the dark
+    # ceiling onto the lit print, so a ring at 1.6 m looked like chrome
+    ripple(last_beat(t), mirror.x, mirror.y, 0.08)
+    look(eye, face.lerp(mirror, w), lens=55, fstop=5.6, focus=face.lerp(eye + (mirror - eye) * 2.5, w))
 
 
 def p7_crack(u, t, b):
