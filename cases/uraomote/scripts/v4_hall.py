@@ -305,7 +305,8 @@ def hall(dawn):
     emission, the water's, the plaster's and the steel's materials."""
     body = "painted_plaster_wall" if T._find("painted_plaster_wall", "diffuse") else "worn_plaster_wall"
     calm = {} if body == "painted_plaster_wall" else {"flat": ("#9C9B95", 0.55)}   # the worn one is all blotches
-    plaster = T.pbr(body, scale=1.0, tint="#B8BAB4" if dawn else "#7C7E84", name="plaster", **calm)
+    # coarser and calmer than life: at 1280 px the set's grain under a raking lamp read as static on the far wall
+    plaster = T.pbr(body, scale=1.5, bump=0.5, tint="#B8BAB4" if dawn else "#7C7E84", name="plaster", **calm)
     _damp(plaster)
     slab = T.pbr("concrete_slab_wall", scale=1.0, tint="#9A9AA0" if dawn else "#5A5A62", name="ceiling")
     steel = A._principled("frame", **{"Base Color": m.srgb(STEEL), "Roughness": 0.55})[0]

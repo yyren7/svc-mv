@@ -745,11 +745,19 @@ def props():
     nt.links.new(V._picture(nt, "v4_u4_211"), em.inputs["Color"])
     nt.links.new(em.outputs[0], out.inputs["Surface"])
     S.refl_ura = V.sheet("refl_ura", REFL.x - 0.002, REFL.y, glow, seed=95, top=2.25)
-    for ob in (S.refl_omote, S.refl_ura):
+    glow2, nt2, out2 = V._nodes("refl_flash")         # and 表 lit the same way, for the beat the reflection is 表
+    em2 = nt2.nodes.new("ShaderNodeEmission")         # again: the paper print itself in the mirror was dim and
+    em2.inputs["Strength"].default_value = 20.0       # speckled with its fibre at that grazing angle
+    nt2.links.new(V._picture(nt2, "v4_q1_211"), em2.inputs["Color"])
+    nt2.links.new(em2.outputs[0], out2.inputs["Surface"])
+    S.refl_flash = V.sheet("refl_flash", REFL.x - 0.001, REFL.y, glow2, seed=95, top=2.25)
+    for ob in (S.refl_omote, S.refl_ura, S.refl_flash):
         ob.scale = (0.5, 0.5, 0.5)                    # small and low, so the print and all of its reflection fit
     S.refl_omote.visible_glossy = False
-    for attr in ("visible_camera", "visible_transmission", "visible_diffuse", "visible_shadow"):
-        setattr(S.refl_ura, attr, False)             # only the water's mirror sees her 裏 (P7.3); in front, unshaded
+    for ob in (S.refl_ura, S.refl_flash):
+        for attr in ("visible_camera", "visible_transmission", "visible_diffuse", "visible_shadow"):
+            setattr(ob, attr, False)                 # only the water's mirror sees her 裏 (P7.3); in front, unshaded
+    S.refl_flash.visible_glossy = False
     board()
     al = cyc.area_light
     S.lights = {
@@ -1017,6 +1025,8 @@ def reset(scene):
             ob["reveal"] = 0.0
     if S.refl_omote.visible_glossy or not S.refl_ura.visible_glossy:
         S.refl_omote.visible_glossy, S.refl_ura.visible_glossy = False, True
+    if S.refl_flash.visible_glossy:
+        S.refl_flash.visible_glossy = False
     put(S.lineart, 0.0)
     put(S.glare, 0.4)
     scene.view_settings.view_transform = "AgX"
@@ -1615,7 +1625,7 @@ def p7_reflect(u, t, b):
     light("refl_cold")
     light("refl_rose", 0.6)
     flash = t - at(math.floor(b)) < 2 / FPS                                     # once a bar the reflection is 表 again
-    S.refl_ura.visible_glossy, S.refl_omote.visible_glossy = not flash, flash
+    S.refl_ura.visible_glossy, S.refl_flash.visible_glossy = not flash, flash
     # after U3's whole print over its whole reflection: from her face in the print, a slow tilt down the paper,
     # over the water line, into her other face lying reflected on the water in front of the print (both faces in
     # one frame leave the print a sixth of the width), and every beat a ring through that reflected face
