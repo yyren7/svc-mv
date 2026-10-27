@@ -38,6 +38,7 @@ import cyc  # noqa: E402
 import kit  # noqa: E402
 import mvlib as m  # noqa: E402
 import v4_hall as V  # noqa: E402
+import v4_hybrid as H  # noqa: E402
 
 FPS = int(os.environ.get("FPS", 12))
 SAMPLES = int(os.environ.get("SAMPLES", 16))
@@ -63,6 +64,14 @@ W1C = Vector((35.5, 5.0, 2.1))                       # her cardboard in the rain
 C1C = Vector((29.0, -1.6, 2.6))                      # C1's print, its ink running off into the water (P5.1)
 REFL = Vector((38.0, -5.0, 0.0))                     # a 表 print whose reflection is her 裏 (P7.3, U3)
 PATH = ["print_1_+1.6", "print_2_+0.0", "print_3_+1.6", "print_4_+0.0", "print_5_+1.6", "print_6_+0.0"]
+# the pictures of the 2D shots hang as hybrid prints (wide ones on their side) behind the cameras' usual places,
+# before row 0: a shot goes into one (into()) instead of putting a card before the lens. The water picture in the
+# hall proper, to mirror it
+STAGE = {"u1": (-7.0, -4.4), "f1": (-7.0, 0.0), "w2": (-7.0, 4.4),
+         "u4": (-10.0, -4.4), "c2": (-10.0, 0.0), "c3": (-10.0, 4.4),
+         "c4": (-13.0, -4.4), "r0": (-13.0, 0.0), "f2": (-13.0, 4.4)}
+STAGE_BACKS = {"u1": "a1", "f1": "f2", "f2": "f1", "w2": "w1", "u4": "u2", "c2": "c3", "c3": "c2", "c4": "c1",
+               "r0": "kvu"}
 
 
 class S:
@@ -103,8 +112,12 @@ def clamp(u):
 
 # ---------------------------------------------------------------- building
 
+def _pic(key):
+    return PICK.get(key, f"v4_{key}_211")
+
+
 def _path(key):
-    return os.path.join(V.ART, PICK.get(key, f"v4_{key}_211") + "_00001_.png")
+    return os.path.join(V.ART, _pic(key) + "_00001_.png")
 
 
 def _value(nt, v=0.0):
@@ -382,6 +395,7 @@ def shards():
 def halves(p):
     """A print in two halves (left and right of the image), each hinged at its outer clip, for tearing (D6)."""
     out = []
+    W = H.size_of(p)[0]
     for side in (1, -1):                       # +1: the image's left half, on +Y
         me = p.data.copy()
         bm = bmesh.new()
@@ -389,12 +403,12 @@ def halves(p):
         uv = bm.loops.layers.uv.active
         kill = [f for f in bm.faces if (sum(lp[uv].uv.x for lp in f.loops) / len(f.loops) < 0.5) != (side == 1)]
         bmesh.ops.delete(bm, geom=kill, context="FACES")
-        bmesh.ops.translate(bm, verts=bm.verts, vec=(0, -side * V.SHEET_W / 2, 0))
+        bmesh.ops.translate(bm, verts=bm.verts, vec=(0, -side * W / 2, 0))
         bm.to_mesh(me)
         bm.free()
         ob = bpy.data.objects.new(f"{p.name}_half{side:+d}", me)
         m._link(ob)
-        ob.location = p.location + Vector((0, side * V.SHEET_W / 2, 0))
+        ob.location = p.location + Vector((0, side * W / 2, 0))
         out.append((ob, side))
     return out
 
@@ -405,10 +419,10 @@ def wall_panels(h):
     dark = h["walls"][0]
     bpy.data.objects.remove(dark)
     S.panels = []
-    for k in range(15):
+    for k in range(int((V.X1 - V.X0) / 4.0)):
         ob = A.rounded_box(f"panel{k}", (4.0, 0.4, V.H), 0.0, [S.plaster])
         ob.data.transform(Matrix.Translation((0, -0.2, V.H / 2)))
-        ob.location = (-10.0 + 2.0 + 4.0 * k, -V.WD / 2, 0.0)
+        ob.location = (V.X0 + 2.0 + 4.0 * k, -V.WD / 2, 0.0)
         S.panels.append(ob)
     mat, nt, out = V._nodes("sky3")
     tex = nt.nodes.new("ShaderNodeTexImage")
@@ -501,8 +515,8 @@ def board():
 
 def props():
     """The prints and lights of single shots, beyond the last row of the hall (x 29-40)."""
-    S.q_print = V.sheet("q_print", QC.x, QC.y, V.print_mat("v4_q1_211", "v4_u2_211"), seed=91)
-    S.c1_print = V.sheet("c1_print", C1C.x, C1C.y, V.print_mat("v4_c1_211", "v4_u1_211"), seed=92)
+    S.q_print = H.make_print("q_print", QC.x, QC.y, "v4_q1_211", "v4_u2_211", seed=91, fit=True)
+    S.c1_print = H.make_print("c1_print", C1C.x, C1C.y, "v4_c1_211", "v4_u1_211", seed=92, fit=True)
     S.float_print = V.sheet("float_print", 34.0, -4.0, V.print_mat("v4_q1_211", "v4_u4_211"), seed=94, top=0.012)
     S.float_print.rotation_euler = (0.0, math.pi / 2, 0.0)        # lying on the water, face up, its top at +X
     S.refl_omote = V.sheet("refl_omote", REFL.x, REFL.y, V.print_mat("v4_q1_211", "v4_u4_211"), seed=95, top=2.25)
@@ -520,14 +534,14 @@ def props():
     board()
     al = cyc.area_light
     S.lights = {
-        "sweep": (al("sweep", (1.0, 1.5, 5.0), (2.0, 1.0, 4.7), 1.5, 9000, 25, size_y=0.06, spread_deg=12), 25.0),
+        "sweep": (al("sweep", (1.0, 1.5, 5.0), (2.0, 1.0, 4.7), 1.5, 9000, 5, size_y=0.06, spread_deg=12), 5.0),
         "q_cold": (al("q_cold", QC + Vector((-3.0, -1.5, 0.7)), QC, 2.0, 9000, 300, color="#7C94FF"), 300.0),
         "q_rose": (al("q_rose", QC + Vector((3.0, 1.5, 0.1)), QC, 2.0, 2000, 400, color=ROSE), 400.0),
         "c1_rose": (al("c1_rose", C1C + Vector((0.9, 0, 0.3)), C1C + Vector((0, 0, 0.3)), 2.0, 2000, 260, size_y=3.6,
                        color=ROSE), 260.0),
         "c1_cold": (al("c1_cold", C1C + Vector((-2.4, -1.5, 0.4)), C1C, 2.0, 9000, 120, color="#7C94FF"), 120.0),
         "w1_cold": (al("w1_cold", W1C + Vector((-3.5, -1.0, -0.6)), W1C, 2.0, 9000, 250, color="#7C94FF"), 250.0),
-        "w1_rose": (al("w1_rose", W1C + Vector((2.5, 0.5, 1.4)), W1C, 1.5, 2000, 400, color=ROSE), 400.0),
+        "w1_rose": (al("w1_rose", W1C + Vector((2.5, 0.5, 1.4)), W1C, 1.5, 2000, 60, color=ROSE), 60.0),
         "refl_cold": (al("refl_cold", REFL + Vector((-4.0, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 9000, 300,
                          color="#7C94FF"), 300.0),
         "refl_rose": (al("refl_rose", REFL + Vector((1.6, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 2000, 260,
@@ -536,7 +550,8 @@ def props():
         "float_sun": (al("float_sun", (31.9, -0.5, 6.0), FLOAT_C, 3.0, 8000, 900), 900.0),
         "cover": (al("cover", (32.1, 0.0, 6.5), (32.1, 0.0, 0.0), 4.0, 9000, 500, color="#9FB2FF"), 500.0),
     }
-    S.lights["refl_rose"][0].visible_glossy = False   # not two red lamps in the water under her
+    for ob, _ in S.lights.values():                  # no lamp as a bright slab in the water or a picture's glass
+        ob.visible_glossy = False
     for i, (target, z) in enumerate((((2, 0.78, 3.95), 0), ((2, 0.78, 3.05), 0), ((2, -0.3, 3.9), 0),
                                      ((2, -0.3, 2.2), 0))):
         S.lights[f"kv{i}"] = (al(f"kv{i}", Vector(target) + Vector((-2.6, 0, 2.0)), target, 0.5, 5200, 60,
@@ -670,19 +685,25 @@ def setup():
     S.water, S.plaster = h["water"], h["plaster"]
     S.bulbs, S.lamp_glow = V.lamps()
     V.pipes()
-    prints = V.hang()
+    prints = V.hang(make=H.make_print)
+    for key, (x, y) in STAGE.items():                   # the 2D shots' pictures, as prints too, each its own way up
+        prints.append(H.make_print(f"stage_{key}", x, y, _pic(key), _pic(STAGE_BACKS[key]), seed=70 + len(prints),
+                                   fit=True))
+    S.prints_by = {p.name: p for p in prints}
+    S.prints_by["stage_u1"].rotation_euler.z += math.pi   # her water faces the hall, so it has the hall to mirror
     S.prints = {p.name: p for p in prints}
     S.kv = S.prints["print_0_+0.0"]
     S.dawn = V.dawn_light()
     S.behind, S.cold = V.rose_light(prints)
     # the cold light from the near end stops at the first row: at night every print has its own, in front
-    S.fronts = []
+    S.fronts, S.front_of = [], {}
     for p in prints:
         x, y = p.location.x, p.location.y
         lamp = cyc.area_light(f"front_{p.name}", (x - 1.5, y, V.TOP - 1.2), (x, y, V.TOP - 2.1), 1.6, 9000, 35,
                               color="#7C94FF")
         lamp.visible_glossy = False
         S.fronts.append((lamp, 35.0))
+        S.front_of[p.name] = lamp
     S.haze = V.haze(True)
     S.haze_vol = next(n for n in S.haze.data.materials[0].node_tree.nodes if n.type == "PRINCIPLED_VOLUME")
     sky_images(h)
@@ -704,15 +725,20 @@ def setup():
     for k in range(4):                                                 # P7.4: one window giving way
         crack(f"win7_{k}", 70 + k, (11.0, V.WD / 2 - 0.02, 8.3), (math.cos(k * 1.6), 0, math.sin(k * 1.6)),
               (-math.sin(k * 1.6), 0, math.cos(k * 1.6)), 1.6, width=0.025)
-    S.halves = {name: halves(S.prints[name]) for name in PATH}
+    S.halves = {name: halves(S.prints[name]) for name in PATH + ["stage_r0"]}
     rain()
     confetti()
     shards()
     letters(S.kv)
     compositor()
     stamp()
-    S.mix = {p.name: next(n for n in p.data.materials[0].node_tree.nodes if n.type == "MIX_SHADER")
+    S.mix = {p.name: p.data.materials[0].node_tree.nodes["wet"]
              for p in list(S.prints.values()) + [S.q_print, S.c1_print, S.float_print]}
+    # where a 2D shot's picture is: the print, the picture's name, and whether it is on the print's back
+    S.where = {key: (S.prints[f"stage_{key}"], _pic(key), False) for key in STAGE}
+    S.where.update({"kv": (S.kv, _pic("kv"), False), "kvu": (S.kv, _pic("kvu"), True),
+                    "a5": (S.prints["print_2_-3.2"], _pic("a5"), False), "q1": (S.q_print, _pic("q1"), False),
+                    "u2": (S.q_print, _pic("u2"), True), "c1": (S.c1_print, _pic("c1"), False)})
     S.home = {ob.name: (ob.location.copy(), ob.rotation_euler.copy())
               for ob in list(S.prints.values()) + S.panels + [S.kv]}
     S.everything_lit = S.dawn + S.cold + S.fronts + S.bulbs + list(S.behind.values()) + list(S.lights.values())
@@ -743,6 +769,10 @@ def reset(scene):
         ob.location, ob.rotation_euler = loc, rot
     for mix in S.mix.values():
         mix.inputs["Fac"].default_value = V.WET
+    for name in H.RINGS:
+        H.ring(name, 0.0, 0.0, 0.0, 0.0)
+    for name in H.STAINS:
+        H.stain(name, 0.0, 0.0, -1.0)
     for ob in S.cracks.values():
         ob["reveal"] = 0.0
     S.refl_omote.visible_glossy, S.refl_ura.visible_glossy = False, True
@@ -764,8 +794,11 @@ def haze(density, color="#E4ECF4", anisotropy=0.3):
 
 
 def sky(key, strength):
+    """The painted sky behind the high windows, and behind every picture's window."""
     S.sky_tex.image = S.images[key]
     S.sky_em.inputs["Strength"].default_value = strength
+    for tex in H.SKY_TEX:
+        tex.image = S.images[key]
 
 
 def dawn(a=1.0, sky_key="s1"):
@@ -878,6 +911,78 @@ def card(key, zoom=1.0, cx=0.5, cy=0.5, seep=0.0, gap=0.0, tint=None, tint_a=0.0
         scene.cycles.use_denoising = False
 
 
+def into(key, zoom=1.0, cx=None, cy=None, lens=35.0, fstop=2.8, cold=1.0, rose=0.0, yaw=0.0, pitch=0.0,
+         sky_key=None):
+    """A 2D shot: the camera in front of the print that carries picture `key`, the frame covering the picture's
+    width over `zoom`, centred on (cx, cy) of the picture (0..1 from its bottom left; by default her face, from
+    the parts map). The picture's planes are the hall's and its figure a relief, so the shot is inside the picture,
+    not before a card. `yaw`, `pitch` (degrees) look at it a little from the side or above, for the parallax.
+    Lit by its own cold lamp in front (`cold`) and the rose lamp behind it (`rose`); the other 2D pictures' prints
+    are out of the way."""
+    p, name, on_back = S.where[key]
+    W, Hh = H.size_of(p)
+    img = bpy.data.images.load(_path(key), check_existing=True)
+    mu, mv, rw, rh, s = H._layout(*img.size, (W, Hh))
+    half = (W * rw / zoom) * 9 / 16 / (Hh * rh) / 2                             # the frame's half height, of the picture
+    if cy is None:                                                              # one subject: her face, in frame
+        hv = H.anchor(p, name, 0)["uv"][1]
+        cy = min(1 - half, max(half, hv - 0.04)) if half < 0.5 else 0.5
+    cx = 0.5 if cx is None else cx
+    target = H.picture_point(p, name, cx, cy, lift=-0.05 if on_back else 0.0)
+    face = p.matrix_world.to_3x3() @ Vector((1.0 if on_back else -1.0, 0.0, 0.0))
+    d = W * rw / zoom * lens / S.cam.data.sensor_width                          # the frame as wide as the print's picture
+    away = Matrix.Rotation(math.radians(yaw), 3, "Z") @ face
+    away = Matrix.Rotation(math.radians(pitch), 3, away.cross(Vector((0, 0, 1)))) @ away
+    look(target + away * d, target, lens=lens, fstop=fstop, focus=target)
+    for other in STAGE:
+        if other != key:
+            S.prints[f"stage_{other}"].hide_render = True
+    if p is S.q_print:
+        light("q_cold", cold)
+        light("q_rose", rose)
+    elif p is S.c1_print:
+        light("c1_cold", cold)
+        light("c1_rose", rose)
+    else:
+        if p.name in S.behind:
+            behind(p, rose)
+        if p.name in S.front_of:
+            S.front_of[p.name].data.energy = 220.0 * cold
+    if sky_key:
+        sky(sky_key, 2.0 if sky_key == "s1" else 0.5)
+    haze(0.002, "#E4ECF4", 0.3)
+
+
+def seep(key, v, blob=None):
+    """P1.4 and the chorus: rose ink soaking into picture `key` from her hair (the stain on the paper, by v 0..1),
+    and, with `blob`, a wisp of ink in the air just off the paper, running down."""
+    p, name, _ = S.where[key]
+    hair = H.anchor(p, name, 0)
+    H.stain(p.name, *H.sheet_uv(p, name, *hair["uv"]), 0.04 + 0.42 * v)
+    if blob is not None:
+        ink(blob, hair["point"] + Vector((-0.03, 0.0, -0.25 * v)), (0.06 + 0.04 * v, 0.22 + 0.3 * v, 0.4 + 0.5 * v),
+            0.9, 0.3)
+
+
+def rain_in(p, t):
+    """The rain inside a picture: the block of streaks as a slab just in front of the print `p`, over its face."""
+    W, Hh = H.size_of(p)
+    S.rain.hide_render = False
+    S.rain.scale = (0.05, W / 14.0, 0.5)
+    S.rain.location = (p.location.x - 0.4, p.location.y, p.location.z - Hh - 0.5 * ((t * 6.5) % 8.0))
+    S.rain_em.inputs["Strength"].default_value = 1.2
+
+
+def ripple_in(key, t0, amp=1.0, part=0):
+    """A ring on the water inside picture `key`, from her hair (or `part`), spreading for a second after t0."""
+    age = S.t - t0
+    if not 0 <= age < 1.0:
+        return
+    p, name, _ = S.where[key]
+    c = p.matrix_world.inverted() @ H.anchor(p, name, part)["point"]
+    H.ring(p.name, c.y, c.z - 0.3, 0.05 + 1.3 * age, amp * (1 - age))
+
+
 def row(r):
     return [p for name, p in S.prints.items() if name.startswith(f"print_{r}_")]
 
@@ -906,6 +1011,7 @@ def p0_paper(u, t, b):
     lt.data.energy = e
     z = 5.4 - 1.6 * u
     cyc._aim(lt, (1.0, 1.5, z), (2.0, 1.0, z))
+    bpy.context.scene.view_settings.exposure = -1.2                             # the band shows the fibre, not white
     look((0.9, 0.7, 4.5), (2.03, 1.15, 4.3), lens=60, fstop=2.8)
 
 
@@ -957,7 +1063,11 @@ def p1_hall(u, t, b):
 
 
 def p1_eyes(u, t, b):
-    card("a5", 1.05 + 0.05 * u) if b < 13 else card("q1", 1.1)                # A6 not drawn: Q1
+    dawn(0.6)
+    if b < 13:                                                                  # A6 not drawn: Q1
+        into("a5", 1.05 + 0.05 * u, yaw=-3 + 6 * u, cold=0.4, sky_key="s1")
+    else:
+        into("q1", 1.1, yaw=4 - 8 * (b - 13), cold=0.5, sky_key="s1")
 
 
 def p1_drop(u, t, b):
@@ -976,8 +1086,11 @@ def p1_drop(u, t, b):
 
 
 def p1_seep(u, t, b):
-    if b < 19:
-        card("q1", 1.05 + 0.04 * u, seep=0.55 * ease((b - 16) / 3))
+    if b < 19:                                                                  # P1.4: the ink soaks in from her hair
+        night(cold=0.0, rose=0.0)
+        v = ease((b - 16) / 3)
+        into("q1", 1.05 + 0.04 * u, yaw=-3 + 6 * u, cold=0.7, rose=0.4 * v, sky_key="s1")
+        seep("q1", v, S.ink)
         return
     dawn()
     g = S.glass_at
@@ -1045,8 +1158,11 @@ def p3_turn(u, t, b):
 def p4_chorus(u, t, b):
     k, v = math.floor(b) - 35, b % 1
     beat, p = int(v * 4), v * 4 % 1
-    if beat == 3 and p < 0.5:                                                   # half a beat of a chorus picture
-        card(f"c{k % 4 + 1}", 1.05 + 0.05 * p)
+    if beat == 3 and p < 0.5:                                                   # half a beat inside a chorus picture
+        key = f"c{k % 4 + 1}"
+        night(cold=0.0, rose=0.0)
+        into(key, 1.05 + 0.05 * p, yaw=6 - 12 * p, cold=0.5, rose=1.0)
+        seep(key, 0.3 + 0.7 * p, S.burst)
         return
     names = list(S.prints)
     red = ease((b - 41) / 5)
@@ -1148,7 +1264,9 @@ def p6_w1(u, t, b):
 
 
 def p6_w2(u, t, b):
-    card("w2", 1.05 + 0.08 * u)
+    night(cold=0.0, rose=0.0, density=0.003)
+    into("w2", 1.05 + 0.08 * u, yaw=4 - 8 * u, cold=0.6, rose=0.35)
+    rain_in(S.where["w2"][0], t)
 
 
 def p6_side(u, t, b):
@@ -1192,7 +1310,10 @@ def p7_ura(u, t, b):
         light("refl_rose")
         look(REFL + Vector((-3.7, 0, 0.1)), REFL + Vector((0, 0, 0.1)), lens=14, fstop=8)
     elif key:
-        card(key, 1.05 + 0.08 * v)
+        night(cold=0.0, rose=0.0, density=0.003)
+        into(key, 1.05 + 0.08 * v, yaw=-6 + 12 * v, cold=0.35, rose=1.0)
+        if key == "u1":                                                         # her water takes the beat
+            ripple_in("u1", last_beat(t), 0.8)
     else:                                                                       # the hall, upside down
         p7_night()
         look((-1.0 + 3.0 * v, -2.4, 0.35), (16, 0.5, 1.2), lens=24, roll=180)
@@ -1257,13 +1378,14 @@ def p9_r0(u, t, b):
     night(cold=0.45, rose=1.0, density=0.004, red=1.0)
     for name in PATH:
         tear(name, 1.0)
-    look((-1.0, 0.8, 1.2), (16, 0.8, 2.2), lens=28, fstop=5.6)                 # the hall behind the picture
-    card("r0", 1.0 + 0.3 * ease(u), gap=ease(b - 96) if b >= 96 else 0.0)
+    into("r0", 1.0 + 0.3 * ease(u), cold=0.7, rose=1.0)                        # torn, the hall shows behind it
+    tear("stage_r0", ease(b - 96) if b >= 96 else 0.0)
 
 
 def p9_back(u, t, b):
-    if b < 98:
-        card("kvu")                                                             # she stops and looks back
+    if b < 98:                                                                  # she stops and looks back: KV'
+        night(cold=0.0, rose=0.0, density=0.003)
+        into("kvu", 1.0, yaw=6 * (b - 97), cold=0.15, rose=1.0)
         return
     night(cold=0.45, rose=1.0, density=0.004, red=1.0)
     a = ease((b - 98) / 0.6)
@@ -1279,7 +1401,7 @@ def p10_walls(u, t, b):
     night(cold=0.3, rose=0.6, sky_key="s3", density=0.004)
     S.sky_em.inputs["Strength"].default_value = 2.0
     for k, panel in enumerate(S.panels):                                        # the walls are paper too
-        panel.rotation_euler.x = math.radians(95) * ease((b - 99.3 - 0.18 * abs(k - 7)) / 1.2)
+        panel.rotation_euler.x = math.radians(95) * ease((b - 99.3 - 0.18 * abs(k - 9)) / 1.2)
     v = ease(u)
     look(Vector((14, 3.5, 1.0)).lerp(Vector((4, 5.5, 7.5)), v), Vector((18, -7, 4)).lerp(Vector((20, -9, 6)), v),
          lens=24 - 4 * v, fstop=8)
@@ -1288,9 +1410,9 @@ def p10_walls(u, t, b):
 
 
 def p10_f1(u, t, b):
-    look((16, 0, 40), (26, 0, 40), lens=35)                                     # above the roof: only her and the paper
-    card("f1", 1.15, cy=0.62 - 0.25 * u, dist=6.0, alone=False)
-    scraps(S.eye + S.fwd * 3.0, t, radius=1.6, height=1.4, swirl=1.2 + u)
+    night(cold=0.0, rose=0.0, density=0.003)
+    into("f1", 1.15, cy=0.62 - 0.25 * u, cold=0.8, rose=0.5)
+    scraps(S.eye + S.fwd * 2.4, t, radius=2.2, height=1.8, swirl=1.2 + u)      # the paper flying round her
 
 
 FAST = ["f1", "h_wide", "c1", "h_top", "r0", "h_low", "u2", "h_kv", "kv", "h_wide", "kvu", "h_low", "w2", "h_top",
@@ -1304,7 +1426,8 @@ def p10_fast(u, t, b):
     key = FAST[n % len(FAST)]
     cold = int(b % 1 * 4) % 2 == 0                                              # cold and rose change places each beat
     if not key.startswith("h_"):
-        card(key, 1.08, tint=MORNING if cold else ROSE, tint_a=0.35)
+        night(cold=0.0, rose=0.0, density=0.003)
+        into(key, 1.08, cold=1.0 if cold else 0.15, rose=0.0 if cold else 1.0)
         return
     if cold:
         dawn(1.0, "s3")
@@ -1317,7 +1440,8 @@ def p10_fast(u, t, b):
 
 def p10_f2(u, t, b):
     if b < 115.75:
-        card("f2", 1.05 + 0.05 * u)
+        night(cold=0.0, rose=0.0, density=0.003)
+        into("f2", 1.05 + 0.05 * u, yaw=-5 + 10 * u, cold=0.5, rose=0.6)
         return
     night(cold=0.3, rose=0.3)
     look((32, 0, 9), (32, 0, 0), lens=35, up=(-1, 0, 0))

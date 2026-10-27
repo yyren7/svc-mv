@@ -42,6 +42,7 @@ import texlib as T  # noqa: E402
 
 ART = os.path.join(C.CASE, "art", "v4")
 L, WD, H = 40.0, 14.0, 12.0                 # the hall: length along +X, width along Y, height
+X0, X1 = -16.0, L + 10.0                    # the walls, floor and ceiling run from the open near end past the far wall
 SHEET_W, SHEET_H = 2.4, 4.2                 # a print, metres
 MARGIN = 0.08                               # bare paper round the picture; the foot's border is 1.4x this
 PAPER = "#F1ECE2"                           # warm cotton rag
@@ -49,7 +50,7 @@ TOP = 5.0                                   # the prints' top edge above the wat
 ROWS = [2.0 + 4.0 * i for i in range(7)]    # x of each wire
 WINDOWS = [3.0 + 4.0 * i for i in range(10)]            # window centres along x
 WIN_W, WIN_Z0, WIN_Z1 = 2.6, 6.0, 10.5                  # a window: width, glass from .. to
-BAYS = [1.0 + 4.0 * i for i in range(-2, 12)]           # x of the columns and cross beams: on the piers
+BAYS = [1.0 + 4.0 * i for i in range(-4, 12)]           # x of the columns and cross beams: on the piers
 WET = float(os.environ.get("WET", 0.18))
 LAMPS = float(os.environ.get("LAMPS", 0.0))
 SAMPLES = int(os.environ.get("SAMPLES", 0))             # 0: each shot's own count
@@ -74,18 +75,19 @@ def _nodes(name):
     return mat, nt, nt.nodes.new("ShaderNodeOutputMaterial")
 
 
-def _picture(nt, name, margin=0.0, file=None):
+def _picture(nt, name, margin=0.0, file=None, size=None):
     """An image texture on the sheet's UVs, the middle of the picture where its aspect differs from the sheet's.
     With `margin` (metres) the picture sits inside a border of bare paper and (colour, alpha) come back, alpha 0 on
     the border; without, it fills the sheet and only the colour does. `file` is another image laid out exactly as
-    the picture `name` is (a map of it)."""
+    the picture `name` is (a map of it); `size` the sheet's (width, height) when it is not the usual one."""
+    W, Hh = size or (SHEET_W, SHEET_H)
     tex = nt.nodes.new("ShaderNodeTexImage")
     tex.image = bpy.data.images.load(file or os.path.join(ART, f"{name}_00001_.png"), check_existing=True)
     tex.extension = "CLIP" if margin else "EXTEND"
     w, h = tex.image.size
-    mu, mv = margin / SHEET_W, 1.4 * margin / SHEET_H                # the border at the sides, at the foot
-    rw, rh = 1 - 2 * mu, 1 - mv - margin / SHEET_H                   # the picture's rectangle in the sheet's UVs
-    a, target = w / h, (SHEET_W * rw) / (SHEET_H * rh)
+    mu, mv = margin / W, 1.4 * margin / Hh                           # the border at the sides, at the foot
+    rw, rh = 1 - 2 * mu, 1 - mv - margin / Hh                        # the picture's rectangle in the sheet's UVs
+    a, target = w / h, (W * rw) / (Hh * rh)
     s = (target / a, 1.0) if a > target else (1.0, a / target)
     mp = nt.nodes.new("ShaderNodeMapping")                           # uv -> the rectangle as 0..1 -> the picture's middle
     mp.inputs["Scale"].default_value = (s[0] / rw, s[1] / rh, 1.0)
@@ -158,14 +160,14 @@ def _cockle(nt, co):
     return bump.outputs["Normal"]
 
 
-def print_mat(front, back, wet=WET):
+def print_mat(front, back, wet=WET, size=None):
     """Thin paper printed on both sides: the facing picture inside its border, translucent with both inks."""
     mat, nt, out = _nodes(f"print_{front}_{back}")
     co = _coords(nt)
     paper = _paper(nt, co)
 
     def inked(name):
-        col, alpha = _picture(nt, name, MARGIN)
+        col, alpha = _picture(nt, name, MARGIN, size=size)
         return kit._mix_rgba(nt, alpha, paper, _multiply(nt, paper, col))
 
     f, b = inked(front), inked(back)
@@ -182,6 +184,7 @@ def print_mat(front, back, wet=WET):
     nt.links.new(through, tr.inputs["Color"])
     nt.links.new(normal, tr.inputs["Normal"])
     mix = nt.nodes.new("ShaderNodeMixShader")
+    mix.name = mix.label = "wet"                                     # the animatic wets a print through this node
     mix.inputs["Fac"].default_value = wet
     nt.links.new(bsdf.outputs[0], mix.inputs[1])
     nt.links.new(tr.outputs[0], mix.inputs[2])
@@ -189,11 +192,13 @@ def print_mat(front, back, wet=WET):
     return mat
 
 
-def sheet(name, x, y, mat, seed, top=TOP, grid=(16, 28), relief=None):
+def sheet(name, x, y, mat, seed, top=TOP, grid=(16, 28), relief=None, size=None):
     """A hanging print: a grid in the YZ plane facing -X, bowed a little, curling and waving at the foot, hung a
     touch askew. Its origin is the middle of its top edge, at (x, y, top), so it turns, lifts in the wind or lies
     down about that point. `relief(u, v)` adds its own offset along X (negative: towards the front); give it a
-    finer `grid`."""
+    finer `grid`. `size` is the sheet's (width, height) when it is not the usual one; the object remembers it as
+    sheet_w and sheet_h."""
+    W, Hh = size or (SHEET_W, SHEET_H)
     rnd = random.Random(seed)
     nu, nv = grid
     bow, curl, lean = rnd.uniform(0.02, 0.06), rnd.uniform(0.03, 0.09), rnd.uniform(-0.04, 0.04)
@@ -207,7 +212,7 @@ def sheet(name, x, y, mat, seed, top=TOP, grid=(16, 28), relief=None):
                 + wave * math.sin(3 * math.pi * u + phase) * (1 - v) ** 2
             if relief is not None:
                 dx += relief(u, v)
-            verts.append((dx, SHEET_W / 2 - u * SHEET_W, (v - 1) * SHEET_H))
+            verts.append((dx, W / 2 - u * W, (v - 1) * Hh))
             uvs.append((u, v))
     faces = [(j * (nu + 1) + i, j * (nu + 1) + i + 1, (j + 1) * (nu + 1) + i + 1, (j + 1) * (nu + 1) + i)
              for j in range(nv) for i in range(nu)]
@@ -221,10 +226,11 @@ def sheet(name, x, y, mat, seed, top=TOP, grid=(16, 28), relief=None):
     ob = A._obj(name, mesh, [mat])
     ob.location = (x, y, top)
     ob.rotation_euler = (0.0, 0.0, rnd.uniform(-0.03, 0.03))
+    ob["sheet_w"], ob["sheet_h"] = W, Hh
     metal = A._principled("clip", **{"Base Color": m.srgb("#9A9DA0"), "Metallic": 1.0, "Roughness": 0.35})[0]
     for side in (-1, 1):                                             # a galvanised clip over the wire at each top corner
         A.rounded_box(f"{name}_clip{side}", (0.03, 0.06, 0.1), 0.004, [metal],
-                      parent=ob).location = (0, side * (SHEET_W / 2 - 0.12), 0.0)
+                      parent=ob).location = (0, side * (W / 2 - 0.12), 0.0)
     return ob
 
 
@@ -269,7 +275,7 @@ def frame(steel):
             col.location = (x, side * (WD / 2 - 0.12), H / 2)
         A.rounded_box(f"beam_{x:.0f}", (0.2, WD, 0.5), 0.004, [steel]).location = (x, 0.0, H - 0.75)
     for y in (-4.7, 0.0, 4.7):
-        A.rounded_box(f"purlin_{y:+.0f}", (L + 20, 0.14, 0.5), 0.004, [steel]).location = (L / 2, y, H - 0.25)
+        A.rounded_box(f"purlin_{y:+.0f}", (X1 - X0, 0.14, 0.5), 0.004, [steel]).location = ((X0 + X1) / 2, y, H - 0.25)
 
 
 def windows(steel, plaster):
@@ -302,19 +308,20 @@ def hall(dawn):
     slab = T.pbr("concrete_slab_wall", scale=1.0, tint="#9A9AA0" if dawn else "#5A5A62", name="ceiling")
     steel = A._principled("frame", **{"Base Color": m.srgb(STEEL), "Roughness": 0.55})[0]
     # 3 cm of black water over a concrete floor: dark enough to read as a mirror, the floor only where a beam falls
-    bed = A.rounded_box("floor", (L + 20, WD, 0.1), 0.0, [T.pbr("hangar_concrete_floor", scale=1.0, tint="#38383C")])
-    bed.location = (L / 2, 0, -0.08)
+    xm, xl = (X0 + X1) / 2, X1 - X0
+    bed = A.rounded_box("floor", (xl, WD, 0.1), 0.0, [T.pbr("hangar_concrete_floor", scale=1.0, tint="#38383C")])
+    bed.location = (xm, 0, -0.08)
     water, b = A._principled("water", **{"Base Color": (0.03, 0.03, 0.035, 1.0), "Roughness": 0.015, "IOR": 1.33,
                                          "Transmission Weight": 1.0})
     A._bump(water, b, 0.35, 0.015, detail=2.0, distance=0.03)      # still water: a mirror, not a mosaic
-    A.rounded_box("water", (L + 20, WD, 0.03), 0.0, [water]).location = (L / 2, 0, -0.015)
+    A.rounded_box("water", (xl, WD, 0.03), 0.0, [water]).location = (xm, 0, -0.015)
     t = 0.4
-    A.rounded_box("ceiling", (L + 20, WD + 2 * t, t), 0.0, [slab]).location = (L / 2, 0, H + t / 2)
-    walls = [((L / 2, -WD / 2 - t / 2, H / 2), (L + 20, t, H)),          # the dark wall
+    A.rounded_box("ceiling", (xl, WD + 2 * t, t), 0.0, [slab]).location = (xm, 0, H + t / 2)
+    walls = [((xm, -WD / 2 - t / 2, H / 2), (xl, t, H)),                 # the dark wall
              ((L + t / 2, 0, H / 2), (t, WD, H)),                       # far end
-             ((L / 2, WD / 2 + t / 2, WIN_Z0 / 2), (L + 20, t, WIN_Z0)),                    # window wall below
-             ((L / 2, WD / 2 + t / 2, (WIN_Z1 + H) / 2), (L + 20, t, H - WIN_Z1))]          # and above the windows
-    edges = [-10.0] + [e for x in WINDOWS for e in (x - WIN_W / 2, x + WIN_W / 2)] + [L + 10]
+             ((xm, WD / 2 + t / 2, WIN_Z0 / 2), (xl, t, WIN_Z0)),                           # window wall below
+             ((xm, WD / 2 + t / 2, (WIN_Z1 + H) / 2), (xl, t, H - WIN_Z1))]                 # and above the windows
+    edges = [X0] + [e for x in WINDOWS for e in (x - WIN_W / 2, x + WIN_W / 2)] + [X1]
     walls += [(((a + b2) / 2, WD / 2 + t / 2, (WIN_Z0 + WIN_Z1) / 2), (b2 - a, t, WIN_Z1 - WIN_Z0))
               for a, b2 in zip(edges[::2], edges[1::2])]                # the piers
     obs = []
@@ -329,8 +336,8 @@ def hall(dawn):
     em.inputs["Color"].default_value = m.srgb("#D6E4F2" if dawn else "#0E1630")
     em.inputs["Strength"].default_value = 2.5 if dawn else 0.4
     nt.links.new(em.outputs[0], out.inputs["Surface"])
-    backdrop = A.rounded_box("sky", (L + 40, 0.1, 30), 0.0, [sky])
-    backdrop.location = (L / 2, WD / 2 + 4.0, 10)
+    backdrop = A.rounded_box("sky", (xl + 20, 0.1, 30), 0.0, [sky])
+    backdrop.location = (xm, WD / 2 + 4.0, 10)
     backdrop.visible_shadow = False                  # the sun and the moon are beyond it; a slab would shade the hall
     return dict(walls=obs, sky=backdrop, sky_emission=em, water=water, plaster=plaster, steel=steel)
 
@@ -380,7 +387,9 @@ def pipes():
                  for y, z in ((-WD / 2 + 0.35, 9.6), (-WD / 2 + 0.6, 10.15)) for i in range(n)])
 
 
-def hang():
+def hang(make=None):
+    """The wires and the prints on them. `make(name, x, y, front, back, seed)` builds a print in place of
+    sheet() with print_mat() (v4_hybrid.make_print for the hybrid prints)."""
     mats, k = {}, 0
     steel = A._principled("steel", **{"Base Color": m.srgb("#3A3A40"), "Metallic": 1.0, "Roughness": 0.3})[0]
     prints = []
@@ -393,10 +402,14 @@ def hang():
             front, back = KV if r == 0 else (FRONTS[k % len(FRONTS)], BACKS[k % len(BACKS)])
             if r:
                 k += 1
+            name, seed = f"print_{r}_{y:+.1f}", r * 10 + int(y * 3)
+            if make is not None:
+                prints.append(make(name, x, y, front, back, seed))
+                continue
             key = (front, back)
             if key not in mats:
                 mats[key] = print_mat(front, back)
-            prints.append(sheet(f"print_{r}_{y:+.1f}", x, y, mats[key], seed=r * 10 + int(y * 3)))
+            prints.append(sheet(name, x, y, mats[key], seed=seed))
     return prints
 
 
@@ -441,9 +454,10 @@ def rose_light(prints):
 
 
 def haze(dawn):
+    size, at = (L - X0 + 4, WD, H), ((X0 + L) / 2 + 2, 0, H / 2)
     if dawn:
-        return cyc.haze("haze", (L + 10, WD, H), (L / 2, 0, H / 2), 0.012, color="#E4ECF4", anisotropy=0.3)
-    return cyc.haze("haze", (L + 10, WD, H), (L / 2, 0, H / 2), 0.004, color="#F2D8E0", anisotropy=0.45)
+        return cyc.haze("haze", size, at, 0.012, color="#E4ECF4", anisotropy=0.3)
+    return cyc.haze("haze", size, at, 0.004, color="#F2D8E0", anisotropy=0.45)
 
 
 def main():
