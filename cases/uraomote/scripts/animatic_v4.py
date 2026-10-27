@@ -577,10 +577,10 @@ def props():
         "w1_rose": (al("w1_rose", W1C + Vector((2.5, 0.5, 1.4)), W1C, 1.5, 2000, 60, color=ROSE), 60.0),
         "w1_back": (al("w1_back", W1C + Vector((3.2, -1.8, 1.2)), W1C + Vector((0, 0, -0.6)), 2.0, 9000, 140,
                        color="#7C94FF"), 140.0),
-        "refl_cold": (al("refl_cold", REFL + Vector((-4.0, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 9000, 300,
-                         color="#7C94FF"), 300.0),
-        "refl_rose": (al("refl_rose", REFL + Vector((1.6, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 2000, 260,
-                         color=ROSE), 260.0),
+        "refl_cold": (al("refl_cold", REFL + Vector((-4.0, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 9000, 120,
+                         color="#7C94FF"), 120.0),
+        "refl_rose": (al("refl_rose", REFL + Vector((1.6, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 2000, 200,
+                         color=ROSE), 200.0),
         "under": (al("under", (V.L / 2, 0, 0.12), (V.L / 2, 0, 3), 40, 2000, 2500, size_y=14, color=ROSE), 2500.0),
         "float_sun": (al("float_sun", (31.9, -0.5, 6.0), FLOAT_C, 3.0, 8000, 900), 900.0),
         "cover": (al("cover", (32.1, 0.0, 6.5), (32.1, 0.0, 0.0), 4.0, 9000, 500, color="#9FB2FF"), 500.0),
@@ -674,8 +674,10 @@ def compositor():
         bw = g.node("CompositorNodeRGBToBW")
         g.link(f.outputs[0], bw.inputs[0])
         return bw.outputs[0]
-    depth = g.math("DIVIDE", g.math("MINIMUM", rl.outputs["Depth"], 40.0), 40.0)
-    e = g.math("MAXIMUM", edges(rl.outputs["Normal"]), g.math("MULTIPLY", edges(depth), 8.0))
+    # from the depth alone, as a change relative to the depth: the normal pass carries the water's and the
+    # walls' bump at every pixel, and its edges were white noise
+    dm = g.math("MINIMUM", rl.outputs["Depth"], 40.0)
+    e = g.math("MULTIPLY", g.math("DIVIDE", edges(dm), g.math("MAXIMUM", dm, 0.5)), 18.0)
     lines = g.node("ShaderNodeMapRange")
     g.link(e, lines.inputs["Value"])
     lines.inputs["From Min"].default_value, lines.inputs["From Max"].default_value = 0.2, 0.6
@@ -1265,11 +1267,12 @@ def p4_chorus(u, t, b):
     if cam == 0:                                                                # low along a row, between the prints
         y = 5.5 - 11 * v
         look((8.1, y, 0.35), (14, y - 1.5, 2.2), lens=24, fstop=5.6)
-    elif cam == 1:                                                              # straight down: ink flowering
-        c = Vector((32.0, 3.6, 0.0))
+    elif cam == 1:                                                              # ink flowering on the water, lit from above
+        c = FLOAT_C + Vector((0.0, 1.6, 0.0))                                   # beside the print lying there
         s = 0.4 + 2.6 * ease(v)
-        ink(S.ink, c + Vector((0, 0, -0.015)), (s, s, 0.014), 1.2, 0.0)
-        look(c + Vector((0, 0, 5.5)), c, lens=35, up=(1, 0, 0))
+        ink(S.ink, c + Vector((0, 0, -0.015)), (s, s, 0.014), 1.2, 0.08)
+        light("float_sun", 2.0)
+        look(c + Vector((-2.6, -0.8, 4.2)), c, lens=35, fstop=5.6)
     elif cam == 2:                                                              # round a print to its back
         c = S.prints["print_3_-1.6"].location + Vector((0, 0, -2.1))
         ang = math.radians(-25 + 230 * ease(v))
@@ -1300,8 +1303,9 @@ def p5_spill(u, t, b):
     light("c1_cold", 2.0)
     v = ease(u)
     # from her face filling the frame back and aside, behind the last row: it was a print hanging in the hall
-    eye = (C1C + Vector((-1.35, 0, 0.3))).lerp(Vector((27.2, -4.5, 3.8)), v)
-    look(eye, C1C, lens=35 - 7 * v, fstop=4)
+    face = H.anchor(S.c1_print, "v4_c1_211", 1)["point"]
+    eye = (face + Vector((-1.35, 0, 0.1))).lerp(Vector((27.2, -4.5, 3.8)), v)
+    look(eye, face.lerp(C1C, v), lens=35 - 7 * v, fstop=4)
     # the ink round her runs off the foot of the paper and pours into the water, then spreads
     ink(S.burst, (C1C.x, C1C.y - 0.1, 0.45), (0.12, 0.3, 0.5 * clamp(u * 3)), 1.6, 0.0)
     s = 0.2 + 3.5 * ease((u - 0.2) / 0.8)
@@ -1310,15 +1314,15 @@ def p5_spill(u, t, b):
 
 def p5_full(u, t, b):
     night(cold=0.35, rose=0.4, density=0.003, red=1.0)
-    put(S.water_glow, 0.08 * ease(u * 2))                                       # the inked water, a little lit from below
-    light("under", 0.12 * ease(u * 2))
+    put(S.water_glow, 0.0)                                                      # the water is a mirror, never a lamp
+    light("under", 0.05 * ease(u * 2))
     look((-1.5, -5.0, 0.8), (20, 1, 3.2), lens=24, fstop=5.6)
 
 
 def p5_vertigo(u, t, b):
     night(cold=0.4, rose=0.4, density=0.003, red=1.0)
-    put(S.water_glow, 0.08)
-    light("under", 0.12)
+    put(S.water_glow, 0.0)
+    light("under", 0.05)
     for key in STAGE:                                                           # the camera backs out through their places
         S.prints[f"stage_{key}"].hide_render = True
     d = 3.5 + 10.5 * ease(u)                                                    # back away, zoom in: she stays
@@ -1406,7 +1410,7 @@ def p7_ura(u, t, b):
         night(cold=0.1, rose=0.3)
         light("refl_cold")
         light("refl_rose")
-        look(REFL + Vector((-3.0, 0.2, 0.25)), REFL + Vector((0, 0, 0.3)), lens=28, fstop=5.6)
+        look(REFL + Vector((-3.0, 0.6, 0.12)), REFL, lens=28, fstop=5.6)
     elif key:
         night(cold=0.0, rose=0.0, density=0.003)
         into(key, 1.05 + 0.08 * v, yaw=-6 + 12 * v, cold=0.6, rose=0.7)      # rose on her, the paper still cold
@@ -1424,7 +1428,7 @@ def p7_reflect(u, t, b):
     flash = t - at(math.floor(b)) < 2 / FPS                                     # once a bar the reflection is 表 again
     S.refl_ura.visible_glossy, S.refl_omote.visible_glossy = not flash, flash
     # the whole print and the whole of its reflection, the water line across the middle; a slow slide past
-    look(REFL + Vector((-3.0, 0.2 - 0.4 * u, 0.25)), REFL + Vector((0, 0, 0.3)), lens=28 + 2 * u, fstop=5.6)
+    look(REFL + Vector((-3.0, 0.6 - 1.2 * u, 0.12)), REFL, lens=28 + 2 * u, fstop=5.6)
 
 
 def p7_crack(u, t, b):
@@ -1485,9 +1489,9 @@ def p9_r0(u, t, b):
 def p9_back(u, t, b):
     if b < 98:                                                                  # she stops and looks back: KV'
         night(cold=0.0, rose=0.0, density=0.003)
-        into("kvu", 1.0, yaw=6 * (b - 97), cold=0.5, rose=0.6)
+        into("kvu", 1.0, yaw=6 * (b - 97), cold=0.7, rose=0.3)
         return
-    night(cold=0.5, rose=0.6, density=0.004, red=1.0)
+    night(cold=0.5, rose=0.45, density=0.004, red=1.0)
     a = ease((b - 98) / 0.6)
     for k, p in enumerate(S.prints.values()):                                   # every print behind her lifts
         lift(p, 65 * a * (0.8 + 0.2 * math.sin(k * 2.3)))
@@ -1527,7 +1531,10 @@ def p10_fast(u, t, b):
     cold = int(b % 1 * 4) % 2 == 0                                              # cold and rose change places each beat
     if not key.startswith("h_"):
         night(cold=0.0, rose=0.0, density=0.003)
-        into(key, 1.08, cold=1.0 if cold else 0.2, rose=0.0 if cold else 1.0)
+        if S.where[key][2]:                                                     # a back picture: the rose lamp is its key
+            into(key, 1.08, cold=0.4, rose=0.5 if cold else 1.0)
+        else:
+            into(key, 1.08, cold=1.0 if cold else 0.2, rose=0.0 if cold else 1.0)
         return
     if cold:
         dawn(1.0, "s3")

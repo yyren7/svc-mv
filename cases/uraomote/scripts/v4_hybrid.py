@@ -88,7 +88,7 @@ def depth_relief(name, amount=RELIEF, size=None):
     flat plane (its sky, water, mirrors stay in the paper), rising towards the viewer (-X) elsewhere."""
     d = _load(os.path.join(MAPS, f"{name}_depth.png"))[..., 0]
     flat = _load(os.path.join(MAPS, f"{name}_flat.png"))[..., :3].max(axis=2)
-    d = _soften(_blocks(d * (1.0 - flat), 8))
+    d = _soften(_blocks(d * (1.0 - flat), 8), passes=4)    # the depth's fine grain would mottle the paper under a raking lamp
     h, w = d.shape
     mu, mv, rw, rh, s = _layout(w, h, size)
 
