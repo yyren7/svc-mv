@@ -87,7 +87,16 @@ tip, and at an emission of 8 under the bloom it was a neon tube (3 is a crack of
 is white rods at night: 0.14 of the emission, and 2.5 for the speed lines. A kraft board without its corrugation as
 relief is a flat slab for a bar. A bare margin beside a dark picture, under the same lamp, is a white bar down the
 frame: the 2D shot starts off it. The same chorus insert framed the same way four times is four repeats; the second
-round is close on her face. 表 and 裏 lit from behind at 6 were a neon sign.
+round is close on her face. 表 and 裏 lit from behind at 6 were a neon sign, and three small lamps behind a cut
+letter show as three bands: the lamps overlap, at 1.5, with the shot's glare down.
+
+Two of those were not art but renderer: a bare test scene (the glass alone before a lit slab) is worth its minute.
+In Cycles a refraction counts as a glossy bounce as well as a transmission bounce, so at the default 4 glossy
+bounces a path through a glass of water (four faces of glass, two of water) died in the far wall whatever the
+transmission limit was: the glass was a black tube in three passes, in front of a mullion or not. And a value the
+shots set per frame must live in a node socket, a transform or a hide flag: an object custom property read by an
+Attribute node is not re-read under persistent render data, so the cracks' `reveal` never changed and no crack
+showed in seven passes.
 
 Judge a run by its contact sheets, not by single frames: `AT=0.25,0.5,0.75` (three frames of every shot, six
 minutes) into `tmp/`, `sheet.py` on it, read the sheet; a full run only after the sheet holds. The full run's
