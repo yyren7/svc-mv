@@ -233,6 +233,16 @@ def ink_volume(name, seed):
     return dict(ob=ob, w=w, seed=seed, density=k, glow=glow)
 
 
+def _outward(ob):
+    """Turn a lathe's normals outwards if they point in (its strip of faces meets itself only at the axis, so
+    bmesh's recalc is free to orient the whole cup inwards, and Cycles would then refract every entry as an exit).
+    The topmost faces, a rim or a water surface, must face up."""
+    me = ob.data
+    top = max(p.center.z for p in me.polygons)
+    if sum(p.normal.z for p in me.polygons if p.center.z > top - 1e-4) < 0:
+        me.flip_normals()
+
+
 def sill_glass():
     """M1 (script 6): a glass of clear water on the sill of a high window, for the first drop of ink."""
     x, y = 7.0, V.WD / 2                            # on the sill the hall gives every window, before its middle
@@ -245,6 +255,8 @@ def sill_glass():
                                          "IOR": 1.33})[0]
     water = A.lathe("glass_water", [(0.0, 0.0045), (0.0257, 0.0045), (0.0272, 0.065), (0.0, 0.065)], mats=[wm])
     water.location = (x, y - 0.2, 6.0)
+    _outward(glass)
+    _outward(water)
     glass.visible_shadow = water.visible_shadow = False   # no caustics here: the light goes through as a photographer expects
     S.glass_at = Vector((x, y - 0.2, 6.0))
     S.glass_ink = ink_volume("glass_ink", 3.0)
@@ -286,22 +298,38 @@ def crack(name, seed, origin, ax, ay, length, width=0.008, parent=None):
                 verts.append(o + ax * pq.x + ay * pq.y)
                 uvs.append((u0 + du * i / last, (s + 1) / 2))
         faces += [(k0 + 2 * i, k0 + 2 * i + 1, k0 + 2 * i + 3, k0 + 2 * i + 2) for i in range(last)]
-    ob = _mesh(name, verts, faces, uvs, [S.crack_mat])
+    mat, reveal = crack_material(name)
+    ob = _mesh(name, verts, faces, uvs, [mat])
     if parent is not None:
         ob.parent = parent
-    ob["reveal"] = 0.0
-    S.cracks[name] = ob
+    S.cracks[name] = _Crack(ob, reveal)
     return ob
 
 
-def crack_material():
-    mat, nt, out = V._nodes("crack")
+class _Crack:
+    """A crack as the shots see it: `crack["reveal"] = v` sets the Value node in its own material. (It was an
+    object property read by an Attribute node, and under persistent render data a property changed between frames
+    is never re-read: in seven passes no crack ever showed.)"""
+
+    def __init__(self, ob, reveal):
+        self.ob, self.reveal = ob, reveal
+
+    def __getitem__(self, key):
+        return self.reveal.default_value
+
+    def __setitem__(self, key, v):
+        put(self.reveal, v)
+
+
+def crack_material(name):
+    """A crack's own material: the glow where UV x is below its reveal value, transparent beyond it."""
+    mat, nt, out = V._nodes(f"crack_{name}")
     g = kit.G(nt)
     uv = g.node("ShaderNodeTexCoord")
     sep = g.node("ShaderNodeSeparateXYZ")
     g.link(uv.outputs["UV"], sep.inputs[0])
-    attr = g.node("ShaderNodeAttribute", attribute_type="OBJECT", attribute_name="reveal")
-    show = g.math("LESS_THAN", sep.outputs["X"], attr.outputs["Fac"])
+    reveal = _value(nt, 0.0)
+    show = g.math("LESS_THAN", sep.outputs["X"], reveal)
     em = g.node("ShaderNodeEmission")
     em.inputs["Color"].default_value = m.srgb(GLOW)
     em.inputs["Strength"].default_value = 3.0        # bright, but short of a neon tube once the bloom takes it
@@ -310,7 +338,7 @@ def crack_material():
     g.link(g.node("ShaderNodeBsdfTransparent").outputs[0], mix.inputs[1])
     g.link(em.outputs[0], mix.inputs[2])
     g.link(mix.outputs[0], out.inputs["Surface"])
-    S.crack_mat = mat
+    return mat, reveal
 
 
 def rain():
@@ -973,13 +1001,12 @@ def setup():
     cards()
     S.ink, S.burst = ink_volume("ink", 1.0), ink_volume("burst", 7.0)
     sill_glass()
-    crack_material()
     S.cracks = {}
     for k, x in enumerate((7.0, 15.0)):                               # P2: on the high windows' glass
         crack(f"win{k}", 40 + k, (x - 0.3, V.WD / 2 - 0.02, 8.4), (1, 0, 0), (0, 0, 1), 1.8, width=0.025)
     for k, name in enumerate(("print_2_+3.2", "print_4_-3.2")):      # P2: across the prints
         crack(f"print{k}", 50 + k, (-0.02, 0.9, -1.4), (0, -1, 0), (0, 0, -0.35), 1.9, parent=S.prints[name])
-    crack("face", 60, (-0.02, 0.62, -1.55), (0, -1, 0), (0, 0, -0.25), 1.3, width=0.006, parent=S.float_print)
+    crack("face", 60, (-0.02, 0.62, -1.55), (0, -1, 0), (0, 0, -0.25), 1.3, width=0.012, parent=S.float_print)
     for k in range(4):                                                 # P7.4: one window giving way
         crack(f"win7_{k}", 70 + k, (11.0, V.WD / 2 - 0.02, 8.3), (math.cos(k * 1.6), 0, math.sin(k * 1.6)),
               (-math.sin(k * 1.6), 0, math.cos(k * 1.6)), 1.6, width=0.045)   # (seen from 8 m: 0.025 was a hair)
@@ -1069,6 +1096,7 @@ def reset(scene):
     scene.view_settings.exposure = 0.0
     scene.cycles.samples = SAMPLES
     scene.cycles.max_bounces = scene.cycles.transmission_bounces = 6
+    scene.cycles.glossy_bounces = 4
     scene.cycles.use_denoising = True
     S.cam.data.type = "PERSP"
     S.cam.data.dof.use_dof = True
@@ -1399,6 +1427,8 @@ def p1_drop(u, t, b):
     scene = bpy.context.scene
     scene.cycles.samples = 4 * SAMPLES                                          # glass in glass in water
     scene.cycles.max_bounces = scene.cycles.transmission_bounces = 14           # glass, water, glass, the window's glass
+    scene.cycles.glossy_bounces = 14           # a refraction counts as a glossy bounce too: at the default 4 the
+    #                                            path died in the glass's far wall, and the glass was a black tube
     sky("s1", 1.5)                                                              # the glass against the bright window
     scene.view_settings.exposure = -0.5
     g, t15 = S.glass_at, at(15)
