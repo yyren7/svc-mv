@@ -1381,7 +1381,9 @@ def p1_drop(u, t, b):
         v = ease((t - t15) / (at(16) - t15))
         s = 0.006 + 0.02 * v
         ink(S.glass_ink, g + Vector((0, 0, 0.05 - 0.015 * v)), (s, s, s * 1.3), 1.0, 0.05)
-    look(g + Vector((-0.30, -0.22, 0.05)), g + Vector((0, 0, 0.035)), lens=85, fstop=2.8)
+    # from a little above the water's surface, so the drop meets it and the ink blooms down through the glass
+    # against the window (from below the rim the glass was a black tube)
+    look(g + Vector((-0.30, -0.20, 0.16)), g + Vector((0, 0, 0.06)), lens=85, fstop=2.8)
 
 
 def p1_seep(u, t, b):
