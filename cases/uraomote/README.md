@@ -35,6 +35,19 @@ pause carry the feeling; light the hero and keep the darks, with off-screen pane
 boundary of light and shadow, the one warm colour (the rose) small; near things at high detail, far things low;
 grade the whole but do not flatten the sections. The finish (halation, vignette, grain) goes on in the cut.
 
+What the first full cut taught, read off its contact sheets: ink is dark; a volume that glows is a lamp, not ink,
+and a stain the size of the sheet is a disc, not a soak (the stain is the size of her hair, ragged, darker at its
+rim; the wisps absorb). The rose never fills the air: the haze stays cool, and the red is only where a rose lamp
+lands on paper or that paper's reflection in the water. Every 2D shot sets its own exposure; the hall's would wash
+it or sink it, and a dawn sun behind translucent paper washes it from behind. A still frame longer than a bar
+needs a move in it, even an orthographic one widening a step on each downbeat. A line-art frame renders without
+depth of field: the blur is what turned the normals into noise. The far wall is at x 40: a camera 4 m behind a
+print's back must still be inside the hall.
+
+Judge a run by its contact sheets, not by single frames: `AT=0.25,0.5,0.75` (three frames of every shot, six
+minutes) into `tmp/`, `sheet.py` on it, read the sheet; a full run only after the sheet holds. The full run's
+sheets, a frame a second, sit beside its mp4.
+
 ## Running
 
 From the repository root. `audio/` holds `urao_mix.m4a`, `urao_vocal.wav`, `urao_lines.jsonl` (not in git), and
@@ -59,7 +72,12 @@ P=/root/autodl-tmp/ComfyUI/venv/bin/python
 $B -b --factory-startup -P $C/scripts/animatic_v4.py -- $C/renders/animatic_v4/frames -3 58 &
 $B -b --factory-startup -P $C/scripts/animatic_v4.py -- $C/renders/animatic_v4/frames 58 120
 $P $C/scripts/animatic_cut.py $C/renders/animatic_v4/frames $C/audio/urao_mix.m4a $C/renders/animatic_v4/animatic_v4.mp4 12
+$P $C/scripts/sheet.py $C/renders/animatic_v4/frames $C/renders/animatic_v4/sheet_0.jpg 12 6 400 0 431   # a frame a second, 36 s a sheet
 ```
+
+Two Blender processes on the one GPU are slower than one after the other (they contend, and most of a frame is
+the CPU re-syncing materials): run the halves in sequence. Setting a socket or a light to the value it already
+has still makes Cycles rebuild it, so the per-frame setters (`put`, `energy`) write only on change.
 
 The hall's and the hybrid's stills, and the maps they need (the hub is not reachable from the server: the two models'
 files are fetched with curl from hf-mirror.com into `tmp/hf/` and named by `DEPTH_MODEL` and `SEG_MODEL`):
