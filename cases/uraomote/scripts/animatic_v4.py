@@ -508,10 +508,12 @@ def strands(p, name, n=36, seed=0):
     pts = np.stack([(mx + 0.5) / w * W, (my + 0.5) / h * Hh], axis=1)
     axis = np.linalg.eigh(np.cov(pts.T))[1][:, -1]
     fy, fx = np.nonzero(face)
-    away = np.array([cu_ * W, cv_ * Hh]) - (np.array([(fx.mean() + 0.5) / w * W, (fy.mean() + 0.5) / h * Hh])
-                                            if len(fx) else np.array([cu_ * W, Hh]))
-    if float(np.dot(axis, away)) < 0:
-        axis = -axis
+    face_c = np.array([(fx.mean() + 0.5) / w * W, (fy.mean() + 0.5) / h * Hh]) if len(fx) else \
+        np.array([cu_ * W, cv_ * Hh + 0.3 * Hh])
+    proj = pts @ axis                                   # the tips are the end of the axis farther from her face
+    if abs(np.percentile(proj, 95) - face_c @ axis) < abs(face_c @ axis - np.percentile(proj, 5)):
+        axis = -axis                                    # (the mask's centroid against her face was wrong on a
+    #                                                     portrait whose hair frames the face: strands went up)
     flow = Vector((0.0, -float(axis[0]), float(axis[1])))                     # the picture's right is the sheet's -Y
     pix = _pixels(name)
     ph, pw = pix.shape[:2]
