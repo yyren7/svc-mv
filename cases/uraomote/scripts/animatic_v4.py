@@ -647,13 +647,10 @@ def cards():
 
 
 def compositor():
-    """Bloom and a touch of dispersion (as cyc.post), and D4: the frame as its own line drawing on paper, from the
-    edges in the normal and depth passes, mixed in by S.lineart."""
+    """Bloom and a touch of dispersion (as cyc.post), and D4: the frame as its own print on paper for a beat, the
+    negative multiplied by the paper's colour, mixed in by S.lineart. (Edges from the normal, depth or mist passes
+    were tried for a line drawing: all three are noise at these samples.)"""
     scene = bpy.context.scene
-    vl = bpy.context.view_layer
-    vl.use_pass_mist = True                           # mist is averaged over the samples; the depth pass is not,
-    mist = scene.world.mist_settings                 # and its sub-pixel jitter made every slanted plane a field of noise
-    mist.start, mist.depth, mist.falloff = 0.0, 40.0, "LINEAR"
     tree = bpy.data.node_groups.new("anim_post", "CompositorNodeTree")
     scene.compositing_node_group = tree
     kit._iface(tree, "Image", "OUTPUT", "NodeSocketColor")
@@ -670,25 +667,12 @@ def compositor():
     g.link(glare.outputs[0], kit.sock(lens.inputs, "Image"))
     kit.sock(lens.inputs, "Dispersion").default_value = 0.004
 
-    def edges(sock, kind="Sobel"):
-        f = g.node("CompositorNodeFilter")
-        kit.sock(f.inputs, "Type").default_value = kind
-        g.link(sock, kit.sock(f.inputs, "Image"))
-        bw = g.node("CompositorNodeRGBToBW")
-        g.link(f.outputs[0], bw.inputs[0])
-        return bw.outputs[0]
-    # the Laplacian of the disparity (1 / depth): a plane is linear in disparity across the frame, so only a step
-    # in depth or a crease draws, at any slant. The normal pass carried the water's and the walls' bump at every
-    # pixel (white noise), and the depth's gradient saturated on every slanted plane (ink)
-    disp = g.math("DIVIDE", 1.0, g.math("MAXIMUM", g.math("MULTIPLY", rl.outputs["Mist"], 40.0), 0.3))
-    e = g.math("MULTIPLY", g.math("ABSOLUTE", edges(disp, "Laplace")), 30.0)
-    lines = g.node("ShaderNodeMapRange")
-    g.link(e, lines.inputs["Value"])
-    lines.inputs["From Min"].default_value, lines.inputs["From Max"].default_value = 0.25, 0.7
-    art = g.node("ShaderNodeMix", data_type="RGBA")
-    g.link(lines.outputs["Result"], kit.sock(art.inputs, "Factor", "VALUE"))
-    kit.sock(art.inputs, "A", "RGBA").default_value = m.srgb(PAPER)
-    kit.sock(art.inputs, "B", "RGBA").default_value = m.srgb("#1A1820")
+    inv = g.node("CompositorNodeInvert")
+    g.link(lens.outputs[0], kit.sock(inv.inputs, "Color", "RGBA"))
+    art = g.node("ShaderNodeMix", data_type="RGBA", blend_type="MULTIPLY")
+    kit.sock(art.inputs, "Factor", "VALUE").default_value = 1.0
+    g.link(inv.outputs[0], kit.sock(art.inputs, "A", "RGBA"))
+    kit.sock(art.inputs, "B", "RGBA").default_value = m.srgb(PAPER)
     mix = g.node("ShaderNodeMix", data_type="RGBA")
     S.lineart = kit.sock(mix.inputs, "Factor", "VALUE")
     g.link(lens.outputs[0], kit.sock(mix.inputs, "A", "RGBA"))
@@ -1290,8 +1274,7 @@ def p4_chorus(u, t, b):
         look((4.0 + 1.5 * v, -0.8, -0.012), (12, 0.5, 4.5), lens=20, fstop=8)
     tb = at(math.floor(b) + beat / 4)
     if beat == 0 and t - tb < 2 / FPS:
-        S.lineart.default_value = 1.0                                           # D4: two frames of line art
-        S.cam.data.dof.use_dof = False                                          # a drawing has no blur; blur is noise
+        S.lineart.default_value = 1.0                                           # D4: two frames as the negative on paper
     if beat == 1:
         c = S.eye + S.fwd * 4.0
         ripple(tb, c.x, c.y, 1.0)
@@ -1471,8 +1454,7 @@ def p8_shards(u, t, b):
     eye = eye + (target - eye).normalized() * 0.8 * q
     look(eye, target, lens=28, fstop=4)
     if q < 0.25:
-        S.lineart.default_value = 1.0                                           # each cut lands on line art first
-        S.cam.data.dof.use_dof = False
+        S.lineart.default_value = 1.0                                           # each cut lands on the negative first
 
 
 def p9_run(u, t, b):
