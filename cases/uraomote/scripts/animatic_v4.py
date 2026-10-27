@@ -1735,8 +1735,8 @@ def p10_fast(u, t, b):
         return
     if cold:
         dawn(1.0, "s3")
-    else:
-        night(cold=0.2, rose=1.0, sky_key="s3", density=0.004, red=1.0)
+    else:                                                                       # (at cold 0.2 the view from above
+        night(cold=0.5, rose=1.0, sky_key="s3", density=0.004, red=1.0)        # was black shapes)
     eye, target, up = FAST_VIEWS[key]
     look(eye, target, lens=24, fstop=5.6, up=up)
     scraps((14, 0, 4), t, radius=6, height=4, swirl=1.6)
