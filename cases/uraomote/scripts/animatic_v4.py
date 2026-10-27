@@ -235,16 +235,18 @@ def ink_volume(name, seed):
 
 def sill_glass():
     """M1 (script 6): a glass of clear water on the sill of a high window, for the first drop of ink."""
-    x, y = 7.0, V.WD / 2                            # on the sill the hall gives every window
+    x, y = 7.0, V.WD / 2                            # on the sill the hall gives every window, before its middle
+    #                                                 pane (0.4 m left of that it stood in front of a mullion, which
+    #                                                 the water column magnified into a black tube)
     glass = A.lathe("glass", [(0.0, 0.004), (0.026, 0.004), (0.029, 0.095), (0.031, 0.095), (0.0285, 0.0), (0.0, 0.0)],
                     mats=[A.clear_glass()])
-    glass.location = (x - 0.4, y - 0.2, 6.0)
+    glass.location = (x, y - 0.2, 6.0)
     wm = A._principled("glass_water", **{"Base Color": (1, 1, 1, 1), "Transmission Weight": 1.0, "Roughness": 0.0,
                                          "IOR": 1.33})[0]
     water = A.lathe("glass_water", [(0.0, 0.0045), (0.0257, 0.0045), (0.0272, 0.065), (0.0, 0.065)], mats=[wm])
-    water.location = (x - 0.4, y - 0.2, 6.0)
+    water.location = (x, y - 0.2, 6.0)
     glass.visible_shadow = water.visible_shadow = False   # no caustics here: the light goes through as a photographer expects
-    S.glass_at = Vector((x - 0.4, y - 0.2, 6.0))
+    S.glass_at = Vector((x, y - 0.2, 6.0))
     S.glass_ink = ink_volume("glass_ink", 3.0)
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.0035, segments=16, ring_count=8)
     S.drop = bpy.context.active_object
@@ -663,7 +665,7 @@ def letters(kv):
     # the glyph's right along -Y and its up along +Z, as seen from the front of the print (from -X)
     turn = Matrix(((0, 0, -1, 0), (-1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
     S.letter_lamps = []
-    glow = _emission_mat("letter_lamp", ROSE, 3.0)[0]     # (at 6 the letters were a neon sign)
+    glow = _emission_mat("letter_lamp", ROSE, 1.5)[0]     # (at 6 the letters were a neon sign)
     for k, (ch, z) in enumerate((("表", -1.05), ("裏", -1.95))):
         cu = bpy.data.curves.new(f"letter{k}", "FONT")
         cu.body, cu.font, cu.size, cu.extrude = ch, font, 1.0, 0.25
@@ -694,8 +696,8 @@ def letters(kv):
             mod.use_hole_tolerant = True
         except (TypeError, AttributeError):
             pass
-        for dz in (-0.22, 0.0, 0.22):
-            bpy.ops.mesh.primitive_circle_add(radius=0.16, fill_type="NGON", vertices=24)
+        for dz in (-0.22, 0.0, 0.22):                # wide enough to overlap: at 0.16 each letter was three bright
+            bpy.ops.mesh.primitive_circle_add(radius=0.42, fill_type="NGON", vertices=24)   # bands, a glitch
             lamp = bpy.context.active_object
             lamp.data.materials.append(glow)
             lamp.parent = kv
@@ -980,7 +982,7 @@ def setup():
     crack("face", 60, (-0.02, 0.62, -1.55), (0, -1, 0), (0, 0, -0.25), 1.3, width=0.006, parent=S.float_print)
     for k in range(4):                                                 # P7.4: one window giving way
         crack(f"win7_{k}", 70 + k, (11.0, V.WD / 2 - 0.02, 8.3), (math.cos(k * 1.6), 0, math.sin(k * 1.6)),
-              (-math.sin(k * 1.6), 0, math.cos(k * 1.6)), 1.6, width=0.025)
+              (-math.sin(k * 1.6), 0, math.cos(k * 1.6)), 1.6, width=0.045)   # (seen from 8 m: 0.025 was a hair)
     S.halves = {name: halves(S.prints[name]) for name in PATH + ["stage_r0"]}
     rain()
     confetti()
@@ -1397,7 +1399,7 @@ def p1_drop(u, t, b):
     scene = bpy.context.scene
     scene.cycles.samples = 4 * SAMPLES                                          # glass in glass in water
     scene.cycles.max_bounces = scene.cycles.transmission_bounces = 14           # glass, water, glass, the window's glass
-    sky("s1", 3.0)                                                              # the glass against the bright window
+    sky("s1", 1.5)                                                              # the glass against the bright window
     scene.view_settings.exposure = -0.5
     g, t15 = S.glass_at, at(15)
     if t15 - 0.35 <= t < t15:
@@ -1406,7 +1408,7 @@ def p1_drop(u, t, b):
     if t >= t15:
         v = ease((t - t15) / (at(16) - t15))
         s = 0.006 + 0.016 * v
-        ink(S.glass_ink, g + Vector((0, 0, 0.045 - 0.012 * v)), (s, s, s * 1.1), 1.0, 0.05)
+        ink(S.glass_ink, g + Vector((0, 0, 0.045 - 0.012 * v)), (s, s, s * 1.1), 0.3, 0.05)   # (at 1.0 a balloon)
     # level with the water, the glass between the camera and the window: the drop falls into the frame, meets the
     # surface, and the ink blooms down through the lit column. (From below the rim the glass was a black tube, and
     # from above it the water showed only the sill behind it, the bloom lost in the dark.)
@@ -1433,7 +1435,8 @@ def p1_top(u, t, b):
     # lit ceiling as grey plaster, and a window as a white band across the frame)
     night(cold=0.0, rose=0.0, sky_key="s1")
     sky("s1", 0.15)
-    light("float_sun", 3.5)
+    light("float_sun", 0.4)                                                     # (at 3.5 the paper was a white slab)
+    bpy.context.scene.view_settings.exposure = 0.5
     v = ease((b - 20) / 4)
     # the ink spreads over her on the paper, small and dense enough to read from 5 m up (a 4 m pancake under the
     # print, the same ink spread that thin, was invisible)
@@ -1622,7 +1625,7 @@ def p6_side(u, t, b):
     night(cold=0.2, rose=0.0, density=0.005)
     light("w1_cold")
     light("w1_rose", 0.5 if b < 65 else 0.12)         # behind: plain paper and a pencilled number, in the cold
-    light("w1_back", 0.0 if b < 65 else 0.6 * ease((b - 65) * 3))              # cold, raking the kraft
+    light("w1_back", 0.0 if b < 65 else 1.0 * ease((b - 65) * 3))              # cold, raking the kraft
     ang = math.radians(90 * ease(b - 64) if b < 65 else 90 + 90 * ease((b - 65) * 1.5))   # a line, then its back
     v = ease((b - 65) * 1.2) if b >= 65 else 0.0                                # then in, to the pencilled number
     look(W1C + Vector((-math.cos(ang) * 4.0, -math.sin(ang) * 4.0, -1.0)), W1C + Vector((0, -0.6 * v, -1.9 * v)),
@@ -1826,6 +1829,7 @@ def p11_back(u, t, b):
         return
     night(cold=0.25, rose=0.0)
     light("cover", 0.35)
+    put(S.glare, 0.15)                                                          # light through cut paper, not neon
     S.kv.location, S.kv.rotation_euler = (30.0, 0.0, 0.015), (0.0, -math.pi / 2, 0.0)   # back up: KV', 表裏 reversed
     left = 6 - math.floor((t - at(116)) / (LAST_BEAT - at(116)) * 6)           # the lamps under the letters go out
     for k, lamp in enumerate(getattr(S, "letter_lamps", [])):

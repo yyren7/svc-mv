@@ -75,6 +75,20 @@ print: in the mirror at that angle the print was dim and speckled with its own f
 dawn-lit print needs the shot's own exposure and a drier paper, or the print is white. Glass shards that are lit
 cards of picture are cards: the picture faint and a quarter see-through, the glass in the Fresnel reflection.
 
+The second 1280 px cut, read the same way, found what the sheets had hidden for seven passes. A sheet laid on the
+water with `rotation_euler = (0, pi/2, 0)` turns its bow and curl downwards, so all but its edges were under the
+water: the shot from above showed a sliver of her face beside a grey mirror of the lit ceiling and a window as a
+white band. A print that lies down keeps its relief in millimetres (`scale.x`) and sits just over the surface, and
+the hall round it goes dark but for its lamp, so the water is black; the ink over her is a small dense pancake, as
+the same ink spread 4 m wide was invisible. A glass of water is a black tube unless the camera is level with the
+water and the window is behind the glass; then the drop meets the surface and the bloom descends through a lit
+column. A crack is not a random walk: it runs straight with a few sharp kinks and short branches, thins to its
+tip, and at an emission of 8 under the bloom it was a neon tube (3 is a crack of light). Rain that is right by day
+is white rods at night: 0.14 of the emission, and 2.5 for the speed lines. A kraft board without its corrugation as
+relief is a flat slab for a bar. A bare margin beside a dark picture, under the same lamp, is a white bar down the
+frame: the 2D shot starts off it. The same chorus insert framed the same way four times is four repeats; the second
+round is close on her face. 表 and 裏 lit from behind at 6 were a neon sign.
+
 Judge a run by its contact sheets, not by single frames: `AT=0.25,0.5,0.75` (three frames of every shot, six
 minutes) into `tmp/`, `sheet.py` on it, read the sheet; a full run only after the sheet holds. The full run's
 sheets, a frame a second, sit beside its mp4. At 1280 px pull a dozen full frames of the shots in question too:
