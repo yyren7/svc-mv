@@ -69,7 +69,11 @@ a few degrees moves that image by most of a metre (liquid chrome in three check 
 at the print that actually hangs the picture: `v4_hall.hang` deals FRONTS from k 4 in row 2 (q1, a5, a1), and the
 A5 shot aimed at the first of them showed q1 under A5's relief, anchors and strands, with strands loose in the sky.
 In P0 the white was not the lamp but the picture's sky portal, lit at the hall's default: a shot before dawn sets
-the sky dark itself.
+the sky dark itself. The beat the reflection turns 表 again shows a self-lit copy of the 表 picture, not the paper
+print: in the mirror at that angle the print was dim and speckled with its own fibre. The chorus hall at exposure
+1.8 in its haze went milky where a print came near the lens; 1.5 and a thinner haze keep the blacks. A whip onto a
+dawn-lit print needs the shot's own exposure and a drier paper, or the print is white. Glass shards that are lit
+cards of picture are cards: the picture faint and a quarter see-through, the glass in the Fresnel reflection.
 
 Judge a run by its contact sheets, not by single frames: `AT=0.25,0.5,0.75` (three frames of every shot, six
 minutes) into `tmp/`, `sheet.py` on it, read the sheet; a full run only after the sheet holds. The full run's
