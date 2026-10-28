@@ -117,6 +117,21 @@ and a ray leaving the water met the volume boundary at the same depth and lost i
 reflection gone with the box's face on the surface, back with the box half a metre lower). Every shot that looked
 down at the water had seen a void for that reason. A volume box goes a little past every surface it encloses.
 
+From pass 9 on, ideas are tried side by side rather than one at a time. `jobs/exp.sh` makes a git worktree of
+HEAD on the server with the untracked art linked in, applies a json list of substitutions (`jobs/patch.py`, each
+old text once or it refuses), renders the frames the environment asks for and leaves a sheet and full frames;
+`jobs/queue.sh` launches a list of them as the GPU has room (a Blender takes 5.3 GB of the 24, so four at once,
+beside a film pass). The first rounds decided: the lights-out camera low towards the windows, silhouettes against
+the glass with the crack in it, over black slabs along the row; the lamp in the water as a disc fading to its
+rim, over water whose own ripple is up and with a pulse fast enough to get out from under the print, where a
+panel mirrored as a crisp tile at 1.6 and 2.4 m alike; the 裏 print lit for the mirror at 9, not 20 (its margin's
+reflection blew white at the grazing angle); no rain within arm's reach of the camera (the near streaks were white
+rods, and finer or brighter streaks changed nothing); the back cover's letters a pale pink at 1.1 (the rose at 1.5
+read as a sign); the fourth shards cut turned off the hall's axis (the flat grey patch was the open end 40 m away,
+not the ceiling). Dropped: starting the mirror shot lower (still a card between two walls) and a tighter R0 (the
+bright bar is the picture's edge and comes in with the roll). A check worktree also caught a swallowed `[0]`
+before the first pass-9 frame: an experiment on HEAD is a cheap dry run of the film.
+
 Judge a run by its contact sheets, not by single frames: `AT=0.25,0.5,0.75` (three frames of every shot, six
 minutes) into `tmp/`, `sheet.py` on it, read the sheet; a full run only after the sheet holds. The full run's
 sheets, a frame a second, sit beside its mp4. At 1280 px pull a dozen full frames of the shots in question too:
