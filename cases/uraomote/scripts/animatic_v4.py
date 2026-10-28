@@ -1775,8 +1775,9 @@ def p7_crack(u, t, b):
 
 
 SHARD_CUTS = [((10, 2, 7), (16, 6.5, 9.5)), ((14, 6, 9), (18, 1, 5)), ((20, 1.5, 5.5), (22, 7, 9.0)),
-              ((24, 4, 8), (16, 2, 6)), ((12, 4, 5.5), (18, 6.5, 10)), ((17, 6.2, 7.5), (17, -2, 6)),
-              ((26, 2, 9), (16, 6, 6))]                                      # never straight down the hall: the far wall is a slab
+              ((24, 4, 8), (16, -2.5, 5)), ((12, 4, 5.5), (18, 6.5, 10)), ((17, 6.2, 7.5), (17, -2, 6)),
+              ((26, 2, 9), (16, 6, 6))]           # never straight down the hall: the open end 40 m off is a flat grey
+#                                                   slab (the fourth cut aimed at (16, 2, 6) and framed it)
 
 
 def p8_shards(u, t, b):
