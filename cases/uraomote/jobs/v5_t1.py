@@ -30,8 +30,12 @@ def prepare(plates, inp, name):
     Image.open(os.path.join(plates, f"{name}_plate.png")).convert("RGB").save(os.path.join(inp, f"v5_{name}_plate.png"))
     her = np.asarray(Image.open(os.path.join(plates, f"{name}_her.png")).convert("L")) > 128
     k = int(0.015 * her.shape[0]) * 2 + 1
-    mask = Image.fromarray((her * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(k))
-    mask.save(os.path.join(inp, f"v5_{name}_her.png"))
+    mask = np.asarray(Image.fromarray((her * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(k))).copy()
+    # not below her feet: given room there, Qwen paints her reflection, the cut-out keeps it as part of her, and
+    # the figure then stands on its own reflection, above the water (round 1's W1)
+    feet = np.nonzero(her.any(axis=1))[0].max()
+    mask[feet + int(0.004 * her.shape[0]) + 1:] = 0
+    Image.fromarray(mask).save(os.path.join(inp, f"v5_{name}_her.png"))
     print(name, "mask", k, "px wider,", int(her.mean() * 100), "% of the picture")
 
 
