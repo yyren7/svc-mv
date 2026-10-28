@@ -20,7 +20,8 @@ from v5_t1 import prepare
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROUND = {"q1s": (211, 213), "u2": (211, 213), "f1": (211, 213), "a1": (215, 217), "a2": (211, 213),
          "a3": (211, 213), "a4": (211, 213), "a5": (211, 213), "u1": (211, 213)}
-SIZES = {"q1s": TALL, "u2": WIDE, "f1": WIDE, "a1": WIDE, "a2": WIDE, "a3": WIDE, "a4": WIDE, "a5": WIDE, "u1": WIDE}
+SIZES = {"q1s": TALL, "u2": WIDE, "f1": WIDE, "a1": WIDE, "a2": WIDE, "a3": WIDE, "a4": WIDE, "a5": WIDE, "u1": WIDE,
+         "kv": TALL, "w1": TALL, "r0": TALL}
 PAINT_TESTS = {"v5_kv_213s": ("kv", TALL, "standing, from behind, looking back, looking at viewer, window, window "
                                           "frame, sky, dawn, backlighting, plaster wall, ocean, water, reflection"),
                "v5_a1_211s": ("a1", WIDE, ANIMA_TAGS["a1"])}
