@@ -2,19 +2,36 @@
 
 An MV for 《裏表ラバーズ》 (wowaka). Pheebie's cover stands in for the song until the SVC version exists
 (181.0 s, about 161 BPM; the cut is on the downbeats, so the SVC version drops into the same grid).
-The case is where the 3D-into-2D pipeline was built: the 2D pictures and the 3D hall set into each other, an
-animatic cut on the downbeats, rendered in Cycles, judged from contact sheets and refined pass by pass. The
-reusable method, with everything the passes taught, is in [docs/hybrid.md](../../docs/hybrid.md); this file is
-what belongs to this film alone.
+The case is where the 3D-into-2D pipeline was built: an animatic cut on the downbeats, rendered in Cycles, judged
+from contact sheets and refined pass by pass. The reusable method, with everything the passes taught, is in
+[docs/hybrid.md](../../docs/hybrid.md); this file is what belongs to this film alone.
 
-- [script_v4.md](script_v4.md): the script (in Chinese). She is a two-sided print: her 表 on the front of a thin
-  sheet, her 裏 printed mirrored on the back, showing through when the sheet is lit from behind, wet, or seen from
-  behind. The 3D side is one hall hung with these prints over a floor of black water; love is a drop of rose ink.
-  Its section map is measured from the song. Scripts v2 and v3, their six sets S1–S6, the style frames, the old
-  animatic and the v3 illustrations are deleted; they are only in git history.
-- [CREDITS.md](CREDITS.md): the assets the hall uses.
+- [script_v5.md](script_v5.md): the current script (in Chinese), 天与水之间. The 3D world is nearly empty: a
+  painted sky on a dome, a mirror of water to the horizon, one old plaster wall standing in the water with a tall
+  window and 表 裏 cut through it, a glass of water on its sill. The water's surface is the sheet between her 表
+  (the day side) and her 裏 (the night under it); her pictures' own planes (window glass, mirror, water, her eyes)
+  are the world's real sky and water; she is present as a cut-out 2D figure standing on the water, or the camera
+  is inside a picture. The ink falls into the glass and from the glass into the whole sea.
+- [script_v4.md](script_v4.md): superseded. Its premise, a hall hung with rows of two-sided prints, was rejected
+  as a room full of posters with no spatial beauty of its own; its measured section table and her design (section
+  3) still hold. Nine 1280 px passes of it were rendered and reviewed (the table below); their lessons are in
+  docs/hybrid.md.
+- [CREDITS.md](CREDITS.md): the assets the sets use.
 
-## Files
+## v5: the world
+
+| File | What it does |
+|---|---|
+| `scripts/v5_world.py` | The world of script v5 and three stills to confirm it (`renders/v5_world/world_{dawn,rain,waterline}.png`): the sea (a 3 cm sheet of near-black water over a black bed out to 2 km, the beat ring and the rain's rings in its material), the sky dome carrying S1–S3, the wall built in the sheet frame so `hybrid_fx.cut_letters` cuts 表 裏 through it, its window with steel frame, old glass and sill, the glass of water, and her as `hybrid.make_figure` (a cut-out standing on the water, her feet or her picture's bottom edge at the surface) |
+| `scripts/figures.py` (shared) | Her figure cut out of every picture: `art/v4/figures/<name>_figure.png` + `_check.jpg` (anime-seg, on the server; on both sides) |
+
+The stills: **dawn**, the whole wall standing in the sea at sunrise, the letters cut through it, the window full of
+the dawn sky, her small before it with her reflection; **rain**, a rainy night, W1 with her back to us far out on
+the water, the window the only light, rings on the whole sea; **waterline**, her face over the water line and, in
+the water where her reflection should be, her 裏 (U2) that only the mirror sees. Next: `animatic_v5.py`, section 5
+of the script on `scripts/animatic.py`, then the 640 → 1280 → 1920 passes.
+
+## v4 files (the hall; kept as the record of passes 1–10)
 
 | File | What it does |
 |---|---|
