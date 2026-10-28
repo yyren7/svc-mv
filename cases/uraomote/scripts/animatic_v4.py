@@ -1518,7 +1518,9 @@ def p1_top(u, t, b):
     if b >= 23.75:
         S.cracks["face"]["reveal"] = ease((b - 23.75) * 4)                     # the first crack, across her face
     a = 0.3 * ease(u)                                                           # sinking towards her, turning a little
-    look(FLOAT_C + Vector((0, 0, 7.2 - 2.4 * ease(u))), FLOAT_C, lens=35, fstop=8, up=(math.cos(a), math.sin(a), 0))
+    # half a metre towards the open water: the dark wall's foot leaves the right edge and the lamp's disc has room
+    look(FLOAT_C + Vector((0, 0.5, 7.2 - 2.4 * ease(u))), FLOAT_C + Vector((0, 0.5, 0)), lens=35, fstop=8,
+         up=(math.cos(a), math.sin(a), 0))
 
 
 WHIP = [("print_1_-1.6", 1), ("print_2_+3.2", -1), ("print_3_+1.6", 1), ("print_4_-3.2", -1)]
