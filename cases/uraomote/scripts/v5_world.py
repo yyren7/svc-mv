@@ -266,7 +266,9 @@ def sun(direction, energy, kelvin, angle=0.6, name="sun", disc=None):
     return ob
 
 
-FIG_GLOW = float(os.environ.get("FIG_GLOW", 0.0))       # the paper figure also gives off its picture (world_mat)
+# the paper figure also gives off its picture (world_mat): paper alone came out murky grey in the dawn still, 0.6
+# brings her to the tones she was painted in
+FIG_GLOW = float(os.environ.get("FIG_GLOW", 0.6))
 
 
 def figure(name, picture, x, y, yaw=0.0, height=1.62, seed=0, emission=None, bottom=0.012):
@@ -292,14 +294,17 @@ def build():
 
 # ---------------------------------------------------------------- the stills
 
-def still_dawn():
+def still_dawn(near=False):
     """Sunrise behind the wall: the letters as light with their long reflections, the window full of the dawn
-    sky, and her (the KV) standing on the water before the wall, lit from behind, her reflection under her."""
+    sky, and her (the KV) standing on the water before the wall, lit from behind, her reflection under her.
+    `near`: the same light from closer, her whole figure, the window and the glass on its sill."""
     set_sky("s1", 1.8)
     # low behind the wall, where the camera sees the letters: its disc blazes through 表 裏 and the window. The
     # light travels from the sun towards the camera, so the direction is eye - letters
     eye = Vector((-16.0, 3.5, 0.8))
     sun((eye - Vector((0.0, 2.5, 3.6))).normalized(), 5.0, 6200, disc=40.0)
+    if near:
+        eye = Vector((-7.0, -3.6, 0.9))
     cyc.put(S.haze_vol.inputs["Density"], 0.003)
     if v5(PICS["kv"]):                                                    # full-body, where the kv plate had her
         S.her = figure("her", PICS["kv"], -1.6, -1.2, yaw=facing(-1.6, -1.2, eye))
@@ -308,6 +313,9 @@ def still_dawn():
         #                                                                     she stands in the water to there
     fill = cyc.area_light("fill", (-7.0, -4.0, 3.0), (-2.6, -0.3, 1.2), 4.0, 9000, 70, color="#9FB2D8")
     fill.visible_glossy = False
+    if near:
+        target = (-1.4, -1.0, 1.6)
+        return cyc.camera("dawn_near", tuple(eye), target, 32, 4.0), (-1.6, -1.2, 1.2), -0.2
     # the whole wall as the one thing standing in the sea, its top edge and both ends against the sky, its
     # reflection under it; she is small before it (a drawn girl in a real place)
     target = (-0.5, -0.3, 2.6)
@@ -366,7 +374,8 @@ def still_waterline():
     return cyc.camera("waterline", eye, target, 28, 5.6), target, 0.4
 
 
-STILLS = {"dawn": still_dawn, "rain": still_rain, "waterline": still_waterline}
+STILLS = {"dawn": still_dawn, "dawn_near": lambda: still_dawn(near=True), "rain": still_rain,
+          "waterline": still_waterline}
 
 
 def main():
