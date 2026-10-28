@@ -55,8 +55,10 @@ PLATES = {
                lens=45, fstop=4.0),
     "a1w": dict(size=WIDE, light="dawn", her=(-0.55, -1.6, "stand"), eye=(-5.0, -3.3, 1.5), target=(-0.3, -1.2, 1.9),
                 lens=40, fstop=4.0),
-    "a2": dict(size=WIDE, light="dawn", her=(-2.6, -0.4, "stand"), eye=(-2.9, 3.4, 1.35), target=(-2.6, -0.9, 1.15),
-               lens=50, fstop=2.8),
+    # (round 2's camera stood 2.9 m out and the wall was out of the frame: Qwen invented a door frame and a slab of
+    # wall behind her; now the wall recedes on the left with its window, she glances back beside it)
+    "a2": dict(size=WIDE, light="dawn", her=(-0.9, -0.5, "stand"), eye=(-1.3, 3.8, 1.4), target=(-0.9, -0.5, 1.2),
+               lens=40, fstop=2.8),
     "a3": dict(size=WIDE, light="dawn", her=(-0.7, -1.2, "stand"), eye=(-3.6, 1.4, 1.45), target=(-0.7, -1.3, 1.45),
                lens=55, fstop=2.8),
     "a4": dict(size=WIDE, light="dawn", her=(-0.6, -1.5, "stand"), eye=(-1.9, -2.7, 1.55), target=(-0.25, -1.45, 1.55),
