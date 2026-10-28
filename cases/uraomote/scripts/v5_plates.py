@@ -49,10 +49,12 @@ PLATES = {
     "f1": dict(size=WIDE, light="twin", her=(-5.0, 10.0, "leap"), eye=(-5.0, 3.5, 1.6), target=(-5.0, 10.0, 2.5),
                lens=50, fstop=4.0),
     # pictures the camera enters (WIDE): at the window at dawn, lying on the night water
-    # (round 1 had her 4.8 m away at 40 mm: 4% of the picture, painted as a broken doll; now a medium shot, the
-    # letters just out of the frame on the left)
+    # A1 twice: the medium shot, the letters just out of the frame on the left, and round 1's wide one (she is
+    # small at the huge window; its painted pass is the wide A1)
     "a1": dict(size=WIDE, light="dawn", her=(-0.55, -1.6, "stand"), eye=(-2.9, -3.1, 1.5), target=(-0.4, -1.3, 1.35),
                lens=45, fstop=4.0),
+    "a1w": dict(size=WIDE, light="dawn", her=(-0.55, -1.6, "stand"), eye=(-5.0, -3.3, 1.5), target=(-0.3, -1.2, 1.9),
+                lens=40, fstop=4.0),
     "a2": dict(size=WIDE, light="dawn", her=(-2.6, -0.4, "stand"), eye=(-2.9, 3.4, 1.35), target=(-2.6, -0.9, 1.15),
                lens=50, fstop=2.8),
     "a3": dict(size=WIDE, light="dawn", her=(-0.7, -1.2, "stand"), eye=(-3.6, 1.4, 1.45), target=(-0.7, -1.3, 1.45),
