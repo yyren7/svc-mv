@@ -58,7 +58,7 @@ Audio and lyrics:
 
 | File | What it does |
 |---|---|
-| `scripts/maps.py` | Per illustration: a depth map, a map of its flat planes (sky / window, water, mirror) and a map of her parts (hair, face, clothes), Depth Anything V2 + CLIPSeg, with a check picture (AutoDL) |
+| `scripts/maps.py`, `scripts/maps_edit.py` | Per illustration: a depth map, a map of its flat planes (sky / window, water, mirror) and a map of her parts (hair, face, clothes), Depth Anything V2 + CLIPSeg, with a check picture (AutoDL); hand-corrections to a plane map |
 | `scripts/paper.py` | The two-sided paper print: a thin sheet printed on both sides inside a bare border, cotton rag with cockle and fibre, translucent by `WET`; the hung sheet mesh |
 | `scripts/hybrid.py` | The hybrid print: the picture's flat planes swapped for the scene's own surfaces (a sky portal with parallax, the scene's water with a beat ring, mirror glass), her figure as a relief from the depth map, anchors for 3D things at her parts, stains |
 | `scripts/hybrid_fx.py` | The 3D things inside the picture and round the prints: ink volumes, cracks of light, rain, torn paper, dust, shards of glass with pieces of her pictures, strands of her hair, a print in two halves, letters cut out of a print, the pulse ring on the water, the painted sky |

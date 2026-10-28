@@ -63,9 +63,10 @@ Every pass is a full render at one size, kept as `renders/animatic_v4/animatic_v
 | 10 | 1920 / 48 | The final size. Before it (`runs/exp/queue4-6`): C1's and R0's prints full-bleed (no white margin bar in the spill's pull-back and the tear), the glass of water lit through its water by a panel inside the pane, the reflection print facing down the hall so her face has the rows behind it, the third shards cut aimed lower |
 
 Pass 9 (commit 897dce1, 2026-10-28, md5 `0364c4792324c92a11ef750dab78a072`) is the current 1280 px `animatic_v4.mp4`;
-pass 10 renders to `frames_1920/`, `animatic_v4_1920.mp4`, `sheet1920_0..5.jpg`. Still weak, in order: CLIPSeg masks
-approximate (hand-correct for finals); strands the only 3D hair element; the chorus cut from under the water is the
-least legible frame of the film.
+pass 10 renders to `frames_1920/`, `animatic_v4_1920.mp4`, `sheet1920_0..5.jpg`, with the chorus's shot from the
+water lifted to the surface and the flat maps of F1, A5 and C3 cleared (CLIPSeg had given them planes they do not
+have; the other 15 were checked by eye and left). Still weak: strands are the only 3D hair element; the window
+glass of A1, A2 and A4 is only partly mapped (hung prints only).
 
 ## Running
 
