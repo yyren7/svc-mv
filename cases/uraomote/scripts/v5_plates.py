@@ -20,8 +20,8 @@ import bpy
 from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import case as C  # noqa: E402  (first: it puts the pipeline's scripts/ on the path)
 import assets as A  # noqa: E402
-import case as C  # noqa: E402
 import cyc  # noqa: E402
 import hybrid_fx as fx  # noqa: E402
 import mvlib as m  # noqa: E402
