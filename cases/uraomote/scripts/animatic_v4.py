@@ -811,6 +811,17 @@ def props():
     S.float_print.rotation_euler = (0.0, math.pi / 2, 0.0)
     S.float_print.scale = (0.12, 1.0, 1.0)
     S.float_print.location = (34.0, -4.0, 0.03)
+    # what the water mirrors beside the print in the shot from above: a soft white panel where its lamp hangs,
+    # seen by glossy rays alone (every lamp is hidden from them, and a lamp's own glossy flag flipped per frame
+    # changed nothing under persistent data), shown in P1.5 only. Without it the water was a void and the print
+    # a card lying on it.
+    bpy.ops.mesh.primitive_plane_add(size=1.6, location=(31.9, -0.5, 6.0))
+    S.moon = bpy.context.active_object
+    S.moon.name = "float_moon"
+    S.moon.data.materials.append(_emission_mat("float_moon", "#FFF3E8", 10.0)[0])
+    for attr in ("visible_camera", "visible_diffuse", "visible_transmission", "visible_volume_scatter",
+                 "visible_shadow"):
+        setattr(S.moon, attr, False)
     S.refl_omote = V.sheet("refl_omote", REFL.x, REFL.y, V.print_mat("v4_q1_211", "v4_u4_211"), seed=95, top=2.25)
     glow, nt, out = V._nodes("refl_ura")             # lit by itself: the water reflects only a few percent
     em = nt.nodes.new("ShaderNodeEmission")
@@ -1046,7 +1057,7 @@ def setup():
     S.home = {ob.name: (ob.location.copy(), ob.rotation_euler.copy())
               for ob in list(S.prints.values()) + S.panels + [S.kv]}
     S.everything_lit = S.dawn + S.cold + S.fronts + S.bulbs + list(S.behind.values()) + list(S.lights.values())
-    S.hidden = [S.rain, S.conf, S.dust, S.drop, S.zero, S.ink["ob"], S.burst["ob"], S.glass_ink["ob"]] + \
+    S.hidden = [S.rain, S.conf, S.dust, S.drop, S.zero, S.moon, S.ink["ob"], S.burst["ob"], S.glass_ink["ob"]] + \
         [s["ob"] for s in S.shards] + [ob for hv in S.halves.values() for ob, _ in hv] + \
         [ob for ob, _ in S.card_halves] + getattr(S, "letter_lamps", [])
     return scene
@@ -1102,8 +1113,6 @@ def reset(scene):
         S.refl_omote.visible_glossy, S.refl_ura.visible_glossy = False, True
     if S.refl_flash.visible_glossy:
         S.refl_flash.visible_glossy = False
-    if S.lights["float_sun"][0].visible_glossy:
-        S.lights["float_sun"][0].visible_glossy = False
     put(S.lineart, 0.0)
     put(S.glare, 0.4)
     scene.view_settings.view_transform = "AgX"
@@ -1481,9 +1490,7 @@ def p1_top(u, t, b):
     night(cold=0.0, rose=0.0, sky_key="s1")
     sky("s1", 0.15)
     light("float_sun", 0.4)                                                     # (at 3.5 the paper was a white slab)
-    # the one lamp shows in the water, beside the print, broken by the water's own ripples and the ring: without it
-    # the black was a void and the print a card on it
-    S.lights["float_sun"][0].visible_glossy = True
+    S.moon.hide_render = False                        # the lamp in the water beside the print, broken by its ripples
     bpy.context.scene.view_settings.exposure = 0.5
     v = ease((b - 20) / 4)
     # the ink spreads over her on the paper, small and dense enough to read from 5 m up (a 4 m pancake under the
