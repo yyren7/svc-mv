@@ -278,9 +278,9 @@ def crack(name, seed, origin, ax, ay, length, width=0.008, parent=None):
         a += r.uniform(-0.22, 0.22) + (r.choice((-1, 1)) * r.uniform(0.5, 0.9) if i in kinks else 0.0)
         pts.append(pts[-1] + Vector((math.cos(a), math.sin(a))) * length / n)
     lines = [(pts, 0.0, 1.0, 1.0)]                   # points, uv x where it starts, uv x it spans, width scale
-    for i in sorted(r.sample(range(5, n - 6), 2)):   # the branches, off the main line at a steep angle
-        d = pts[i + 1] - pts[i]
-        b = math.atan2(d.y, d.x) + r.choice((-1, 1)) * r.uniform(0.6, 1.1)
+    for i in sorted(r.sample(range(5, n - 6), 2)):   # the branches, off the main line at a shallow angle (at 35-60
+        d = pts[i + 1] - pts[i]                        # degrees, with a flat rose ribbon, the crack was lightning)
+        b = math.atan2(d.y, d.x) + r.choice((-1, 1)) * r.uniform(0.25, 0.55)
         q = [pts[i]]
         for _ in range(r.randint(5, 8)):
             b += r.uniform(-0.2, 0.2)
@@ -322,7 +322,10 @@ class _Crack:
 
 
 def crack_material(name):
-    """A crack's own material: the glow where UV x is below its reveal value, transparent beyond it."""
+    """A crack's own material: across its width (UV y) a hair of near-white light at the core and a faint rose halo
+    fading to the ribbon's edge, shown where UV x is below its reveal value, transparent beyond it. (The whole
+    ribbon in one rose at 2.5, with hard edges, was a neon tube from 8 m: light through a crack is a thin bright
+    line that blooms, not a stroke.)"""
     mat, nt, out = V._nodes(f"crack_{name}")
     g = kit.G(nt)
     uv = g.node("ShaderNodeTexCoord")
@@ -330,11 +333,16 @@ def crack_material(name):
     g.link(uv.outputs["UV"], sep.inputs[0])
     reveal = _value(nt, 0.0)
     show = g.math("LESS_THAN", sep.outputs["X"], reveal)
+    edge = g.math("ABSOLUTE", g.math("SUBTRACT", g.math("MULTIPLY", sep.outputs["Y"], 2.0), 1.0))   # 0 core, 1 edge
+    across = g.math("SUBTRACT", 1.0, edge)
+    core = g.math("POWER", across, 6.0)
+    halo = g.math("POWER", across, 1.5)
     em = g.node("ShaderNodeEmission")
-    em.inputs["Color"].default_value = m.srgb(GLOW)
-    em.inputs["Strength"].default_value = 2.5        # bright, but short of a neon tube once the bloom takes it
+    g.link(kit._mix_rgba(nt, core, m.srgb(GLOW), (1.0, 0.94, 0.96, 1.0)), em.inputs["Color"])
+    g.link(g.math("ADD", g.math("MULTIPLY", halo, 0.4), g.math("MULTIPLY", core, 3.0)), em.inputs["Strength"])
+    alpha = g.math("ADD", g.math("MULTIPLY", halo, 0.7), core, clamp=True)
     mix = g.node("ShaderNodeMixShader")
-    g.link(show, mix.inputs["Fac"])
+    g.link(g.math("MULTIPLY", show, alpha), mix.inputs["Fac"])
     g.link(g.node("ShaderNodeBsdfTransparent").outputs[0], mix.inputs[1])
     g.link(em.outputs[0], mix.inputs[2])
     g.link(mix.outputs[0], out.inputs["Surface"])
@@ -745,19 +753,20 @@ def board():
     pic = V._picture(nt, "v4_w1_211")
     wave = g.node("ShaderNodeTexWave")
     wave.bands_direction = "Z"
-    for name, val in (("Scale", 40.0), ("Distortion", 1.5), ("Detail", 1.0)):
+    for name, val in (("Scale", 22.0), ("Distortion", 1.5), ("Detail", 1.0)):     # (at 40 the bands were scanlines)
         wave.inputs[name].default_value = val
     g.link(co, wave.inputs["Vector"])
     nz = g.node("ShaderNodeTexNoise")
     nz.inputs["Scale"].default_value, nz.inputs["Detail"].default_value = 3.0, 4.0
     g.link(co, nz.inputs["Vector"])
     kraft = kit._mix_rgba(nt, nz.outputs["Fac"], m.srgb("#7E5D3C"), m.srgb("#9A7652"))
-    kraft = kit._mix_rgba(nt, g.math("MULTIPLY", wave.outputs["Fac"], 0.25), kraft, m.srgb("#5E4228"))
+    kraft = kit._mix_rgba(nt, g.math("MULTIPLY", wave.outputs["Fac"], 0.15), kraft, m.srgb("#5E4228"))
     col = kit._mix_rgba(nt, geo.outputs["Backfacing"], pic, kraft)
     normal = V._cockle(nt, co)                                                  # cockle and fibre in the raking light
     corr = g.node("ShaderNodeBump")                                             # and the corrugation as relief: as
-    corr.inputs["Strength"].default_value = 0.4                                 # colour bands alone the board was a
-    corr.inputs["Distance"].default_value = 0.004                               # flat pink-brown slab for a bar
+    corr.inputs["Strength"].default_value = 0.22                                # colour bands alone the board was a
+    corr.inputs["Distance"].default_value = 0.004                               # flat pink-brown slab for a bar (at
+    #                                                                             0.4 and 40 bands, corrugated plastic)
     g.link(wave.outputs["Fac"], corr.inputs["Height"])
     g.link(normal, corr.inputs["Normal"])
     normal = corr.outputs["Normal"]
@@ -1002,15 +1011,17 @@ def setup():
     S.ink, S.burst = ink_volume("ink", 1.0), ink_volume("burst", 7.0)
     sill_glass()
     S.cracks = {}
+    # widths are of the whole ribbon; the light is a core a tenth of it and a halo over the inner third, so from
+    # 6-8 m (6-7 mm a pixel at 1280) the core is about a pixel and the glow two or three
     for k, x in enumerate((7.0, 15.0)):                               # P2: on the high windows' glass
-        crack(f"win{k}", 40 + k, (x - 0.3, V.WD / 2 - 0.02, 8.4), (1, 0, 0), (0, 0, 1), 1.8, width=0.025)
+        crack(f"win{k}", 40 + k, (x - 0.3, V.WD / 2 - 0.02, 8.4), (1, 0, 0), (0, 0, 1), 1.8, width=0.045)
     for k, name in enumerate(("print_2_+3.2", "print_4_-3.2")):      # P2: across the prints
-        crack(f"print{k}", 50 + k, (-0.02, 0.9, -1.4), (0, -1, 0), (0, 0, -0.35), 1.9, parent=S.prints[name])
-    crack("face", 60, (-0.02, 0.62, -1.55), (0, -1, 0), (0, 0, -0.25), 1.3, width=0.012, parent=S.float_print)
+        crack(f"print{k}", 50 + k, (-0.02, 0.9, -1.4), (0, -1, 0), (0, 0, -0.35), 1.9, width=0.02,
+              parent=S.prints[name])
+    crack("face", 60, (-0.02, 0.62, -1.55), (0, -1, 0), (0, 0, -0.25), 1.3, width=0.03, parent=S.float_print)
     for k in range(4):                                                 # P7.4: one window giving way
         crack(f"win7_{k}", 70 + k, (11.0, V.WD / 2 - 0.02, 8.3), (math.cos(k * 1.6), 0, math.sin(k * 1.6)),
-              (-math.sin(k * 1.6), 0, math.cos(k * 1.6)), 1.6, width=0.035)   # (seen from 8 m: 0.025 was a hair,
-    #                                                                                 0.045 a neon tube)
+              (-math.sin(k * 1.6), 0, math.cos(k * 1.6)), 1.6, width=0.05)
     S.halves = {name: halves(S.prints[name]) for name in PATH + ["stage_r0"]}
     rain()
     confetti()
@@ -1091,6 +1102,8 @@ def reset(scene):
         S.refl_omote.visible_glossy, S.refl_ura.visible_glossy = False, True
     if S.refl_flash.visible_glossy:
         S.refl_flash.visible_glossy = False
+    if S.lights["float_sun"][0].visible_glossy:
+        S.lights["float_sun"][0].visible_glossy = False
     put(S.lineart, 0.0)
     put(S.glare, 0.4)
     scene.view_settings.view_transform = "AgX"
@@ -1438,8 +1451,9 @@ def p1_drop(u, t, b):
         S.drop.location = g + Vector((0, 0, 0.065 + 0.6 * (t15 - t)))
     if t >= t15:
         v = ease((t - t15) / (at(16) - t15))
-        s = 0.006 + 0.016 * v
-        ink(S.glass_ink, g + Vector((0, 0, 0.045 - 0.012 * v)), (s, s, s * 1.1), 0.3, 0.05)   # (at 1.0 a balloon)
+        s = 0.005 + 0.016 * v
+        # from the surface down, taller than wide: a plume, not a blob sitting on the bottom (at 1.0 a balloon)
+        ink(S.glass_ink, g + Vector((0, 0, 0.058 - 0.026 * v)), (s * 0.8, s * 0.8, s * 1.5), 0.4, 0.05)
     # level with the water, the glass between the camera and the window: the drop falls into the frame, meets the
     # surface, and the ink blooms down through the lit column. (From below the rim the glass was a black tube, and
     # from above it the water showed only the sill behind it, the bloom lost in the dark.)
@@ -1467,12 +1481,15 @@ def p1_top(u, t, b):
     night(cold=0.0, rose=0.0, sky_key="s1")
     sky("s1", 0.15)
     light("float_sun", 0.4)                                                     # (at 3.5 the paper was a white slab)
+    # the one lamp shows in the water, beside the print, broken by the water's own ripples and the ring: without it
+    # the black was a void and the print a card on it
+    S.lights["float_sun"][0].visible_glossy = True
     bpy.context.scene.view_settings.exposure = 0.5
     v = ease((b - 20) / 4)
     # the ink spreads over her on the paper, small and dense enough to read from 5 m up (a 4 m pancake under the
-    # print, the same ink spread that thin, was invisible)
-    s = 0.7 + 1.1 * v
-    ink(S.ink, FLOAT_C + Vector((0.6, 0.0, 0.045)), (s, s, 0.02), 2.5, 0.0)
+    # print, the same ink spread that thin, was invisible; at 2.5 a faint blush)
+    s = 0.8 + 1.2 * v
+    ink(S.ink, FLOAT_C + Vector((0.6, 0.0, 0.045)), (s, s, 0.02), 4.0, 0.0)
     ripple(last_beat(t), FLOAT_C.x, FLOAT_C.y, 0.25)
     if b >= 23.75:
         S.cracks["face"]["reveal"] = ease((b - 23.75) * 4)                     # the first crack, across her face
