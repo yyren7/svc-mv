@@ -1,0 +1,2 @@
+glass_ink - "WIDTH=1280 SAMPLES=32 ONLY=P1 AT=0.85,0.97" 14 16.5
+glass_soft cases/uraomote/runs/exp/glass_soft.json "WIDTH=1280 SAMPLES=32 ONLY=P1 AT=0.85,0.97" 14 16.5

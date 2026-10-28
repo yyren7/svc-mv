@@ -109,7 +109,8 @@ def sill_glass():
     S.glass_light = bpy.context.active_object
     S.glass_light.name = "glass_light"
     S.glass_light.scale = (1.6, 1.0, 1.0)
-    S.glass_light.data.materials.append(fx.emission_mat("glass_light", "#EAF2FF", 4.0)[0])
+    S.glass_light.data.materials.append(fx.emission_mat("glass_light", "#EAF2FF", 2.0)[0])   # (at 4 the ink's
+    #                                                                                           plume washed out)
     for attr in ("visible_camera", "visible_diffuse", "visible_glossy", "visible_volume_scatter", "visible_shadow"):
         setattr(S.glass_light, attr, False)
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.0035, segments=16, ring_count=8)

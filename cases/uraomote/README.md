@@ -60,10 +60,12 @@ Every pass is a full render at one size, kept as `renders/animatic_v4/animatic_v
 | 8 | 1280 / 32 | The crack as a hair of light (white core, rose halo); ink in the glass from the surface down; corrugation at 22 bands |
 | 9 | 1280 / 32 | Side-by-side experiments (`runs/exp/`): the lamp mirrored in the water beside the lying print (an emissive disc seen by glossy rays alone, over the haze box fixed to reach under the water); lights-out camera low towards the windows; no rain within arm's reach; pale letters on the back cover; the shards cuts off the hall's axis; the chorus inserts brighter; the 裏 print lit for the mirror at 9 |
 
-Pass 9 (commit 897dce1, 2026-10-28, md5 `0364c4792324c92a11ef750dab78a072`) is the current `animatic_v4.mp4`. Still
-weak, in order: CLIPSeg masks approximate (hand-correct for finals); strands the only 3D hair element; the P7
-reflection shot's first half a plain print on plaster; the P5 spill's end and R0 show the print's white margin bar;
-a small grey plaster corner in the third shards cut. Next: the 1920 px / 48-sample pass (`runs/full.sh 10 1920 48`).
+| 10 | 1920 / 48 | The final size. Before it (`runs/exp/queue4-6`): C1's and R0's prints full-bleed (no white margin bar in the spill's pull-back and the tear), the glass of water lit through its water by a panel inside the pane, the reflection print facing down the hall so her face has the rows behind it, the third shards cut aimed lower |
+
+Pass 9 (commit 897dce1, 2026-10-28, md5 `0364c4792324c92a11ef750dab78a072`) is the current 1280 px `animatic_v4.mp4`;
+pass 10 renders to `frames_1920/`, `animatic_v4_1920.mp4`, `sheet1920_0..5.jpg`. Still weak, in order: CLIPSeg masks
+approximate (hand-correct for finals); strands the only 3D hair element; the chorus cut from under the water is the
+least legible frame of the film.
 
 ## Running
 
