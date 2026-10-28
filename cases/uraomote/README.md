@@ -109,6 +109,14 @@ visible to them, and its reflection beside the print, broken by the water's own 
 says water. Ink dropped into a glass starts at the surface and is taller than wide; corrugation at 40 bands and a
 bump of 0.4 is corrugated plastic (22 and 0.22 is kraft).
 
+The lamp in the water took a third renderer lesson to appear. Toggling the lamp's own glossy visibility per frame
+showed nothing, a lit panel seen by glossy rays alone showed nothing, and a panel ten times brighter showed
+nothing, while the same panel over the same water in a bare scene mirrored at once. The difference was the haze:
+the hall's volume box had its faces exactly on the water's surface and on the walls' and ceiling's inner faces,
+and a ray leaving the water met the volume boundary at the same depth and lost its reflection (in the bare scene,
+reflection gone with the box's face on the surface, back with the box half a metre lower). Every shot that looked
+down at the water had seen a void for that reason. A volume box goes a little past every surface it encloses.
+
 Judge a run by its contact sheets, not by single frames: `AT=0.25,0.5,0.75` (three frames of every shot, six
 minutes) into `tmp/`, `sheet.py` on it, read the sheet; a full run only after the sheet holds. The full run's
 sheets, a frame a second, sit beside its mp4. At 1280 px pull a dozen full frames of the shots in question too:
