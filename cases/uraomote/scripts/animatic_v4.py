@@ -1580,7 +1580,7 @@ def p4_chorus(u, t, b):
         key = f"c{k % 4 + 1}"
         night(cold=0.0, rose=0.0)
         zoom = 1.05 if k < 4 else 1.7                                           # the second time round, close on her
-        into(key, zoom + 0.05 * p, yaw=6 - 12 * p, cold=0.7, rose=0.8)
+        into(key, zoom + 0.05 * p, yaw=6 - 12 * p, cold=1.0, rose=0.9)        # (at 0.7 her face was lost in a tile)
         seep(key, 0.3 + 0.7 * p, S.burst)
         return
     names = list(S.prints)
@@ -1784,6 +1784,8 @@ SHARD_CUTS = [((10, 2, 7), (16, 6.5, 9.5)), ((14, 6, 9), (18, 1, 5)), ((20, 1.5,
 
 def p8_shards(u, t, b):
     night(cold=0.6, rose=0.4, density=0.003)
+    for key in STAGE:                                 # the three 2D stage prints at x -7, seen from behind 30 m down
+        S.prints[f"stage_{key}"].hide_render = True   # the hall, were one flat grey slab of paper in the cuts
     w = ease((b - 86.75) * 4) if b >= 86.75 else 0.0                            # the last beat: they line up into KV'
     for s in S.shards:
         ob = s["ob"]
