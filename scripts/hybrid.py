@@ -225,8 +225,9 @@ def _stain(nt, name):
     """Rose ink soaking into the paper: a soft disc on the sheet's UVs that tints the picture, set per frame
     through STAINS[name] (centre u, v and radius; a radius below 0 is none)."""
     g = kit.G(nt)
-    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
-    src = bsdf.inputs["Base Color"].links[0].from_socket
+    # the paper's base colour, or the picture an emissive print gives off (world_mat(emission=...))
+    target = next((n.inputs["Base Color"] for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None) or         next(n.inputs["Color"] for n in nt.nodes if n.type == "EMISSION")
+    src = target.links[0].from_socket
     st = {k: kit.value(nt, -1.0 if k == "r" else 0.0) for k in ("u", "v", "r")}
     uv = g.node("ShaderNodeTexCoord")
     centre = g.node("ShaderNodeCombineXYZ")
@@ -255,7 +256,7 @@ def _stain(nt, name):
     g.link(kit.sock(wine.outputs, "Result", "RGBA"), kit.sock(inked.inputs, "B", "RGBA"))
     col = kit._mix_rgba(nt, g.math("MULTIPLY", edge.outputs["Result"], g.math("GREATER_THAN", st["r"], 0.0)), src,
                         kit.sock(inked.outputs, "Result", "RGBA"))
-    nt.links.new(col, bsdf.inputs["Base Color"])
+    nt.links.new(col, target)
     STAINS[name] = st
 
 
@@ -362,11 +363,13 @@ def world_mat(name, picture, size=None, cutout=False, sky=True, water=True, emis
             nt.links.new(em.outputs[0], add.inputs[1])
             chain = add.outputs[0]
     else:
-        mat, nt, out = P.nodes(f"lit_{picture}")
+        mat, nt, out = P.nodes(f"lit_{name}")
         em = nt.nodes.new("ShaderNodeEmission")
+        em.name = em.label = "lit"
         em.inputs["Strength"].default_value = emission
         nt.links.new(P.picture(nt, picture, 0.0, size=size, alpha=True)[0], em.inputs["Color"])
         chain = em.outputs[0]
+        _stain(nt, name)
     g = kit.G(nt)
     flat = map_path(picture, "flat")
     bpy.data.images.load(flat, check_existing=True).colorspace_settings.name = "Non-Color"
