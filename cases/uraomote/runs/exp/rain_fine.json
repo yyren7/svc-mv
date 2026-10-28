@@ -1,0 +1,2 @@
+[["cases/uraomote/scripts/animatic_v4.py", "ln, w = r.uniform(0.3, 0.7), r.uniform(0.0006, 0.0016)", "ln, w = r.uniform(0.3, 0.7), r.uniform(0.0004, 0.0010)"],
+ ["cases/uraomote/scripts/animatic_v4.py", "put(S.rain_em.inputs[\"Strength\"], 2.5 if lines else 0.45)", "put(S.rain_em.inputs[\"Strength\"], 2.5 if lines else 0.65)"]]

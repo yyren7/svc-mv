@@ -1,4 +1,8 @@
-"""Save chosen full-size frames of a frames dir as jpgs: grab.py frames_dir out_dir n [n ...]"""
+"""Save chosen full-size frames of a frames folder as jpgs, to look at what a contact sheet's tiles hide (strands,
+rain, relief grain):
+
+    python scripts/grab.py <frames_dir> <out_dir> n [n ...]
+"""
 import os
 import sys
 

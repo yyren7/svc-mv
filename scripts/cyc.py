@@ -17,6 +17,23 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASE_SAMPLES = int(os.environ.get("SAMPLES", 256))
 
 
+def put(sock, v):
+    """Set a socket's value only when it changes: setting it again, even to the same value, makes Cycles rebuild
+    the material or light, and forty hybrid prints make that most of a frame's time."""
+    cur = sock.default_value
+    if isinstance(v, (int, float)):
+        if cur != v:
+            sock.default_value = v
+    elif tuple(cur) != tuple(v):
+        sock.default_value = v
+
+
+def energy(ob, e):
+    """A light's energy, written only on change (as put())."""
+    if ob.data.energy != e:
+        ob.data.energy = e
+
+
 def args(default_out, default_shots):
     """`blender -b -P scene.py -- [out_dir] [shot ...]` -> (out_dir, shots). default_out is a path: each case
     keeps its renders in its own folder."""

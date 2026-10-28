@@ -1,8 +1,9 @@
 """A contact sheet of rendered frames, to judge a run at a glance: every n-th frame, in rows.
 
-    python cases/uraomote/scripts/sheet.py <frames_dir> <out.jpg> [every=24] [columns=6] [width=480] [first] [last]
+    python scripts/sheet.py <frames_dir> <out.jpg> [every=24] [columns=6] [width=480] [first] [last]
 
-first/last are frame numbers (inclusive) so a long run can be cut into sheets of a readable size.
+first/last are frame numbers (inclusive) so a long run can be cut into sheets of a readable size. Works on a
+sparse folder too (an AT= check render): every n-th of the frames that exist.
 """
 import os
 import sys

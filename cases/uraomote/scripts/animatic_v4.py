@@ -3,54 +3,52 @@ downbeats, rendered in Cycles at low resolution and sample count to judge the pa
 events before the real render. The 3D shots carry the script's effects in the scene itself: the ceiling lamps
 lighting the KV on the downbeats, KV' showing through it, 表 and 裏 cut out of it, prints turning, lifting, wet and
 torn, pulse ripples on the water, rose ink as a volume, rain, cracks, shards of glass, the walls falling away to the
-painted sky, flying paper, the line-art flash (D4), the roll, the dolly zoom and the Dutch angle. The 2D shots are
-her illustrations on a card filling the frame (section 3.1).
+painted sky, flying paper, the line-art flash (D4), the roll, the dolly zoom and the Dutch angle. A 2D shot goes
+*into* the hybrid print that carries its picture (into()): the camera before the paper, the frame as wide as the
+picture, her planes the hall's and her figure a relief, never a card before the lens.
 
     blender -b --factory-startup -P cases/uraomote/scripts/animatic_v4.py -- <frames_dir> [first_bar last_bar]
     env: FPS=12 SAMPLES=16 WIDTH=640, LIMIT=1 (the first frame of every shot), AT=0.5 (that point of every shot),
          ONLY=P4,P5 (those sections), DEVICE=CPU (render on the CPU), DRY=1 (run the shots, render nothing)
-    python cases/uraomote/scripts/animatic_cut.py <frames_dir> cases/uraomote/audio/urao_mix.m4a <out.mp4> 12
+    python scripts/cut.py <frames_dir> cases/uraomote/audio/urao_mix.m4a <out.mp4> 12
+
+The engine (the song's clock, the frame loop, the camera, the finish) is scripts/animatic.py; the prints are
+scripts/paper.py and scripts/hybrid.py; the ink, cracks, rain, scraps, shards, strands and letters are
+scripts/hybrid_fx.py. This file is what is particular to this film: the hall's props, its lights, and section 5
+of script_v4.md shot by shot.
 
 Frames are numbered on the song's clock and frames already there are skipped, so bar ranges can run side by side
 into one folder. Every frame starts from the hall at rest with every light off (reset()), and the shot sets what it
 needs, so any frame can be rendered alone. Pictures not drawn yet: Q2 is U2 on the back of Q1's print, U3 is staged
 with the reflection trick of P7.3, R1-R6 are missing (the run has only its ripples and the prints it tears).
 """
-import bisect
-import json
 import math
 import os
-import random
 import sys
 
-import bmesh
 import bpy
-import numpy as np
 from mathutils import Matrix, Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import case as C  # noqa: E402
-ARGV = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-FRAMES = os.path.abspath(ARGV[0]) if ARGV else os.path.join(C.RENDERS, "animatic_v4", "frames")
-FIRST, LAST = (float(ARGV[1]), float(ARGV[2])) if len(ARGV) > 2 else (None, None)
+import animatic as AN  # noqa: E402
 import assets as A  # noqa: E402
 import cyc  # noqa: E402
+import hybrid as H  # noqa: E402
+import hybrid_fx as fx  # noqa: E402
 import kit  # noqa: E402
 import mvlib as m  # noqa: E402
+import paper as P  # noqa: E402
 import v4_hall as V  # noqa: E402
-import v4_hybrid as H  # noqa: E402
 
-FPS = int(os.environ.get("FPS", 12))
-SAMPLES = int(os.environ.get("SAMPLES", 16))
-WIDTH = int(os.environ.get("WIDTH", 640))
-LIMIT = int(os.environ.get("LIMIT", 0))
-AT = [float(a) for a in os.environ.get("AT", "").split(",") if a]
-ONLY = [s for s in os.environ.get("ONLY", "").split(",") if s]
-DRY = os.environ.get("DRY") == "1"                  # run every shot without rendering, and save the .blend
-TIMING = json.load(open(os.path.join(C.AUDIO, "urao_timing.json"), encoding="utf-8"))
-DOWN, BEATS, DURATION = TIMING["downbeats"], TIMING["beats"], TIMING["duration"]
-LAST_BEAT = DURATION - (BEATS[-1] - BEATS[-2])     # the beats found stop at bar 116; the song rings on
+FRAMES, FIRST, LAST = AN.args(os.path.join(C.RENDERS, "animatic_v4", "frames"))
+FPS, SAMPLES = AN.FPS, AN.SAMPLES
+CLK = AN.Clock(os.path.join(C.AUDIO, "urao_timing.json"))     # the beats found stop at bar 116; the song rings on
+at, bar_at, punch, last_beat = CLK.at, CLK.bar_at, CLK.punch, CLK.last_beat
+ease, clamp, put, energy = AN.ease, AN.clamp, AN.put, AN.energy
+DURATION, LAST_BEAT = CLK.duration, CLK.last_beat_t
+H.SKY, H.HERO = "v4_s1_211", {V.KV[0]}               # the sky behind every picture's window; the KV at the full relief
 FONT = "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"
 ROSE, GLOW, PAPER, MORNING = "#F0285A", "#FF5C8A", "#F2F0EB", "#BCD3E6"
 PICK = {"kv": "v4_kv_211", "kvu": "v4_kvu_211_n75"}  # every other picture: seed 211 until picked
@@ -81,37 +79,6 @@ class S:
     t = b = 0.0
 
 
-# ---------------------------------------------------------------- the song's clock (as in animatic.py)
-
-def at(bar):
-    """Seconds at a bar (a downbeat index; fractions fall between downbeats, bars below 0 in the pickup)."""
-    i = max(0, min(math.floor(bar), len(DOWN) - 2))
-    return max(0.0, DOWN[i] + (bar - i) * (DOWN[i + 1] - DOWN[i]))
-
-
-def bar_at(t):
-    i = max(0, min(bisect.bisect_right(DOWN, t) - 1, len(DOWN) - 2))
-    return i + (t - DOWN[i]) / (DOWN[i + 1] - DOWN[i])
-
-
-def punch(t, amount, decay=0.12):
-    i = bisect.bisect_right(BEATS, t) - 1
-    return amount * math.exp(-(t - BEATS[i]) / decay) if i >= 0 else 0.0
-
-
-def last_beat(t):
-    return BEATS[max(0, bisect.bisect_right(BEATS, t) - 1)]
-
-
-def ease(u):
-    u = min(1.0, max(0.0, u))
-    return u * u * (3 - 2 * u)
-
-
-def clamp(u):
-    return min(1.0, max(0.0, u))
-
-
 # ---------------------------------------------------------------- building
 
 def _pic(key):
@@ -119,128 +86,7 @@ def _pic(key):
 
 
 def _path(key):
-    return os.path.join(V.ART, _pic(key) + "_00001_.png")
-
-
-def _value(nt, v=0.0):
-    n = nt.nodes.new("ShaderNodeValue")
-    n.outputs[0].default_value = v
-    return n.outputs[0]
-
-
-def _emission_mat(name, hexstr, strength):
-    mat, nt, out = V._nodes(name)
-    em = nt.nodes.new("ShaderNodeEmission")
-    em.inputs["Color"].default_value = m.srgb(hexstr)
-    em.inputs["Strength"].default_value = strength
-    nt.links.new(em.outputs[0], out.inputs["Surface"])
-    return mat, em
-
-
-def _only_camera(ob):
-    for attr in ("visible_diffuse", "visible_glossy", "visible_transmission", "visible_volume_scatter",
-                 "visible_shadow"):
-        setattr(ob, attr, False)
-
-
-def _mesh(name, verts, faces, uvs=None, mats=()):
-    me = bpy.data.meshes.new(name)
-    me.from_pydata(verts, [], faces)
-    if uvs is not None:
-        layer = me.uv_layers.new(name="UV")
-        for poly in me.polygons:
-            for li in poly.loop_indices:
-                layer.data[li].uv = uvs[me.loops[li].vertex_index]
-    return A._obj(name, me, mats)
-
-
-def sky_images(h):
-    """D2: the painted skies (S1-S3) on the backdrop behind the high windows, swapped per shot."""
-    em = h["sky_emission"]
-    nt = em.id_data
-    g = kit.G(nt)
-    tc = g.node("ShaderNodeTexCoord")
-    sep = g.node("ShaderNodeSeparateXYZ")
-    g.link(tc.outputs["Generated"], sep.inputs[0])
-    comb = g.node("ShaderNodeCombineXYZ")
-    g.link(sep.outputs["X"], comb.inputs["X"])
-    g.link(sep.outputs["Z"], comb.inputs["Y"])
-    mp = g.node("ShaderNodeMapping")
-    mp.inputs["Scale"].default_value = (5.0, 4.0, 1.0)          # a picture every 16 m, 7.5 m high round the windows
-    mp.inputs["Location"].default_value = (0.0, -1.33, 0.0)
-    g.link(comb.outputs[0], mp.inputs["Vector"])
-    tex = g.node("ShaderNodeTexImage")
-    tex.extension = "MIRROR"
-    g.link(mp.outputs[0], tex.inputs["Vector"])
-    g.link(tex.outputs["Color"], em.inputs["Color"])
-    S.sky_tex, S.sky_em = tex, em
-
-
-def water_ripple():
-    """The pulse on the water (script 0.3: ドクン is a ring on the water): one ring at a time, its centre, radius and
-    height set per frame, on top of the water's own ripples."""
-    nt = S.water.node_tree
-    g = kit.G(nt)
-    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
-    old = next(n for n in nt.nodes if n.type == "BUMP")
-    geo = g.node("ShaderNodeNewGeometry")
-    sep = g.node("ShaderNodeSeparateXYZ")
-    g.link(geo.outputs["Position"], sep.inputs[0])
-    S.rip = {k: _value(nt) for k in ("x", "y", "r", "a")}
-    dx = g.math("SUBTRACT", sep.outputs["X"], S.rip["x"])
-    dy = g.math("SUBTRACT", sep.outputs["Y"], S.rip["y"])
-    e = g.math("SUBTRACT", g.math("SQRT", g.math("ADD", g.math("MULTIPLY", dx, dx), g.math("MULTIPLY", dy, dy))),
-               S.rip["r"])
-    wave = g.math("SINE", g.math("MULTIPLY", e, 2 * math.pi / 0.3))
-    env = g.math("EXPONENT", g.math("MULTIPLY", g.math("MULTIPLY", e, e), -1 / 0.2 ** 2))
-    bp = g.node("ShaderNodeBump")
-    bp.inputs["Strength"].default_value = 1.0
-    bp.inputs["Distance"].default_value = 0.04
-    g.link(g.math("MULTIPLY", g.math("MULTIPLY", wave, env), S.rip["a"]), bp.inputs["Height"])
-    g.link(old.outputs["Normal"], bp.inputs["Normal"])
-    g.link(bp.outputs["Normal"], bsdf.inputs["Normal"])
-    bsdf.inputs["Emission Color"].default_value = m.srgb(ROSE)
-    S.water_glow = bsdf.inputs["Emission Strength"]
-    S.water_bump = old.inputs["Strength"]                 # the water's own ripples, stilled for a shot (P7.3)
-    S.WATER_BUMP = old.inputs["Strength"].default_value
-
-
-def ink_volume(name, seed):
-    """Rose ink in water: noise inside a sphere, thinning to its edge and glowing a little. Its density, glow and
-    swirl (the noise's W) are set per frame."""
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=3, radius=1.0)
-    ob = bpy.context.active_object
-    ob.name = name
-    mat, nt, out = V._nodes(name)
-    g = kit.G(nt)
-    tc = g.node("ShaderNodeTexCoord")
-    nz = g.node("ShaderNodeTexNoise", {"Scale": 2.4, "Detail": 6.0, "Distortion": 0.8}, noise_dimensions="4D")
-    g.link(tc.outputs["Object"], nz.inputs["Vector"])
-    w = _value(nt, seed)
-    g.link(w, nz.inputs["W"])
-    fall = g.math("SUBTRACT", 1.0, g.vmath("LENGTH", tc.outputs["Object"]), clamp=True)
-    dens = g.math("MULTIPLY", g.math("MULTIPLY", g.math("SUBTRACT", nz.outputs["Fac"], 0.42, clamp=True), 12.0), fall)
-    k, glow = _value(nt), _value(nt)
-    vol = g.node("ShaderNodeVolumePrincipled")
-    vol.inputs["Color"].default_value = m.srgb("#8C2446")                 # ink scatters dark, it is not a lamp
-    vol.inputs["Absorption Color"].default_value = m.srgb("#5A1030")
-    vol.inputs["Emission Color"].default_value = m.srgb(GLOW)
-    g.link(g.math("MULTIPLY", dens, k), vol.inputs["Density"])
-    g.link(g.math("MULTIPLY", dens, glow), vol.inputs["Emission Strength"])
-    g.link(vol.outputs[0], out.inputs["Volume"])
-    ob.data.materials.append(mat)
-    ob.visible_shadow = False
-    return dict(ob=ob, w=w, seed=seed, density=k, glow=glow)
-
-
-def _outward(ob):
-    """Turn a lathe's normals outwards if they point in (its strip of faces meets itself only at the axis, so
-    bmesh's recalc is free to orient the whole cup inwards, and Cycles would then refract every entry as an exit).
-    The topmost faces, a rim or a water surface, must face up."""
-    me = ob.data
-    top = max(p.center.z for p in me.polygons)
-    if sum(p.normal.z for p in me.polygons if p.center.z > top - 1e-4) < 0:
-        me.flip_normals()
+    return P.path(_pic(key))
 
 
 def sill_glass():
@@ -248,424 +94,12 @@ def sill_glass():
     x, y = 7.0, V.WD / 2                            # on the sill the hall gives every window, before its middle
     #                                                 pane (0.4 m left of that it stood in front of a mullion, which
     #                                                 the water column magnified into a black tube)
-    glass = A.lathe("glass", [(0.0, 0.004), (0.026, 0.004), (0.029, 0.095), (0.031, 0.095), (0.0285, 0.0), (0.0, 0.0)],
-                    mats=[A.clear_glass()])
-    glass.location = (x, y - 0.2, 6.0)
-    wm = A._principled("glass_water", **{"Base Color": (1, 1, 1, 1), "Transmission Weight": 1.0, "Roughness": 0.0,
-                                         "IOR": 1.33})[0]
-    water = A.lathe("glass_water", [(0.0, 0.0045), (0.0257, 0.0045), (0.0272, 0.065), (0.0, 0.065)], mats=[wm])
-    water.location = (x, y - 0.2, 6.0)
-    _outward(glass)
-    _outward(water)
-    glass.visible_shadow = water.visible_shadow = False   # no caustics here: the light goes through as a photographer expects
     S.glass_at = Vector((x, y - 0.2, 6.0))
-    S.glass_ink = ink_volume("glass_ink", 3.0)
+    fx.glass_of_water("glass", S.glass_at)
+    S.glass_ink = fx.ink_volume("glass_ink", 3.0)
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.0035, segments=16, ring_count=8)
     S.drop = bpy.context.active_object
-    S.drop.data.materials.append(_emission_mat("drop", ROSE, 3.0)[0])
-
-
-def crack(name, seed, origin, ax, ay, length, width=0.008, parent=None):
-    """A rose crack: a jagged ribbon from `origin` in the plane of ax, ay, mostly straight with three sharp kinks
-    and two short branches, thinning to its tip. Its UV x runs along it (a branch's from where it leaves the main
-    line), and the object's 'reveal' (0..1) is how much of it shows. (A walk turning up to 45 degrees a step, at
-    one width and an emission of 8, was a neon squiggle, not a crack.)"""
-    r = random.Random(seed)
-    n, a = 26, r.uniform(-0.5, 0.5)
-    kinks = set(r.sample(range(4, n - 3), 3))
-    pts = [Vector((0.0, 0.0))]
-    for i in range(n):
-        a += r.uniform(-0.22, 0.22) + (r.choice((-1, 1)) * r.uniform(0.5, 0.9) if i in kinks else 0.0)
-        pts.append(pts[-1] + Vector((math.cos(a), math.sin(a))) * length / n)
-    lines = [(pts, 0.0, 1.0, 1.0)]                   # points, uv x where it starts, uv x it spans, width scale
-    for i in sorted(r.sample(range(5, n - 6), 2)):   # the branches, off the main line at a shallow angle (at 35-60
-        d = pts[i + 1] - pts[i]                        # degrees, with a flat rose ribbon, the crack was lightning)
-        b = math.atan2(d.y, d.x) + r.choice((-1, 1)) * r.uniform(0.25, 0.55)
-        q = [pts[i]]
-        for _ in range(r.randint(5, 8)):
-            b += r.uniform(-0.2, 0.2)
-            q.append(q[-1] + Vector((math.cos(b), math.sin(b))) * 0.6 * length / n)
-        lines.append((q, i / n, 0.2, 0.55))
-    verts, uvs, faces = [], [], []
-    o, ax, ay = Vector(origin), Vector(ax), Vector(ay)
-    for q, u0, du, ws in lines:
-        k0, last = len(verts), len(q) - 1
-        for i, p in enumerate(q):
-            d = (q[min(i + 1, last)] - q[max(i - 1, 0)]).normalized()
-            side = Vector((-d.y, d.x)) * width * ws * (1.0 - 0.7 * i / last) * r.uniform(0.6, 1.4) / 2
-            for s in (-1, 1):
-                pq = p + side * s
-                verts.append(o + ax * pq.x + ay * pq.y)
-                uvs.append((u0 + du * i / last, (s + 1) / 2))
-        faces += [(k0 + 2 * i, k0 + 2 * i + 1, k0 + 2 * i + 3, k0 + 2 * i + 2) for i in range(last)]
-    mat, reveal = crack_material(name)
-    ob = _mesh(name, verts, faces, uvs, [mat])
-    if parent is not None:
-        ob.parent = parent
-    S.cracks[name] = _Crack(ob, reveal)
-    return ob
-
-
-class _Crack:
-    """A crack as the shots see it: `crack["reveal"] = v` sets the Value node in its own material. (It was an
-    object property read by an Attribute node, and under persistent render data a property changed between frames
-    is never re-read: in seven passes no crack ever showed.)"""
-
-    def __init__(self, ob, reveal):
-        self.ob, self.reveal = ob, reveal
-
-    def __getitem__(self, key):
-        return self.reveal.default_value
-
-    def __setitem__(self, key, v):
-        put(self.reveal, v)
-
-
-def crack_material(name):
-    """A crack's own material: across its width (UV y) a hair of near-white light at the core and a faint rose halo
-    fading to the ribbon's edge, shown where UV x is below its reveal value, transparent beyond it. (The whole
-    ribbon in one rose at 2.5, with hard edges, was a neon tube from 8 m: light through a crack is a thin bright
-    line that blooms, not a stroke.)"""
-    mat, nt, out = V._nodes(f"crack_{name}")
-    g = kit.G(nt)
-    uv = g.node("ShaderNodeTexCoord")
-    sep = g.node("ShaderNodeSeparateXYZ")
-    g.link(uv.outputs["UV"], sep.inputs[0])
-    reveal = _value(nt, 0.0)
-    show = g.math("LESS_THAN", sep.outputs["X"], reveal)
-    edge = g.math("ABSOLUTE", g.math("SUBTRACT", g.math("MULTIPLY", sep.outputs["Y"], 2.0), 1.0))   # 0 core, 1 edge
-    across = g.math("SUBTRACT", 1.0, edge)
-    core = g.math("POWER", across, 6.0)
-    halo = g.math("POWER", across, 1.5)
-    em = g.node("ShaderNodeEmission")
-    g.link(kit._mix_rgba(nt, core, m.srgb(GLOW), (1.0, 0.94, 0.96, 1.0)), em.inputs["Color"])
-    g.link(g.math("ADD", g.math("MULTIPLY", halo, 0.4), g.math("MULTIPLY", core, 3.0)), em.inputs["Strength"])
-    alpha = g.math("ADD", g.math("MULTIPLY", halo, 0.7), core, clamp=True)
-    mix = g.node("ShaderNodeMixShader")
-    g.link(g.math("MULTIPLY", show, alpha), mix.inputs["Fac"])
-    g.link(g.node("ShaderNodeBsdfTransparent").outputs[0], mix.inputs[1])
-    g.link(em.outputs[0], mix.inputs[2])
-    g.link(mix.outputs[0], out.inputs["Surface"])
-    return mat, reveal
-
-
-def rain():
-    """D5: rain, a block of fine streaks (crossed, so they read from any side) leaning with the wind, most of them
-    hair-thin and a few heavier, that falls through itself. (At 2.5 mm and a brighter emission they were white
-    matchsticks over her face; at a mix of 0.22 the near ones were still white sticks in the night shots.)"""
-    r = random.Random(5)
-    verts, faces = [], []
-    for i in range(3200):
-        x, y, z = r.uniform(-7, 7), r.uniform(-7, 7), r.uniform(0, 16)
-        if x * x + y * y < 0.8 ** 2:                 # none within arm's reach of the camera, which rides at the
-            continue                                 # block's axis: those were white rods the height of the frame
-        ln, w = r.uniform(0.3, 0.7), r.uniform(0.0006, 0.0016)
-        lx, ly = 0.07 * ln + r.uniform(-0.01, 0.01), 0.03 * ln + r.uniform(-0.01, 0.01)   # the wind, along +X
-        for dx, dy in ((w, 0), (0, w)):
-            k = len(verts)
-            verts += [(x - dx, y - dy, z), (x + dx, y + dy, z), (x + dx + lx, y + dy + ly, z + ln),
-                      (x - dx + lx, y - dy + ly, z + ln)]
-            faces.append((k, k + 1, k + 2, k + 3))
-    mat, nt, out = V._nodes("rain")
-    em = nt.nodes.new("ShaderNodeEmission")
-    em.inputs["Color"].default_value = m.srgb("#D4E0F2")
-    mix = nt.nodes.new("ShaderNodeMixShader")
-    mix.inputs["Fac"].default_value = 0.14
-    nt.links.new(nt.nodes.new("ShaderNodeBsdfTransparent").outputs[0], mix.inputs[1])
-    nt.links.new(em.outputs[0], mix.inputs[2])
-    nt.links.new(mix.outputs[0], out.inputs["Surface"])
-    S.rain = _mesh("rain", verts, faces, mats=[mat])
-    _only_camera(S.rain)
-    S.rain_em = em
-
-
-def confetti():
-    """D5: torn paper, 360 scraps in one mesh whose corners are set per frame by scraps(): small torn quads, few
-    of them big, two thirds bare paper and a third carrying a piece of the KV. (Even grey cards of one size read
-    as cards, not as a picture torn up.)"""
-    n = 360
-    r = random.Random(11)
-    S.scrap = []
-    for _ in range(n):
-        w = 0.02 + 0.06 * r.random() ** 2
-        S.scrap.append(dict(a=r.uniform(0, 2 * math.pi), rad=r.uniform(0.1, 1.0), h=r.uniform(-0.5, 0.5), w=w,
-                            corners=[(sx * w * r.uniform(0.55, 1.0), sy * w * r.uniform(0.4, 0.85))
-                                     for sx, sy in ((-1, -1), (1, -1), (1, 1), (-1, 1))],
-                            spin=Vector((r.uniform(-1, 1), r.uniform(-1, 1), r.uniform(-1, 1))),
-                            rate=r.uniform(2.0, 6.0), fall=r.uniform(0.6, 1.4), ph=r.uniform(0, 6.3)))
-    paper = A._principled("scrap", **{"Base Color": m.srgb("#D8D1C4"), "Roughness": 0.8,
-                                      "Emission Color": m.srgb(PAPER), "Emission Strength": 0.06})[0]
-    printed, nt, out = V._nodes("scrap_printed")
-    tex = nt.nodes.new("ShaderNodeTexImage")
-    tex.image = bpy.data.images.load(_path("kv"), check_existing=True)
-    nt.links.new(nt.nodes.new("ShaderNodeTexCoord").outputs["UV"], tex.inputs["Vector"])
-    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
-    bsdf.inputs["Roughness"].default_value = 0.8
-    bsdf.inputs["Emission Strength"].default_value = 0.08
-    nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
-    nt.links.new(tex.outputs["Color"], bsdf.inputs["Emission Color"])
-    nt.links.new(bsdf.outputs[0], out.inputs["Surface"])
-    uvs = []
-    for _ in range(n):                                                          # each printed scrap a piece of the KV
-        u0, v0, su = r.uniform(0.05, 0.85), r.uniform(0.05, 0.85), r.uniform(0.04, 0.1)
-        uvs += [(u0, v0), (u0 + su, v0), (u0 + su, v0 + 0.7 * su), (u0, v0 + 0.7 * su)]
-    S.conf = _mesh("confetti", [(0, 0, 0)] * (4 * n), [(4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3) for i in range(n)],
-                   uvs, mats=[paper, printed])
-    for i, poly in enumerate(S.conf.data.polygons):
-        poly.material_index = 1 if i % 3 == 0 else 0
-    S.conf.visible_shadow = False
-
-
-def motes():
-    """Dust in the light before the KV (P0): 320 specks in one mesh, drifting and sinking, placed by dust()."""
-    n = 320
-    r = random.Random(17)
-    S.mote = [dict(p=Vector((r.uniform(-0.9, -0.1), r.uniform(-1.3, 0.4), r.uniform(1.4, 4.4))), ph=r.uniform(0, 6.3),
-                   v=r.uniform(0.03, 0.08), s=r.uniform(0.0015, 0.004)) for _ in range(n)]
-    mat = _emission_mat("mote", "#FFF4E8", 1.2)[0]
-    S.dust = _mesh("motes", [(0, 0, 0)] * (4 * n), [(4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3) for i in range(n)],
-                   mats=[mat])
-    _only_camera(S.dust)
-
-
-def dust(t, center=(2.0, 0.0, 0.0)):
-    S.dust.hide_render = False
-    co = []
-    for mt in S.mote:
-        p = Vector(center) + mt["p"] + Vector((0.03 * math.sin(0.7 * t + mt["ph"]), 0.05 * math.sin(0.5 * t + 1.3 * mt["ph"]),
-                                               3.0 - (mt["v"] * t + mt["ph"]) % 3.0))
-        s = mt["s"]
-        for dy, dz in ((-s, -s), (s, -s), (s, s), (-s, s)):
-            co.extend(p + Vector((0.0, dy, dz)))
-    S.dust.data.vertices.foreach_set("co", co)
-    S.dust.data.update()
-
-
-def scraps(center, t, radius=4.0, height=3.0, swirl=0.0, fall=0.0, n=None):
-    """Place the scraps round `center`, turning by `swirl` and dropping to the water by `fall` (0..1); `n` of them,
-    the rest put away under the floor."""
-    S.conf.hide_render = False
-    co = []
-    for i, s in enumerate(S.scrap):
-        if n is not None and i >= n:
-            co.extend([center[0], center[1], -5.0] * 4)
-            continue
-        a = s["a"] + swirl * t * (1.3 - s["rad"])
-        p = Vector((center[0] + math.cos(a) * s["rad"] * radius, center[1] + math.sin(a) * s["rad"] * radius,
-                    center[2] + s["h"] * height))
-        f = clamp(fall * s["fall"])
-        p.z = p.z + (0.012 - p.z) * f
-        rot = Matrix.Rotation(s["rate"] * t * (1 - f) + s["ph"], 3, s["spin"].normalized()) if f < 1 else \
-            Matrix.Rotation(s["ph"], 3, "Z")
-        if f > 0.98:
-            rot = Matrix.Rotation(s["ph"], 3, "Z")       # lying flat on the water
-        for cx, cy in s["corners"]:
-            co.extend(p + rot @ Vector((cx, cy, 0.0)))
-    S.conf.data.vertices.foreach_set("co", co)
-    S.conf.data.update()
-
-
-def shards():
-    """P8: the high windows burst into shards hanging in the air, each with a piece of one of her pictures; the
-    8 x 12 cut from KV' line up into it on the last beat, the others fly off."""
-    r = random.Random(13)
-    mats = {}
-    for key in ("kvu", "a1", "q1", "c1", "w2", "u1", "u2", "c3"):
-        mat, nt, out = V._nodes(f"shard_{key}")
-        tex = nt.nodes.new("ShaderNodeTexImage")
-        tex.image = bpy.data.images.load(_path(key), check_existing=True)
-        uv = nt.nodes.new("ShaderNodeTexCoord")
-        nt.links.new(uv.outputs["UV"], tex.inputs["Vector"])
-        # glass with a piece of her picture in it: the picture faint and see-through, the glass's reflection at the
-        # grazing angles (lit cards of picture was what they were before)
-        em = nt.nodes.new("ShaderNodeEmission")
-        em.inputs["Strength"].default_value = 0.7
-        nt.links.new(tex.outputs["Color"], em.inputs["Color"])
-        inner = nt.nodes.new("ShaderNodeMixShader")
-        inner.inputs["Fac"].default_value = 0.25
-        nt.links.new(em.outputs[0], inner.inputs[1])
-        nt.links.new(nt.nodes.new("ShaderNodeBsdfTransparent").outputs[0], inner.inputs[2])
-        gl = nt.nodes.new("ShaderNodeBsdfGlossy")
-        gl.inputs["Roughness"].default_value = 0.02
-        lw = nt.nodes.new("ShaderNodeLayerWeight")
-        lw.inputs["Blend"].default_value = 0.35
-        mix = nt.nodes.new("ShaderNodeMixShader")
-        nt.links.new(lw.outputs["Fresnel"], mix.inputs["Fac"])
-        nt.links.new(inner.outputs[0], mix.inputs[1])
-        nt.links.new(gl.outputs[0], mix.inputs[2])
-        nt.links.new(mix.outputs[0], out.inputs["Surface"])
-        mats[key] = mat
-    S.shards = []
-    cols, rows = 8, 12
-    cw, ch = V.SHEET_W / cols, V.SHEET_H / rows
-    for k in range(160):
-        mine = k < cols * rows
-        key = "kvu" if mine else r.choice(list(mats)[1:])
-        i, j = (k % cols, k // cols) if mine else (r.randrange(8), r.randrange(12))
-        u0, u1, v0, v1 = i / cols, (i + 1) / cols, 1 - (j + 1) / rows, 1 - j / rows
-        jit = [Vector((0, r.uniform(-0.15, 0.15) * cw, r.uniform(-0.15, 0.15) * ch)) for _ in range(4)]
-        corners = [Vector((0, cw / 2, -ch / 2)), Vector((0, -cw / 2, -ch / 2)), Vector((0, -cw / 2, ch / 2)),
-                   Vector((0, cw / 2, ch / 2))]
-        verts = [c * 0.94 + (Vector() if mine else jit[q]) for q, c in enumerate(corners)]
-        uvs = [(u0, v0), (u1, v0), (u1, v1), (u0, v1)]
-        ob = _mesh(f"shard{k}", verts, [(0, 1, 2, 3)], uvs, [mats[key]])
-        ob.rotation_mode = "QUATERNION"
-        home = Vector((r.uniform(9, 27), r.uniform(1.0, 6.5), r.uniform(5.0, 10.5)))
-        spin = Vector((r.uniform(-1, 1), r.uniform(-1, 1), r.uniform(-1, 1))).normalized()
-        grid = Vector((24.0, V.SHEET_W / 2 - (i + 0.5) * cw, 0.9 + V.SHEET_H - (j + 0.5) * ch)) if mine else None
-        S.shards.append(dict(ob=ob, home=home, spin=spin, ph=r.uniform(0, 6.3), grid=grid,
-                             away=home + Vector((r.uniform(-6, 6), r.uniform(-4, 4), r.uniform(2, 6)))))
-
-
-_PIX = {}
-
-
-def _pixels(name):
-    """The picture's pixels as (H, W, 4) floats as stored (sRGB), rows from the bottom: read from a copy of the
-    image, so the print's own texture keeps its colour space."""
-    if name not in _PIX:
-        img = bpy.data.images.load(os.path.join(V.ART, f"{name}_00001_.png"))
-        w, h = img.size
-        _PIX[name] = np.array(img.pixels[:], dtype=np.float32).reshape(h, w, 4)
-        bpy.data.images.remove(img)
-    return _PIX[name]
-
-
-def _lin(c):
-    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
-
-
-def _hair_mat(rgb):
-    """A strand's material: the picture's colour where it roots, a little darker (a thin hair against the light),
-    quantised so a few materials serve every strand of every print."""
-    key = tuple(round(float(c) * 0.85 * 12) / 12 for c in rgb)
-    if key not in S.hair_mats:
-        S.hair_mats[key] = A._principled(f"hair_{len(S.hair_mats)}", **{
-            "Base Color": tuple(_lin(c) for c in key) + (1.0,), "Roughness": 0.5})[0]
-    return S.hair_mats[key]
-
-
-def strands(p, name, n=36, seed=0):
-    """Her hair lifting off the paper: thin 3D strands rooted on the relief along the hair's edge (from the parts
-    map), each the picture's colour where it roots, hanging as hair hangs (down and a little out from the head,
-    a few short flyaways on the crown), just off the paper, swaying in the hall's air (sway(), per frame). The 3D
-    inside the picture's dimensional part; a child of the print, so it goes where the print goes."""
-    parts = H._load(os.path.join(H.MAPS, f"{name}_parts.png"))
-    mk, face = parts[..., 0] > 0.5, parts[..., 1] > 0.5
-    if not mk.any():
-        return
-    h, w = mk.shape
-    W, Hh = H.size_of(p)
-    inner, near_face = mk.copy(), face.copy()
-    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1), (2, 0), (-2, 0), (0, 2), (0, -2)):
-        inner &= np.roll(mk, (dy, dx), axis=(0, 1))
-        near_face |= np.roll(face, (dy, dx), axis=(0, 1))
-    ys, xs = np.nonzero(mk & ~inner & ~near_face)                              # the hair's outer edge, not along her face
-    if len(xs) < 8:
-        return
-    my, mx = np.nonzero(mk)
-    cu_, cv_ = (mx.mean() + 0.5) / w, (my.mean() + 0.5) / h
-    # the hair's flow: the mask's long axis, pointing away from her face (down on an upright portrait, back on a
-    # running figure, along the pillow on a sleeping one). Strands that simply hung were right on the portraits
-    # and wrong on everyone running, leaping or lying down
-    pts = np.stack([(mx + 0.5) / w * W, (my + 0.5) / h * Hh], axis=1)
-    axis = np.linalg.eigh(np.cov(pts.T))[1][:, -1]
-    fy, fx = np.nonzero(face)
-    face_c = np.array([(fx.mean() + 0.5) / w * W, (fy.mean() + 0.5) / h * Hh]) if len(fx) else \
-        np.array([cu_ * W, cv_ * Hh + 0.3 * Hh])
-    proj = pts @ axis                                   # the tips are the end of the axis farther from her face
-    if abs(np.percentile(proj, 95) - face_c @ axis) < abs(face_c @ axis - np.percentile(proj, 5)):
-        axis = -axis                                    # (the mask's centroid against her face was wrong on a
-    #                                                     portrait whose hair frames the face: strands went up)
-    flow = Vector((0.0, -float(axis[0]), float(axis[1])))                     # the picture's right is the sheet's -Y
-    pix = _pixels(name)
-    ph, pw = pix.shape[:2]
-    r = random.Random(seed)
-    k = W / 4.2
-    inv = p.matrix_world.inverted()
-    cu = bpy.data.curves.new(f"{p.name}_hair", "CURVE")
-    cu.dimensions, cu.bevel_depth, cu.bevel_resolution, cu.fill_mode = "3D", 0.0022 * k, 2, "FULL"
-    items, roots = [], []
-    order = list(range(len(xs)))
-    r.shuffle(order)
-    for i in order:
-        if len(items) >= n:
-            break
-        pu, pv = (xs[i] + 0.5) / w, (ys[i] + 0.5) / h
-        if any(abs(pu - a) < 0.025 and abs(pv - b) < 0.025 for a, b in roots):  # along the edge, not in tufts
-            continue
-        dy, dz = -(pu - cu_) * W, (pv - cv_) * Hh
-        norm = math.hypot(dy, dz)
-        if norm < 1e-3:
-            continue
-        ny, nz = dy / norm, dz / norm
-        if nz > 0.55 and flow.z < -0.5 and r.random() < 0.6:                  # few on the crown of a portrait
-            continue
-        iy, ix = min(ph - 2, max(1, int(pv * ph))), min(pw - 2, max(1, int(pu * pw)))
-        rgb = pix[iy - 1:iy + 2, ix - 1:ix + 2, :3].mean(axis=(0, 1))
-        if 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] > 0.5:               # not hair where the picture is light:
-            continue                                                            # the mask's strays in her sky
-        y, x, e = ys[i], xs[i], max(4, w // 25)                                 # nor on a painted flyaway out in the
-        if mk[max(0, y - e):y + e + 1, max(0, x - e):x + e + 1].mean() < 0.3:    # sky: the edge of the hair's bulk
-            continue
-        roots.append((pu, pv))
-        # with the flow, a little out from the head and a little off the paper, each its own way
-        d = (0.65 * flow + 0.35 * Vector((0.0, ny, nz))
-             + Vector((-0.1, r.uniform(-0.15, 0.15), r.uniform(-0.15, 0.15)))).normalized()
-        L, droop = r.uniform(0.08, 0.28) * k, 0.15
-        mat = _hair_mat(rgb)
-        if cu.materials.find(mat.name) < 0:
-            cu.materials.append(mat)
-        sp = cu.splines.new("NURBS")
-        sp.points.add(5)
-        sp.order_u, sp.use_endpoint_u = 4, True
-        sp.material_index = cu.materials.find(mat.name)
-        for j, pt in enumerate(sp.points):
-            pt.radius = 1.0 - 0.85 * j / 5                                      # fine at the tip
-        items.append(dict(sp=sp, root=inv @ H.picture_point(p, name, pu, pv, lift=0.004), d=d, L=L, droop=droop,
-                          ph=r.uniform(0, 6.3), w=r.uniform(0.6, 1.4)))
-    if not items:
-        return
-    ob = bpy.data.objects.new(cu.name, cu)
-    m._link(ob)
-    ob.parent = p
-    S.strands.append(dict(ob=ob, parent=p, items=items))
-
-
-def sway(t):
-    """The strands in the air: each bends with its own slow wave and droops towards its tip; hidden with its print."""
-    for st in S.strands:
-        for it in st["items"]:
-            root, d, L = it["root"], it["d"], it["L"]
-            a = 0.25 * math.sin(it["w"] * t + it["ph"])
-            for j, pt in enumerate(it["sp"].points):
-                s = j / 5
-                q = root + d * (L * s) + Vector((0.0, a * L * s * s, -it["droop"] * L * s * s))
-                pt.co = (q.x, q.y, q.z, 1.0)
-        hidden = st["parent"].hide_render
-        if st["ob"].hide_render != hidden:
-            st["ob"].hide_render = hidden
-
-
-def halves(p):
-    """A print in two halves (left and right of the image), each hinged at its outer clip, for tearing (D6)."""
-    out = []
-    W = H.size_of(p)[0]
-    for side in (1, -1):                       # +1: the image's left half, on +Y
-        me = p.data.copy()
-        bm = bmesh.new()
-        bm.from_mesh(me)
-        uv = bm.loops.layers.uv.active
-        kill = [f for f in bm.faces if (sum(lp[uv].uv.x for lp in f.loops) / len(f.loops) < 0.5) != (side == 1)]
-        bmesh.ops.delete(bm, geom=kill, context="FACES")
-        bmesh.ops.translate(bm, verts=bm.verts, vec=(0, -side * W / 2, 0))
-        bm.to_mesh(me)
-        bm.free()
-        ob = bpy.data.objects.new(f"{p.name}_half{side:+d}", me)
-        m._link(ob)
-        ob.location = p.location + Vector((0, side * W / 2, 0))
-        out.append((ob, side))
-    return out
+    S.drop.data.materials.append(fx.emission_mat("drop", ROSE, 3.0)[0])
 
 
 def wall_panels(h):
@@ -679,7 +113,7 @@ def wall_panels(h):
         ob.data.transform(Matrix.Translation((0, -0.2, V.H / 2)))
         ob.location = (V.X0 + 2.0 + 4.0 * k, -V.WD / 2, 0.0)
         S.panels.append(ob)
-    mat, nt, out = V._nodes("sky3")
+    mat, nt, out = P.nodes("sky3")
     tex = nt.nodes.new("ShaderNodeTexImage")
     tex.image = bpy.data.images.load(_path("s3"), check_existing=True)
     uv = nt.nodes.new("ShaderNodeTexCoord")
@@ -688,73 +122,32 @@ def wall_panels(h):
     em.inputs["Strength"].default_value = 2.0
     nt.links.new(tex.outputs["Color"], em.inputs["Color"])
     nt.links.new(em.outputs[0], out.inputs["Surface"])
-    S.sky3 = _mesh("sky3", [(-30, -18, -8), (70, -18, -8), (70, -18, 40), (-30, -18, 40)], [(0, 1, 2, 3)],
+    S.sky3 = fx.mesh("sky3", [(-30, -18, -8), (70, -18, -8), (70, -18, 40), (-30, -18, 40)], [(0, 1, 2, 3)],
                    [(0, 0), (1, 0), (1, 1), (0, 1)], [mat])
 
 
-def letters(kv):
-    """D1: 表 and 裏 cut out of the KV down its left side, so the light behind it shows through; and the lamps
-    under them for the back cover (P11)."""
-    try:
-        font = bpy.data.fonts.load(FONT, check_existing=True)
-    except RuntimeError as e:
-        print("no font for the letters:", e)
-        return
-    # the glyph's right along -Y and its up along +Z, as seen from the front of the print (from -X)
-    turn = Matrix(((0, 0, -1, 0), (-1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
-    S.letter_lamps = []
-    glow = _emission_mat("letter_lamp", "#FF8DA6", 1.1)[0]   # paler and dimmer than the rose: light through paper,
-    #                                                           not a sign (side by side with ROSE at 1.5 on the back
-    #                                                           cover; at 6 the letters were a neon sign)
-    for k, (ch, z) in enumerate((("表", -1.05), ("裏", -1.95))):
-        cu = bpy.data.curves.new(f"letter{k}", "FONT")
-        cu.body, cu.font, cu.size, cu.extrude = ch, font, 1.0, 0.25
-        cu.align_x, cu.align_y = "CENTER", "CENTER"
-        tmp = bpy.data.objects.new(cu.name, cu)
-        m._link(tmp)
-        tmp.matrix_world = kv.matrix_world @ Matrix.Translation((0.0, 0.78, z)) @ turn
-        for _ in range(2):                           # the glyph's height depends on the font: measure, then size it
-            bpy.context.view_layer.update()
-            me = bpy.data.meshes.new_from_object(tmp.evaluated_get(bpy.context.evaluated_depsgraph_get()))
-            ys = [v.co.y for v in me.vertices]
-            if abs(max(ys) - min(ys) - 0.72) < 0.02:
-                break
-            cu.size *= 0.72 / (max(ys) - min(ys))
-            bpy.data.meshes.remove(me)
-        cutter = bpy.data.objects.new(f"cut{k}", me)
-        m._link(cutter)
-        cutter.matrix_world = tmp.matrix_world
-        bpy.data.objects.remove(tmp)
-        cutter.parent = kv
-        cutter.matrix_parent_inverse = kv.matrix_world.inverted()
-        cutter.hide_render = True
-        cutter.display_type = "WIRE"
-        mod = kv.modifiers.new(f"cut{k}", "BOOLEAN")
-        mod.operation, mod.object = "DIFFERENCE", cutter
-        try:
-            mod.solver = "EXACT"
-            mod.use_hole_tolerant = True
-        except (TypeError, AttributeError):
-            pass
-        for dz in (-0.22, 0.0, 0.22):                # wide enough to overlap: at 0.16 each letter was three bright
-            bpy.ops.mesh.primitive_circle_add(radius=0.42, fill_type="NGON", vertices=24)   # bands, a glitch
-            lamp = bpy.context.active_object
-            lamp.data.materials.append(glow)
-            lamp.parent = kv
-            lamp.location = (-0.04, 0.78, z + dz)
-            lamp.rotation_euler = (0.0, math.pi / 2, 0.0)
-            S.letter_lamps.append(lamp)
+def images():
+    """Her pictures as Blender images (the skies, swapped on the backdrop by key), and the tiny rose page number
+    for the very end (P11), riding with the camera."""
+    S.images = {k: P.image(_pic(k)) for k in CARDS}
+    cu = bpy.data.curves.new("page0", "FONT")
+    cu.body, cu.align_x, cu.align_y = "0", "CENTER", "CENTER"
+    S.zero = bpy.data.objects.new("page0", cu)
+    m._link(S.zero)
+    cu.materials.append(fx.emission_mat("page0", ROSE, 6.0)[0])
+    S.zero.parent = S.cam
+    fx.only_camera(S.zero)
 
 
 def board():
     """Her cardboard in the rain (P6): W1 on the front; on the back the kraft board, its corrugation as faint
     bands, mottled, with a pencilled number. (Plain paper there, with W1's night sky uniform over the half the
     camera crosses, was a flat lilac rectangle for a bar; the picture through it gave nothing to see.)"""
-    mat, nt, out = V._nodes("board_w1")
+    mat, nt, out = P.nodes("board_w1")
     g = kit.G(nt)
     geo = g.node("ShaderNodeNewGeometry")
-    co = V._coords(nt)
-    pic = V._picture(nt, "v4_w1_211")
+    co = P.coords(nt)
+    pic = P.picture(nt, "v4_w1_211")
     wave = g.node("ShaderNodeTexWave")
     wave.bands_direction = "Z"
     for name, val in (("Scale", 22.0), ("Distortion", 1.5), ("Detail", 1.0)):     # (at 40 the bands were scanlines)
@@ -766,7 +159,7 @@ def board():
     kraft = kit._mix_rgba(nt, nz.outputs["Fac"], m.srgb("#7E5D3C"), m.srgb("#9A7652"))
     kraft = kit._mix_rgba(nt, g.math("MULTIPLY", wave.outputs["Fac"], 0.15), kraft, m.srgb("#5E4228"))
     col = kit._mix_rgba(nt, geo.outputs["Backfacing"], pic, kraft)
-    normal = V._cockle(nt, co)                                                  # cockle and fibre in the raking light
+    normal = P.cockle(nt, co)                                                  # cockle and fibre in the raking light
     corr = g.node("ShaderNodeBump")                                             # and the corrugation as relief: as
     corr.inputs["Strength"].default_value = 0.22                                # colour bands alone the board was a
     corr.inputs["Distance"].default_value = 0.004                               # flat pink-brown slab for a bar (at
@@ -778,14 +171,14 @@ def board():
     g.link(col, dif.inputs["Color"])
     g.link(normal, dif.inputs["Normal"])
     tr = g.node("ShaderNodeBsdfTranslucent")                                    # a little of the lit front comes through
-    g.link(V._multiply(nt, kraft, pic), tr.inputs["Color"])
+    g.link(P.multiply(nt, kraft, pic), tr.inputs["Color"])
     g.link(normal, tr.inputs["Normal"])
     mix = g.node("ShaderNodeMixShader")
     mix.inputs["Fac"].default_value = 0.12
     g.link(dif.outputs[0], mix.inputs[1])
     g.link(tr.outputs[0], mix.inputs[2])
     g.link(mix.outputs[0], out.inputs["Surface"])
-    S.board = V.sheet("w1_board", W1C.x, W1C.y, mat, seed=93, top=V.SHEET_H + 0.02)
+    S.board = P.sheet("w1_board", W1C.x, W1C.y, mat, seed=93, top=V.SHEET_H + 0.02)
     cu = bpy.data.curves.new("pencil", "FONT")
     cu.body, cu.size = "No. 17", 0.13
     try:
@@ -808,7 +201,7 @@ def props():
                              amount=0.45 * H.RELIEF)
     S.c1_print = H.make_print("c1_print", C1C.x, C1C.y, "v4_c1_211", "v4_u1_211", seed=92, fit=True,
                               amount=0.4 * H.RELIEF)
-    S.float_print = V.sheet("float_print", 34.0, -4.0, V.print_mat("v4_q1_211", "v4_u4_211"), seed=94, top=0.0)
+    S.float_print = P.sheet("float_print", 34.0, -4.0, P.print_mat("v4_q1_211", "v4_u4_211"), seed=94, top=0.0)
     # lying on the water, face up, its top at +X. Laid down, the sheet's bow and curl point into the water, so
     # they are pressed to a few millimetres and the whole sheet held just over the surface (as hung, all but its
     # edges lay under the water, and the shot from above saw a sliver of her face in a grey mirror of the ceiling)
@@ -824,7 +217,7 @@ def props():
     bpy.ops.mesh.primitive_plane_add(size=2.0, location=(31.9, -1.6, 6.0))
     S.moon = bpy.context.active_object
     S.moon.name = "float_moon"
-    mat, nt, out = V._nodes("float_moon")
+    mat, nt, out = P.nodes("float_moon")
     g = kit.G(nt)
     grad = g.node("ShaderNodeTexGradient", gradient_type="SPHERICAL")
     g.link(g.node("ShaderNodeTexCoord").outputs["Object"], grad.inputs["Vector"])
@@ -836,20 +229,20 @@ def props():
     for attr in ("visible_camera", "visible_diffuse", "visible_transmission", "visible_volume_scatter",
                  "visible_shadow"):
         setattr(S.moon, attr, False)
-    S.refl_omote = V.sheet("refl_omote", REFL.x, REFL.y, V.print_mat("v4_q1_211", "v4_u4_211"), seed=95, top=2.25)
-    glow, nt, out = V._nodes("refl_ura")             # lit by itself: the water reflects only a few percent
+    S.refl_omote = P.sheet("refl_omote", REFL.x, REFL.y, P.print_mat("v4_q1_211", "v4_u4_211"), seed=95, top=2.25)
+    glow, nt, out = P.nodes("refl_ura")             # lit by itself: the water reflects only a few percent
     em = nt.nodes.new("ShaderNodeEmission")
     em.inputs["Strength"].default_value = 9.0        # (at 20 the bare margin's reflection, seen at a grazing angle
     #                                                   where the water gives back a quarter, was blown white)
-    nt.links.new(V._picture(nt, "v4_u4_211"), em.inputs["Color"])
+    nt.links.new(P.picture(nt, "v4_u4_211"), em.inputs["Color"])
     nt.links.new(em.outputs[0], out.inputs["Surface"])
-    S.refl_ura = V.sheet("refl_ura", REFL.x - 0.002, REFL.y, glow, seed=95, top=2.25)
-    glow2, nt2, out2 = V._nodes("refl_flash")         # and 表 lit the same way, for the beat the reflection is 表
+    S.refl_ura = P.sheet("refl_ura", REFL.x - 0.002, REFL.y, glow, seed=95, top=2.25)
+    glow2, nt2, out2 = P.nodes("refl_flash")         # and 表 lit the same way, for the beat the reflection is 表
     em2 = nt2.nodes.new("ShaderNodeEmission")         # again: the paper print itself in the mirror was dim and
     em2.inputs["Strength"].default_value = 9.0        # speckled with its fibre at that grazing angle
-    nt2.links.new(V._picture(nt2, "v4_q1_211"), em2.inputs["Color"])
+    nt2.links.new(P.picture(nt2, "v4_q1_211"), em2.inputs["Color"])
     nt2.links.new(em2.outputs[0], out2.inputs["Surface"])
-    S.refl_flash = V.sheet("refl_flash", REFL.x - 0.001, REFL.y, glow2, seed=95, top=2.25)
+    S.refl_flash = P.sheet("refl_flash", REFL.x - 0.001, REFL.y, glow2, seed=95, top=2.25)
     for ob in (S.refl_omote, S.refl_ura, S.refl_flash):
         ob.scale = (0.5, 0.5, 0.5)                    # small and low, so the print and all of its reflection fit
     S.refl_omote.visible_glossy = False
@@ -888,119 +281,8 @@ def props():
                                  spread_deg=38), 40.0)
 
 
-def cards():
-    """A 2D shot: her picture on a card filling the frame in front of the camera, in two halves so it can tear down
-    the middle (P9.2). Zoom, pan, the rose soaking in (P1.4) and a tint are set per frame."""
-    mat, nt, out = V._nodes("card")
-    g = kit.G(nt)
-    uv = g.node("ShaderNodeTexCoord")
-    mp = g.node("ShaderNodeMapping")
-    g.link(uv.outputs["UV"], mp.inputs["Vector"])
-    tex = g.node("ShaderNodeTexImage")
-    tex.extension = "CLIP"                           # a tall picture is letterboxed in black
-    g.link(mp.outputs[0], tex.inputs["Vector"])
-    col = kit._mix_rgba(nt, tex.outputs["Alpha"], (0, 0, 0, 1), tex.outputs["Color"])
-    seep = _value(nt)
-    d = g.vmath("DISTANCE", uv.outputs["UV"], (0.46, 0.55, 0.0))
-    mr = g.node("ShaderNodeMapRange", interpolation_type="SMOOTHSTEP")
-    g.link(d, mr.inputs["Value"])
-    g.link(g.math("SUBTRACT", seep, 0.12), mr.inputs["From Min"])
-    g.link(g.math("ADD", seep, 0.12), mr.inputs["From Max"])
-    mr.inputs["To Min"].default_value, mr.inputs["To Max"].default_value = 0.8, 0.0
-    stained = g.node("ShaderNodeMix", data_type="RGBA", blend_type="MULTIPLY")
-    kit.sock(stained.inputs, "Factor", "VALUE").default_value = 1.0
-    g.link(col, kit.sock(stained.inputs, "A", "RGBA"))
-    kit.sock(stained.inputs, "B", "RGBA").default_value = m.srgb(ROSE)
-    col = kit._mix_rgba(nt, g.math("MULTIPLY", mr.outputs["Result"], g.math("GREATER_THAN", seep, 0.001)), col,
-                        kit.sock(stained.outputs, "Result", "RGBA"))
-    tint = g.node("ShaderNodeMix", data_type="RGBA", blend_type="MULTIPLY")
-    tint_a = kit.sock(tint.inputs, "Factor", "VALUE")
-    g.link(col, kit.sock(tint.inputs, "A", "RGBA"))
-    tint_rgb = kit.sock(tint.inputs, "B", "RGBA")
-    em = g.node("ShaderNodeEmission")
-    g.link(kit.sock(tint.outputs, "Result", "RGBA"), em.inputs["Color"])
-    g.link(em.outputs[0], out.inputs["Surface"])
-    h = 0.5 * 9 / 16
-    S.card_halves = []
-    for side, (x0, x1, u0, u1) in ((-1, (-0.5, 0.0, 0.0, 0.5)), (1, (0.0, 0.5, 0.5, 1.0))):
-        ob = _mesh(f"card{side:+d}", [(x0, -h, 0), (x1, -h, 0), (x1, h, 0), (x0, h, 0)], [(0, 1, 2, 3)],
-                   [(u0, 0), (u1, 0), (u1, 1), (u0, 1)], [mat])
-        ob.parent = S.cam
-        _only_camera(ob)
-        S.card_halves.append((ob, side))
-    S.card = dict(tex=tex, map=mp, seep=seep, tint_a=tint_a, tint_rgb=tint_rgb, strength=em.inputs["Strength"])
-    S.images = {k: bpy.data.images.load(_path(k), check_existing=True) for k in CARDS}
-    cu = bpy.data.curves.new("page0", "FONT")
-    cu.body, cu.align_x, cu.align_y = "0", "CENTER", "CENTER"
-    S.zero = bpy.data.objects.new("page0", cu)
-    m._link(S.zero)
-    cu.materials.append(_emission_mat("page0", ROSE, 6.0)[0])
-    S.zero.parent = S.cam
-    _only_camera(S.zero)
-
-
-def compositor():
-    """Bloom and a touch of dispersion (as cyc.post), and D4: the frame as its own print on paper for a beat, the
-    negative multiplied by the paper's colour, mixed in by S.lineart. (Edges from the normal, depth or mist passes
-    were tried for a line drawing: all three are noise at these samples.)"""
-    scene = bpy.context.scene
-    tree = bpy.data.node_groups.new("anim_post", "CompositorNodeTree")
-    scene.compositing_node_group = tree
-    kit._iface(tree, "Image", "OUTPUT", "NodeSocketColor")
-    g = kit.G(tree)
-    rl = g.node("CompositorNodeRLayers")
-    glare = g.node("CompositorNodeGlare")
-    for name, val in (("Type", "Bloom"), ("Threshold", 0.8), ("Strength", 0.4), ("Size", 0.6)):
-        try:
-            kit.sock(glare.inputs, name).default_value = val
-        except (KeyError, TypeError, ValueError) as e:
-            print("glare", name, e)
-    g.link(rl.outputs["Image"], kit.sock(glare.inputs, "Image"))
-    lens = g.node("CompositorNodeLensdist")
-    g.link(glare.outputs[0], kit.sock(lens.inputs, "Image"))
-    kit.sock(lens.inputs, "Dispersion").default_value = 0.004
-
-    gam = g.node("ShaderNodeGamma")                                            # the darks lifted first, so the
-    kit.sock(gam.inputs, "Gamma").default_value = 0.4                           # negative of a dark hall has tones
-    g.link(lens.outputs[0], kit.sock(gam.inputs, "Color", "RGBA"))
-    inv = g.node("CompositorNodeInvert")
-    g.link(gam.outputs[0], kit.sock(inv.inputs, "Color", "RGBA"))
-    art = g.node("ShaderNodeMix", data_type="RGBA", blend_type="MULTIPLY")
-    kit.sock(art.inputs, "Factor", "VALUE").default_value = 1.0
-    g.link(inv.outputs[0], kit.sock(art.inputs, "A", "RGBA"))
-    kit.sock(art.inputs, "B", "RGBA").default_value = m.srgb("#CFC8BA")     # paper in shadow: a flash, not a strobe
-    mix = g.node("ShaderNodeMix", data_type="RGBA")
-    S.lineart = kit.sock(mix.inputs, "Factor", "VALUE")
-    g.link(lens.outputs[0], kit.sock(mix.inputs, "A", "RGBA"))
-    g.link(kit.sock(art.outputs, "Result", "RGBA"), kit.sock(mix.inputs, "B", "RGBA"))
-    g.link(kit.sock(mix.outputs, "Result", "RGBA"), g.node("NodeGroupOutput").inputs[0])
-    scene.render.use_compositing = True
-    S.glare = kit.sock(glare.inputs, "Strength")
-
-
-def stamp():
-    r = bpy.context.scene.render
-    r.use_stamp = True
-    for attr in dir(r):
-        if attr.startswith("use_stamp_") and attr not in ("use_stamp_note", "use_stamp_labels"):
-            try:
-                setattr(r, attr, False)
-            except (AttributeError, TypeError):
-                pass
-    r.use_stamp_note = True
-    r.stamp_font_size = 11
-
-
 def setup():
-    m.reset()
-    scene = cyc.cycles(samples=SAMPLES, bounces=6)
-    scene.cycles.caustics_refractive = scene.cycles.caustics_reflective = False    # fireflies at these samples
-    if os.environ.get("DEVICE") == "CPU":           # when the GPU is taken: the server has 256 cores
-        scene.cycles.device = "CPU"
-        scene.cycles.denoising_use_gpu = False
-    scene.render.resolution_x, scene.render.resolution_y = WIDTH, WIDTH * 9 // 16
-    scene.render.resolution_percentage = 100
-    scene.render.use_persistent_data = True
+    scene = AN.scene()
     cyc.world((0.0004, 0.0004, 0.0008))
     h = V.hall(True)
     S.water, S.plaster = h["water"], h["plaster"]
@@ -1027,35 +309,44 @@ def setup():
         S.front_of[p.name] = lamp
     S.haze = V.haze(True)
     S.haze_vol = next(n for n in S.haze.data.materials[0].node_tree.nodes if n.type == "PRINCIPLED_VOLUME")
-    sky_images(h)
-    water_ripple()
+    S.sky_tex, S.sky_em = fx.sky_backdrop(h["sky_emission"])
+    w = fx.water_ring(S.water, ROSE)
+    S.rip, S.water_glow, S.water_bump, S.WATER_BUMP = w["rip"], w["glow"], w["bump"], w["bump0"]
     wall_panels(h)
     props()
     S.cam = cyc.camera("anim_cam", (0.0, -1.0, 2.0), (0.0, 0.0, 2.0), 35, 8.0)
     scene.camera = S.cam
-    cards()
-    S.ink, S.burst = ink_volume("ink", 1.0), ink_volume("burst", 7.0)
+    images()
+    S.ink, S.burst = fx.ink_volume("ink", 1.0), fx.ink_volume("burst", 7.0)
     sill_glass()
     S.cracks = {}
     # widths are of the whole ribbon; the light is a core a tenth of it and a halo over the inner third, so from
     # 6-8 m (6-7 mm a pixel at 1280) the core is about a pixel and the glow two or three
     for k, x in enumerate((7.0, 15.0)):                               # P2: on the high windows' glass
-        crack(f"win{k}", 40 + k, (x - 0.3, V.WD / 2 - 0.02, 8.4), (1, 0, 0), (0, 0, 1), 1.8, width=0.045)
+        S.cracks[f"win{k}"] = fx.crack(f"win{k}", 40 + k, (x - 0.3, V.WD / 2 - 0.02, 8.4), (1, 0, 0), (0, 0, 1), 1.8,
+                                       width=0.045)
     for k, name in enumerate(("print_2_+3.2", "print_4_-3.2")):      # P2: across the prints
-        crack(f"print{k}", 50 + k, (-0.02, 0.9, -1.4), (0, -1, 0), (0, 0, -0.35), 1.9, width=0.02,
-              parent=S.prints[name])
-    crack("face", 60, (-0.02, 0.62, -1.55), (0, -1, 0), (0, 0, -0.25), 1.3, width=0.03, parent=S.float_print)
+        S.cracks[f"print{k}"] = fx.crack(f"print{k}", 50 + k, (-0.02, 0.9, -1.4), (0, -1, 0), (0, 0, -0.35), 1.9,
+                                         width=0.02, parent=S.prints[name])
+    S.cracks["face"] = fx.crack("face", 60, (-0.02, 0.62, -1.55), (0, -1, 0), (0, 0, -0.25), 1.3, width=0.03,
+                                parent=S.float_print)
     for k in range(4):                                                 # P7.4: one window giving way
-        crack(f"win7_{k}", 70 + k, (11.0, V.WD / 2 - 0.02, 8.3), (math.cos(k * 1.6), 0, math.sin(k * 1.6)),
-              (-math.sin(k * 1.6), 0, math.cos(k * 1.6)), 1.6, width=0.05)
-    S.halves = {name: halves(S.prints[name]) for name in PATH + ["stage_r0"]}
-    rain()
-    confetti()
-    motes()
-    shards()
-    letters(S.kv)
-    compositor()
-    stamp()
+        S.cracks[f"win7_{k}"] = fx.crack(f"win7_{k}", 70 + k, (11.0, V.WD / 2 - 0.02, 8.3),
+                                         (math.cos(k * 1.6), 0, math.sin(k * 1.6)),
+                                         (-math.sin(k * 1.6), 0, math.cos(k * 1.6)), 1.6, width=0.05)
+    S.halves = {name: fx.halves(S.prints[name]) for name in PATH + ["stage_r0"]}
+    S.rain, S.rain_em = fx.rain()
+    S.conf, S.scrap = fx.confetti(_path("kv"))
+    S.dust, S.mote = fx.motes()
+    S.shards = fx.shards({k: _path(k) for k in ("kvu", "a1", "q1", "c1", "w2", "u1", "u2", "c3")}, "kvu",
+                         (V.SHEET_W, V.SHEET_H))
+    # D1: 表 and 裏 cut out of the KV down its left side, and the lamps under them for the back cover (P11); paler
+    # and dimmer than the rose: light through paper, not a sign (side by side with ROSE at 1.5 on the back cover;
+    # at 6 the letters were a neon sign)
+    glow = fx.emission_mat("letter_lamp", "#FF8DA6", 1.1)[0]
+    S.letter_lamps = fx.cut_letters(S.kv, FONT, [("表", 0.78, -1.05), ("裏", 0.78, -1.95)], 0.72, glow)
+    S.lineart, S.glare = AN.compositor()
+    AN.stamp()
     S.mix = {p.name: p.data.materials[0].node_tree.nodes["wet"]
              for p in list(S.prints.values()) + [S.q_print, S.c1_print, S.float_print]}
     # where a 2D shot's picture is: the print, the picture's name, and whether it is on the print's back
@@ -1068,31 +359,22 @@ def setup():
     S.hair_mats, S.strands = {}, []
     for key, (p, name, on_back) in S.where.items():                           # her hair off the paper, on the hero prints
         if not on_back and key != "c1":                                         # (none on C1: she lies across the page,
-            strands(p, name, seed=sum(map(ord, key)))                           # and every strand there was a scratch)
+            st = fx.strands(p, name, seed=sum(map(ord, key)), mats=S.hair_mats)   # and every strand there was a scratch)
+            if st is not None:
+                S.strands.append(st)
     S.home = {ob.name: (ob.location.copy(), ob.rotation_euler.copy())
               for ob in list(S.prints.values()) + S.panels + [S.kv]}
     S.everything_lit = S.dawn + S.cold + S.fronts + S.bulbs + list(S.behind.values()) + list(S.lights.values())
     S.hidden = [S.rain, S.conf, S.dust, S.drop, S.zero, S.moon, S.ink["ob"], S.burst["ob"], S.glass_ink["ob"]] + \
-        [s["ob"] for s in S.shards] + [ob for hv in S.halves.values() for ob, _ in hv] + \
-        [ob for ob, _ in S.card_halves] + getattr(S, "letter_lamps", [])
+        [s["ob"] for s in S.shards] + [ob for hv in S.halves.values() for ob, _ in hv] + S.letter_lamps
     return scene
 
 
 # ---------------------------------------------------------------- what a shot sets
 
-def put(sock, v):
-    """Set a socket's value only when it changes: setting it again, even to the same value, makes Cycles rebuild
-    the material or light, and forty hybrid prints make that most of a frame's time."""
-    cur = sock.default_value
-    if isinstance(v, (int, float)):
-        if cur != v:
-            sock.default_value = v
-    elif tuple(cur) != tuple(v):
-        sock.default_value = v
-
-
-def reset(scene):
+def reset(scene, t, b):
     """The hall at rest, every light off, nothing in the air: each shot then sets what it needs."""
+    S.t, S.b = t, b
     for ob, _ in S.everything_lit:
         if ob.data.energy != 0.0:
             ob.data.energy = 0.0
@@ -1159,11 +441,6 @@ def sky(key, strength):
         put(em.inputs["Strength"], 0.6 * strength)
 
 
-def energy(ob, e):
-    if ob.data.energy != e:
-        ob.data.energy = e
-
-
 def dawn(a=1.0, sky_key="s1"):
     """表: the cold sun through the high windows, by `a`."""
     for ob, e in S.dawn:
@@ -1208,12 +485,15 @@ def ripple(t0, x, y, amp=1.0, speed=2.4):
 
 
 def ink(blob, loc, scale, density=1.0, glow=0.3):
-    ob = blob["ob"]
-    ob.hide_render = False
-    ob.location, ob.scale = loc, scale
-    blob["density"].default_value = density * 8.0 / max(scale)
-    blob["glow"].default_value = glow * 8.0 / max(scale)
-    blob["w"].default_value = blob["seed"] + 0.3 * S.t
+    fx.ink(blob, loc, scale, density, glow, S.t)
+
+
+def dust(t, center=(2.0, 0.0, 0.0)):
+    fx.dust(S.dust, S.mote, t, center)
+
+
+def scraps(center, t, radius=4.0, height=3.0, swirl=0.0, fall=0.0, n=None):
+    fx.scraps(S.conf, S.scrap, center, t, radius, height, swirl, fall, n)
 
 
 def look(eye, target, lens=35.0, fstop=8.0, roll=0.0, focus=None, up=(0, 0, 1), ortho=None):
@@ -1224,54 +504,7 @@ def look(eye, target, lens=35.0, fstop=8.0, roll=0.0, focus=None, up=(0, 0, 1), 
         eye = eye + (target - eye) * punch(S.t, 0.03)
     if DUTCH[0] <= S.b < DUTCH[1]:
         roll += 12.0 if math.floor(S.b) % 2 else -12.0
-    f = (target - eye).normalized()
-    upv = Vector(up)
-    if abs(f.dot(upv)) > 0.999:
-        upv = Vector((1.0, 0.0, 0.0))
-    r = f.cross(upv).normalized()
-    rot = Matrix((r, r.cross(f), -f)).transposed()
-    if roll:
-        rot = rot @ Matrix.Rotation(math.radians(roll), 3, "Z")
-    S.cam.matrix_world = Matrix.Translation(eye) @ rot.to_4x4()
-    cam = S.cam.data
-    cam.type = "ORTHO" if ortho else "PERSP"
-    if ortho:
-        cam.ortho_scale = ortho
-    cam.lens = lens
-    cam.dof.aperture_fstop = fstop
-    cam.dof.focus_object = None
-    cam.dof.focus_distance = focus if isinstance(focus, (int, float)) else \
-        ((Vector(focus) if focus is not None else target) - eye).length
-    S.eye, S.fwd = eye, f
-
-
-def card(key, zoom=1.0, cx=0.5, cy=0.5, seep=0.0, gap=0.0, tint=None, tint_a=0.0, dist=1.0, alone=True):
-    """Her picture `key` filling the frame (a tall one fitted to the height), `gap` the halves torn apart by;
-    `alone` False when something 3D is in front of it."""
-    scene = bpy.context.scene
-    img = S.images[key]
-    S.card["tex"].image = img
-    sx = (16 / 9) / (img.size[0] / img.size[1]) / zoom
-    S.card["map"].inputs["Scale"].default_value = (sx, 1 / zoom, 1.0)
-    S.card["map"].inputs["Location"].default_value = (cx - 0.5 * sx, cy - 0.5 / zoom, 0.0)
-    S.card["seep"].default_value = seep
-    S.card["tint_a"].default_value = tint_a if tint else 0.0
-    S.card["tint_rgb"].default_value = m.srgb(tint or "#FFFFFF")
-    S.card["strength"].default_value = 1.0
-    w = dist * S.cam.data.sensor_width / S.cam.data.lens * 1.004
-    for ob, side in S.card_halves:
-        ob.hide_render = False
-        ob.scale = (w, w, 1.0)
-        ob.location = (side * gap * w * 0.5, 0.0, -dist)
-    scene.view_settings.view_transform = "Standard"
-    scene.view_settings.exposure = 0.0
-    S.glare.default_value = 0.1
-    S.cam.data.dof.use_dof = False                   # the card sits a metre from the lens
-    if gap <= 0 and alone:                           # nothing of the 3D scene shows: one sample is enough,
-        S.cam.matrix_world = Matrix.Translation((16.0, 0.0, 40.0))   # and nothing (glass, haze) before the card
-        S.haze.hide_render = True
-        scene.cycles.samples = 1
-        scene.cycles.use_denoising = False
+    S.eye, S.fwd = AN.aim(S.cam, eye, target, lens, fstop, roll, focus, up, ortho)
 
 
 def into(key, zoom=1.0, cx=None, cy=None, lens=35.0, fstop=2.8, cold=1.0, rose=0.0, yaw=0.0, pitch=0.0,
@@ -1283,9 +516,9 @@ def into(key, zoom=1.0, cx=None, cy=None, lens=35.0, fstop=2.8, cold=1.0, rose=0
     Lit by its own cold lamp in front (`cold`) and the rose lamp behind it (`rose`); the other 2D pictures' prints
     are out of the way."""
     p, name, on_back = S.where[key]
-    W, Hh = H.size_of(p)
+    W, Hh = P.size_of(p)
     img = bpy.data.images.load(_path(key), check_existing=True)
-    mu, mv, rw, rh, s = H._layout(*img.size, (W, Hh))
+    mu, mv, rw, rh, s = P.layout(*img.size, (W, Hh))
     half = (W * rw / zoom) * 9 / 16 / (Hh * rh) / 2                             # the frame's half height, of the picture
     if cy is None:                                                              # one subject: her face, in frame
         hv = H.anchor(p, name, 0)["uv"][1]
@@ -1332,7 +565,7 @@ def seep(key, v, blob=None):
 
 def rain_in(p, t):
     """The rain inside a picture: the block of streaks as a slab just in front of the print `p`, over its face."""
-    W, Hh = H.size_of(p)
+    W, Hh = P.size_of(p)
     S.rain.hide_render = False
     S.rain.scale = (0.5, W / 14.0, 0.5)                   # spread through the depth between the camera and the paper,
     S.rain.location = (p.location.x - 3.6, p.location.y,  # so it is rain, not a curtain of lines
@@ -1941,43 +1174,5 @@ SHOTS = [
 
 # ---------------------------------------------------------------- frames
 
-def main():
-    os.makedirs(FRAMES, exist_ok=True)
-    starts = [at(s[0]) for s in SHOTS] + [DURATION]
-    lo = round(at(FIRST) * FPS) if FIRST is not None else 0
-    hi = round(at(LAST) * FPS) if LAST is not None else round(DURATION * FPS)
-    path = lambda f: os.path.join(FRAMES, f"f_{f:05d}.png")   # noqa: E731
-    todo = []
-    for k, (bar, sec, title, fn) in enumerate(SHOTS):
-        if ONLY and sec not in ONLY:
-            continue
-        frames = list(range(round(starts[k] * FPS), round(starts[k + 1] * FPS)))
-        if AT:
-            frames = sorted({frames[round(a * (len(frames) - 1))] for a in AT}) if frames else []
-        elif LIMIT:
-            frames = frames[:LIMIT]
-        todo += [(f, k) for f in frames if lo <= f < hi and not os.path.exists(path(f))]
-    if not todo:
-        print("animatic v4: nothing to do")
-        return
-    scene = setup()
-    for done, (f, k) in enumerate(todo):
-        bar, sec, title, fn = SHOTS[k]
-        t = f / FPS
-        S.t, S.b = t, max(bar_at(t), bar)          # rounding can put a shot's first frame just before it
-        reset(scene)
-        fn((t - starts[k]) / (starts[k + 1] - starts[k]), t, S.b)
-        sway(t)
-        scene.render.stamp_note_text = f"{sec} {title}  |  bar {math.floor(S.b)}.{int(S.b % 1 * 4) + 1}  |  " \
-                                       f"{int(t // 60)}:{t % 60:04.1f}"
-        scene.render.filepath = path(f)
-        if not DRY:
-            bpy.ops.render.render(write_still=True)
-        if done % 24 == 0:
-            print(f"animatic v4: {done + 1}/{len(todo)} frames, now {sec} {title} at {t:.2f} s", flush=True)
-    if DRY:
-        bpy.ops.wm.save_as_mainfile(filepath=os.path.join(os.path.dirname(FRAMES), "animatic_v4_dry.blend"))
-    print(f"animatic v4: {len(todo)} frames done")
-
-
-main()
+AN.run(FRAMES, SHOTS, CLK, setup, reset, after=lambda t: fx.sway(S.strands, t), first=FIRST, last=LAST,
+       name="animatic v4")

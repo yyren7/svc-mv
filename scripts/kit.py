@@ -228,6 +228,14 @@ class Recorder:
 
 # ---------------------------------------------------------------- materials
 
+def value(nt, v=0.0):
+    """A Value node's output: the way a shot sets a material's number per frame (an object custom property read
+    by an Attribute node is not re-read under persistent render data)."""
+    n = nt.nodes.new("ShaderNodeValue")
+    n.outputs[0].default_value = v
+    return n.outputs[0]
+
+
 def _mix_rgba(nt, fac, a, b):
     n = nt.nodes.new("ShaderNodeMix")
     n.data_type = "RGBA"

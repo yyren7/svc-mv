@@ -1,15 +1,23 @@
 """Maps for the hybrid prints: for each illustration a depth map, a map of its flat planes and a map of her parts,
-so in Blender the sheet can be a relief, its sky, water and mirrors can be the hall's own (the 3D world set into
-the 2D picture), and 3D things (ink, rain, ripples) can attach to her hair, face and clothes.
+so in Blender (scripts/hybrid.py) the sheet can be a relief, its sky, water and mirrors can be the scene's own
+(the 3D world set into the 2D picture), and 3D things (ink, rain, ripples, strands) can attach to her hair, face
+and clothes.
 
-    python cases/uraomote/scripts/maps.py <art dir> <name> [name ...]      (`all`: every *_211 picture and KV')
+    python scripts/maps.py <art dir> <name> [name ...]
     -> <art dir>/maps/<name>_depth.png   16-bit, bright = near (Depth Anything V2 small)
        <art dir>/maps/<name>_flat.png    R sky or window glass, G water, B mirror (CLIPSeg, smoothed)
        <art dir>/maps/<name>_parts.png   R hair, G face and skin, B clothes
        <art dir>/maps/<name>_check.jpg   the picture with the flat map over it, to judge it by eye
 
-Runs on the server (torch, transformers). The hub is not reachable from there: the two models' files are fetched
-with curl from hf-mirror.com into tmp/hf/ and named by DEPTH_MODEL and SEG_MODEL.
+    env: PIC_SUFFIX=_00001_.png   the picture file is <name><PIC_SUFFIX> (ComfyUI's output names)
+         BACKDROP=v4_q1_:R,v4_u1_:G   pictures (by a piece of their name) whose whole background is one plane:
+                                     everything far in the depth map is that plane (CLIPSeg misses a black water
+                                     surface at night and only patches a pale sky)
+         DEPTH_MODEL, SEG_MODEL       the models' folders or hub ids
+
+Runs on the server (torch, transformers). When the hub is not reachable from there, fetch the two models' files
+with curl from hf-mirror.com into tmp/hf/ and name them with DEPTH_MODEL and SEG_MODEL. The masks are approximate:
+look at every _check.jpg, and hand-correct the maps of the pictures that carry a film's hero shots.
 """
 import os
 import sys
@@ -20,14 +28,13 @@ from PIL import Image, ImageFilter
 
 DEPTH = os.environ.get("DEPTH_MODEL", "depth-anything/Depth-Anything-V2-Small-hf")
 SEG = os.environ.get("SEG_MODEL", "CIDAS/clipseg-rd64-refined")
+SUFFIX = os.environ.get("PIC_SUFFIX", "_00001_.png")
 FLAT = {"R": ["sky", "window", "bright light through a window"],
         "G": ["water surface", "dark water", "lake at night"],
         "B": ["mirror"]}
 PARTS = {"R": ["hair"], "G": ["face", "skin"], "B": ["clothes", "shirt", "skirt"]}
 LOW, HIGH = 0.4, 0.7          # CLIPSeg probability -> mask: 0 below LOW, 1 above HIGH
-# pictures whose whole background is one plane: everything far in the depth map is that plane (CLIPSeg misses a
-# black water surface at night and only patches a pale sky)
-BACKDROP = {"v4_q1_": "R", "v4_u1_": "G", "v4_u3_": "G", "v4_c1_": "G", "v4_s1_": "R", "v4_s2_": "R", "v4_s3_": "R"}
+BACKDROP = dict(item.split(":") for item in os.environ.get("BACKDROP", "").split(",") if item)
 FAR = 0.5                     # depth (0 far .. 1 near) below which a point belongs to the backdrop
 
 
@@ -68,9 +75,6 @@ def check(img, flat):
 
 def main():
     art, names = sys.argv[1], sys.argv[2:]
-    if names == ["all"]:
-        names = sorted(f[:-len("_00001_.png")] for f in os.listdir(art)
-                       if f.endswith("_211_00001_.png") or f.startswith("v4_kvu_211_n75"))
     out = os.path.join(art, "maps")
     os.makedirs(out, exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -79,7 +83,7 @@ def main():
     proc = CLIPSegProcessor.from_pretrained(SEG)
     seg = CLIPSegForImageSegmentation.from_pretrained(SEG).to(device).eval()
     for name in names:
-        img = Image.open(os.path.join(art, f"{name}_00001_.png")).convert("RGB")
+        img = Image.open(os.path.join(art, name + SUFFIX)).convert("RGB")
         d = depth(pipe, img)
         Image.fromarray((d * 65535).astype(np.uint16)).save(os.path.join(out, f"{name}_depth.png"))
         backdrop = next((v for k, v in BACKDROP.items() if k in name), None)

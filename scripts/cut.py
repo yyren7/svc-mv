@@ -1,10 +1,14 @@
-"""Join the animatic's frames with the song into an MP4 (H.264 + AAC). A frame that is missing (a part that has
+"""Join an animatic's frames with the song into an MP4 (H.264 + AAC). A frame that is missing (a part that has
 not run yet) is filled with the frame before it, and the count of those is printed. The film's finish goes on
 here, not in the render, so it can be changed without rendering again: halation (the highlights bled warm and
 soft over their surroundings), a vignette and a fine grain; LOOK=0 leaves the frames as they are.
 
-    python cases/uraomote/scripts/animatic_cut.py <frames_dir> <song> <out.mp4> [fps]
+    python scripts/cut.py <frames_dir> <song> <out.mp4> [fps=12] [timing.json]
+
+The frame count is the song's duration (from the timing json: the fifth argument, TIMING in the environment, or
+the one *timing*.json beside the song) times fps.
 """
+import glob
 import json
 import os
 import shutil
@@ -26,10 +30,21 @@ def ffmpeg():
     return imageio_ffmpeg.get_ffmpeg_exe()
 
 
+def timing_of(song, given=None):
+    if given:
+        return given
+    if os.environ.get("TIMING"):
+        return os.environ["TIMING"]
+    found = glob.glob(os.path.join(os.path.dirname(song) or ".", "*timing*.json"))
+    if len(found) != 1:
+        sys.exit(f"cut.py: which timing json? found {found}; give it as the fifth argument or TIMING=")
+    return found[0]
+
+
 def main():
     frames, song, out = sys.argv[1:4]
     fps = int(sys.argv[4]) if len(sys.argv) > 4 else 12
-    timing = json.load(open(os.path.join(os.path.dirname(song), "urao_timing.json"), encoding="utf-8"))
+    timing = json.load(open(timing_of(song, sys.argv[5] if len(sys.argv) > 5 else None), encoding="utf-8"))
     n = int(round(timing["duration"] * fps))
     filled, last = [], None
     for f in range(n):

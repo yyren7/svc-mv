@@ -1,6 +1,6 @@
-"""patch.py WORKTREE SPEC.json: apply [[relative file, old text, new text], ...] to an experiment's worktree.
-Each old text must occur exactly once, so a spec written against a line that has since changed fails loudly
-instead of rendering the unpatched film."""
+"""patch.py WORKTREE SPEC.json: apply [[relative file, old text, new text], ...] to an experiment's worktree
+(scripts/exp.sh). Each old text must occur exactly once, so a spec written against a line that has since changed
+fails loudly instead of rendering the unpatched film."""
 import json
 import pathlib
 import sys
