@@ -98,6 +98,17 @@ shots set per frame must live in a node socket, a transform or a hide flag: an o
 Attribute node is not re-read under persistent render data, so the cracks' `reveal` never changed and no crack
 showed in seven passes.
 
+The third 1280 px cut (pass 8) had every one of those in it, and its full frames asked for the finer version of
+three. A crack drawn as one flat rose ribbon, however thin and however low its emission, is a stroke: from 8 m the
+window crack was pink lightning, its branches at 35-60 degrees. Light through a crack is a hair, so the material
+shapes it across the ribbon (a near-white core a tenth of the width, a rose halo over the inner third, transparent
+beyond), the branches leave at 15-30 degrees, and the ribbons are wide enough that the core is about a pixel. A
+print on black water is a card on a void unless the water shows something: every lamp of the hall is hidden from
+glossy rays (a lamp in the water is a bright slab), so for the shot from above the one lamp on the print is made
+visible to them, and its reflection beside the print, broken by the water's own ripples and the ring, is what
+says water. Ink dropped into a glass starts at the surface and is taller than wide; corrugation at 40 bands and a
+bump of 0.4 is corrugated plastic (22 and 0.22 is kraft).
+
 Judge a run by its contact sheets, not by single frames: `AT=0.25,0.5,0.75` (three frames of every shot, six
 minutes) into `tmp/`, `sheet.py` on it, read the sheet; a full run only after the sheet holds. The full run's
 sheets, a frame a second, sit beside its mp4. At 1280 px pull a dozen full frames of the shots in question too:
