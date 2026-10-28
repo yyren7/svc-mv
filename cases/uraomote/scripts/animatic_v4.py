@@ -815,23 +815,34 @@ def props():
     # seen by glossy rays alone (every lamp is hidden from them, and a lamp's own glossy flag flipped per frame
     # changed nothing under persistent data), shown in P1.5 only. Without it the water was a void and the print
     # a card lying on it.
-    bpy.ops.mesh.primitive_plane_add(size=1.6, location=(31.9, -0.5, 6.0))
+    # a disc fading to its rim, not a panel: the water mirrored a square at 1.6 and 2.4 m alike, a crisp beige
+    # tile lying on it; its reflection lands 0.2-0.4 m off the print's edge over the shot
+    bpy.ops.mesh.primitive_plane_add(size=2.0, location=(31.9, -1.6, 6.0))
     S.moon = bpy.context.active_object
     S.moon.name = "float_moon"
-    S.moon.data.materials.append(_emission_mat("float_moon", "#FFF3E8", 10.0)[0])
+    mat, nt, out = V._nodes("float_moon")
+    g = kit.G(nt)
+    grad = g.node("ShaderNodeTexGradient", gradient_type="SPHERICAL")
+    g.link(g.node("ShaderNodeTexCoord").outputs["Object"], grad.inputs["Vector"])
+    em = g.node("ShaderNodeEmission")
+    em.inputs["Color"].default_value = m.srgb("#FFF3E8")
+    g.link(g.math("MULTIPLY", g.math("POWER", grad.outputs["Fac"], 1.5), 8.0), em.inputs["Strength"])
+    g.link(em.outputs[0], out.inputs["Surface"])
+    S.moon.data.materials.append(mat)
     for attr in ("visible_camera", "visible_diffuse", "visible_transmission", "visible_volume_scatter",
                  "visible_shadow"):
         setattr(S.moon, attr, False)
     S.refl_omote = V.sheet("refl_omote", REFL.x, REFL.y, V.print_mat("v4_q1_211", "v4_u4_211"), seed=95, top=2.25)
     glow, nt, out = V._nodes("refl_ura")             # lit by itself: the water reflects only a few percent
     em = nt.nodes.new("ShaderNodeEmission")
-    em.inputs["Strength"].default_value = 20.0
+    em.inputs["Strength"].default_value = 9.0        # (at 20 the bare margin's reflection, seen at a grazing angle
+    #                                                   where the water gives back a quarter, was blown white)
     nt.links.new(V._picture(nt, "v4_u4_211"), em.inputs["Color"])
     nt.links.new(em.outputs[0], out.inputs["Surface"])
     S.refl_ura = V.sheet("refl_ura", REFL.x - 0.002, REFL.y, glow, seed=95, top=2.25)
     glow2, nt2, out2 = V._nodes("refl_flash")         # and 表 lit the same way, for the beat the reflection is 表
     em2 = nt2.nodes.new("ShaderNodeEmission")         # again: the paper print itself in the mirror was dim and
-    em2.inputs["Strength"].default_value = 20.0       # speckled with its fibre at that grazing angle
+    em2.inputs["Strength"].default_value = 9.0        # speckled with its fibre at that grazing angle
     nt2.links.new(V._picture(nt2, "v4_q1_211"), em2.inputs["Color"])
     nt2.links.new(em2.outputs[0], out2.inputs["Surface"])
     S.refl_flash = V.sheet("refl_flash", REFL.x - 0.001, REFL.y, glow2, seed=95, top=2.25)
@@ -1184,11 +1195,11 @@ def wet(p, w):
     put(S.mix[p.name].inputs["Fac"], w)
 
 
-def ripple(t0, x, y, amp=1.0):
+def ripple(t0, x, y, amp=1.0, speed=2.4):
     age = S.t - t0
     if 0 <= age < 1.2:
         S.rip["x"].default_value, S.rip["y"].default_value = x, y
-        S.rip["r"].default_value = 0.1 + 2.4 * age
+        S.rip["r"].default_value = 0.1 + speed * age
         S.rip["a"].default_value = amp * (1 - age / 1.2)
 
 
@@ -1491,13 +1502,15 @@ def p1_top(u, t, b):
     sky("s1", 0.15)
     light("float_sun", 0.4)                                                     # (at 3.5 the paper was a white slab)
     S.moon.hide_render = False                        # the lamp in the water beside the print, broken by its ripples
+    put(S.water_bump, 0.06)                           # the water's own ripples up, so the lamp's disc wobbles
     bpy.context.scene.view_settings.exposure = 0.5
     v = ease((b - 20) / 4)
     # the ink spreads over her on the paper, small and dense enough to read from 5 m up (a 4 m pancake under the
     # print, the same ink spread that thin, was invisible; at 2.5 a faint blush)
     s = 0.8 + 1.2 * v
     ink(S.ink, FLOAT_C + Vector((0.6, 0.0, 0.045)), (s, s, 0.02), 4.0, 0.0)
-    ripple(last_beat(t), FLOAT_C.x, FLOAT_C.y, 0.25)
+    # the pulse must get out from under the print (1.2 m to its edge) within a beat to show in the lamp's disc
+    ripple(last_beat(t), FLOAT_C.x, FLOAT_C.y, 0.6, speed=6.0)
     if b >= 23.75:
         S.cracks["face"]["reveal"] = ease((b - 23.75) * 4)                     # the first crack, across her face
     a = 0.3 * ease(u)                                                           # sinking towards her, turning a little
@@ -1540,7 +1553,9 @@ def p2_out(u, t, b):
     dawn(1 - (math.floor(b % 1 * 4) + 1) / 4)                                  # the light goes beat by beat
     for name in CRACKS_P2:
         S.cracks[name]["reveal"] = 1.0
-    look((2.5, -6.4, 1.8), (14, 1.2, 3.4), lens=24, fstop=5.6)                 # (lower, the nearest print's back was half the frame)
+    # low, towards the windows: as the lamps go the prints are silhouettes against the glass, the crack in it
+    # (looking along the row they were black slabs with slivers of window)
+    look((4.0, -5.0, 1.0), (12.0, 5.0, 6.0), lens=28, fstop=5.6)
 
 
 def p3_turn(u, t, b):
@@ -1755,7 +1770,7 @@ def p7_crack(u, t, b):
     look((9.0, 3.0, 3.0), (11.0, 7.0, 8.4), lens=35, fstop=5.6)
 
 
-SHARD_CUTS = [((10, 2, 7), (16, 6.5, 9.5)), ((14, 6, 9), (18, 1, 5)), ((20, 1.5, 6), (22, 7, 10.5)),
+SHARD_CUTS = [((10, 2, 7), (16, 6.5, 9.5)), ((14, 6, 9), (18, 1, 5)), ((20, 1.5, 5.5), (22, 7, 9.0)),
               ((24, 4, 8), (16, 2, 6)), ((12, 4, 5.5), (18, 6.5, 10)), ((17, 6.2, 7.5), (17, -2, 6)),
               ((26, 2, 9), (16, 6, 6))]                                      # never straight down the hall: the far wall is a slab
 
