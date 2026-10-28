@@ -457,7 +457,11 @@ def rose_light(prints):
 
 
 def haze(dawn):
-    size, at = (L - X0 + 4, WD, H), ((X0 + L) / 2 + 2, 0, H / 2)
+    # a little past the hall on every side: with its faces on the water's surface and on the walls' and ceiling's
+    # inner faces, a ray leaving the water met the box's face at the same depth, and the water, seen from above,
+    # mirrored nothing at all (a bare test: a lit panel over water, its reflection gone with the box's face on the
+    # surface, back with the box half a metre lower)
+    size, at = (L - X0 + 4.4, WD + 0.4, H + 0.8), ((X0 + L) / 2 + 2, 0, H / 2 + 0.15)
     if dawn:
         return cyc.haze("haze", size, at, 0.012, color="#E4ECF4", anisotropy=0.3)
     return cyc.haze("haze", size, at, 0.004, color="#F2D8E0", anisotropy=0.45)
