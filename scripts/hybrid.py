@@ -24,6 +24,7 @@ import mvlib as m
 import paper as P
 
 MAPS = None                                 # the maps folder; None: <paper.ART>/maps
+FIGURES = None                              # the cut-outs folder (scripts/figures.py); None: <paper.ART>/figures
 SKY = None                                  # the sky picture behind every window, unless make_print is given one
 HERO = ()                                   # pictures (by name) with the full relief
 RELIEF = float(os.environ.get("RELIEF", 0.14))
@@ -313,6 +314,90 @@ def hybrid_mat(name, front, back, sky, size=None, margin=None):
         chain = mix.outputs[0]
     nt.links.new(chain, out.inputs["Surface"])
     return mat
+
+
+def figure_path(name):
+    """scripts/figures.py's cut-out of her: <art>/figures/<name>_figure.png (L, 255 where she is)."""
+    return os.path.join(FIGURES or os.path.join(P.ART, "figures"), f"{name}_figure.png")
+
+
+def figure_box(name):
+    """Where she is in picture `name`: (u0, v0, u1, v1) in picture coordinates, 0..1 from the bottom left."""
+    a = load(figure_path(name))[..., 0]
+    h, w = a.shape
+    ys, xs = np.nonzero(a > 0.5)
+    return (xs.min() / w, ys.min() / h, (xs.max() + 1) / w, (ys.max() + 1) / h)
+
+
+def world_mat(name, picture, size=None, cutout=False, sky=True, water=True, emission=None):
+    """The print's material for a picture set into the world itself: its flat planes cut through to whatever is
+    behind the paper (R sky or window and G water become transparent, so the world's real sky and water show in
+    them; B mirror stays mirror glass), the paper's back bare; with `cutout`, everything that is not her (the
+    figure from scripts/figures.py) is transparent too, and the sheet is a 2D figure standing in a 3D place. The
+    ink stain (STAINS) is on it as on a hybrid print. With `emission` (a strength) the picture is lit by itself
+    instead of being paper: the version of her that only the water's mirror sees."""
+    if emission is None:
+        mat = P.print_mat(picture, None, size=size, margin=0.0)
+        nt = mat.node_tree
+        out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
+        chain = out.inputs["Surface"].links[0].from_socket
+        _stain(nt, name)
+    else:
+        mat, nt, out = P.nodes(f"lit_{picture}")
+        em = nt.nodes.new("ShaderNodeEmission")
+        em.inputs["Strength"].default_value = emission
+        nt.links.new(P.picture(nt, picture, 0.0, size=size, alpha=True)[0], em.inputs["Color"])
+        chain = em.outputs[0]
+    g = kit.G(nt)
+    flat = map_path(picture, "flat")
+    bpy.data.images.load(flat, check_existing=True).colorspace_settings.name = "Non-Color"
+    sep = nt.nodes.new("ShaderNodeSeparateColor")
+    nt.links.new(P.picture(nt, picture, 0.0, file=flat, size=size, alpha=True)[0], sep.inputs[0])
+    clear = g.node("ShaderNodeBsdfTransparent")
+    planes = []
+    if sky:
+        planes.append((sep.outputs["Red"], clear.outputs[0]))
+    if water:
+        planes.append((sep.outputs["Green"], clear.outputs[0]))
+    planes.append((sep.outputs["Blue"], _mirror(nt)))
+    for fac, shader in planes:
+        mix = nt.nodes.new("ShaderNodeMixShader")
+        nt.links.new(fac, mix.inputs["Fac"])
+        nt.links.new(chain, mix.inputs[1])
+        nt.links.new(shader, mix.inputs[2])
+        chain = mix.outputs[0]
+    if cutout:
+        fig = figure_path(picture)
+        bpy.data.images.load(fig, check_existing=True).colorspace_settings.name = "Non-Color"
+        her = g.node("ShaderNodeRGBToBW")
+        nt.links.new(P.picture(nt, picture, 0.0, file=fig, size=size, alpha=True)[0], her.inputs[0])
+        mix = nt.nodes.new("ShaderNodeMixShader")
+        nt.links.new(her.outputs[0], mix.inputs["Fac"])
+        nt.links.new(clear.outputs[0], mix.inputs[1])
+        nt.links.new(chain, mix.inputs[2])
+        chain = mix.outputs[0]
+    nt.links.new(chain, out.inputs["Surface"])
+    return mat
+
+
+def make_figure(name, picture, x, y, height=1.62, bottom=0.01, seed=0, amount=None, grid=None, emission=None,
+                flat=0.3):
+    """Her cut out of `picture` as a 2D figure standing in the world at (x, y): a sheet the picture's own aspect,
+    sized so she is `height` metres tall with her feet `bottom` metres over the floor, her figure in relief, the
+    rest of the paper transparent, no clips and nearly flat. Returns the sheet (origin: the middle of its top
+    edge; it remembers the picture's size, margin 0 and the picture's name). `emission`: see world_mat."""
+    img = P.image(picture)
+    w, h = img.size
+    u0, v0, u1, v1 = figure_box(picture)
+    Hh = height / max(v1 - v0, 1e-3)
+    size = (Hh * w / h, Hh)
+    amount = amount if amount is not None else (RELIEF if picture in HERO else 0.65 * RELIEF)
+    grid = grid or ((72, 126) if h >= w else (126, 72))
+    ob = P.sheet(name, x, y, world_mat(name, picture, size, cutout=True, emission=emission), seed,
+                 top=bottom + Hh * (1 - v0), grid=grid, relief=depth_relief(picture, amount, size, 0.0), size=size,
+                 clips=False, flat=flat)
+    ob["relief_amount"], ob["margin"], ob["picture"] = amount, 0.0, picture
+    return ob
 
 
 def landscape():

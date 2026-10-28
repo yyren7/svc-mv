@@ -612,12 +612,14 @@ def halves(p):
     return out
 
 
-def cut_letters(sheet, font, items, height=0.72, glow=None, radius=0.42, offsets=(-0.22, 0.0, 0.22), x=-0.04):
-    """D1: letters cut out of a print, so the light behind it shows through: `items` are (character, y, z) in the
-    sheet's own frame (its origin the middle of its top edge; y along the sheet, z down), each glyph sized to
-    `height` metres and cut with a boolean; and under each, a stack of small lamp discs of the `glow` material
-    (hidden until a shot shows them: the back cover). Returns the lamps, [] when the font cannot be loaded. (At
-    an offset of 0.16 the discs showed as three bright bands; at 6 the letters were a neon sign.)"""
+def cut_letters(sheet, font, items, height=0.72, glow=None, radius=0.42, offsets=(-0.22, 0.0, 0.22), x=-0.04,
+                at=0.0, extrude=0.25):
+    """D1: letters cut out of a print (or a wall), so the light behind it shows through: `items` are (character,
+    y, z) in the sheet's own frame (its origin the middle of its top edge; y along the sheet, z down), each glyph
+    sized to `height` metres, `extrude` deep each way about x = `at` (half a wall's thickness for a wall) and cut
+    with a boolean; and behind each, a stack of small lamp discs of the `glow` material at x (hidden until a shot
+    shows them: the back cover). Returns the lamps, [] when the font cannot be loaded. (At an offset of 0.16 the
+    discs showed as three bright bands; at 6 the letters were a neon sign.)"""
     try:
         font = bpy.data.fonts.load(font, check_existing=True)
     except RuntimeError as e:
@@ -628,11 +630,11 @@ def cut_letters(sheet, font, items, height=0.72, glow=None, radius=0.42, offsets
     lamps = []
     for k, (ch, y, z) in enumerate(items):
         cu = bpy.data.curves.new(f"letter{k}", "FONT")
-        cu.body, cu.font, cu.size, cu.extrude = ch, font, 1.0, 0.25
+        cu.body, cu.font, cu.size, cu.extrude = ch, font, 1.0, extrude
         cu.align_x, cu.align_y = "CENTER", "CENTER"
         tmp = bpy.data.objects.new(cu.name, cu)
         m._link(tmp)
-        tmp.matrix_world = sheet.matrix_world @ Matrix.Translation((0.0, y, z)) @ turn
+        tmp.matrix_world = sheet.matrix_world @ Matrix.Translation((at, y, z)) @ turn
         for _ in range(2):                           # the glyph's height depends on the font: measure, then size it
             bpy.context.view_layer.update()
             me = bpy.data.meshes.new_from_object(tmp.evaluated_get(bpy.context.evaluated_depsgraph_get()))

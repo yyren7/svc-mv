@@ -159,9 +159,9 @@ def cockle(nt, co):
 def print_mat(front, back, wet=None, size=None, margin=None):
     """Thin paper printed on both sides: the facing picture inside its border (MARGIN, or `margin`; 0 is a
     full-bleed print, the picture to the paper's edge: a dark picture's white border under the same lamp is a bar
-    of light down the frame), translucent with both inks."""
+    of light down the frame), translucent with both inks. `back` None: printed on one side, bare paper behind."""
     margin = MARGIN if margin is None else margin
-    mat, nt, out = nodes(f"print_{front}_{back}")
+    mat, nt, out = nodes(f"print_{front}_{back or 'paper'}")
     co = coords(nt)
     paper = bare(nt, co)
 
@@ -169,7 +169,8 @@ def print_mat(front, back, wet=None, size=None, margin=None):
         col, alpha = picture(nt, name, margin, size=size, alpha=True)
         return kit._mix_rgba(nt, alpha, paper, multiply(nt, paper, col)), alpha
 
-    (f, fa), (b, ba) = inked(front), inked(back)
+    f, fa = inked(front)
+    b = inked(back)[0] if back else paper                           # no back picture: bare paper behind
     geo = nt.nodes.new("ShaderNodeNewGeometry")
     facing = kit._mix_rgba(nt, geo.outputs["Backfacing"], f, b)
     # the bare border lets through a third of what the picture does: with the rose lamp behind, a print's foot
@@ -193,18 +194,19 @@ def print_mat(front, back, wet=None, size=None, margin=None):
     return mat
 
 
-def sheet(name, x, y, mat, seed, top=None, grid=(16, 28), relief=None, size=None):
+def sheet(name, x, y, mat, seed, top=None, grid=(16, 28), relief=None, size=None, clips=True, flat=1.0):
     """A hanging print: a grid in the YZ plane facing -X, bowed a little, curling and waving at the foot, hung a
-    touch askew, a galvanised clip at each top corner. Its origin is the middle of its top edge, at (x, y, top), so
-    it turns, lifts in the wind or lies down about that point. `relief(u, v)` adds its own offset along X (negative:
-    towards the front); give it a finer `grid`. `size` is the sheet's (width, height) when it is not the usual one;
-    the object remembers it as sheet_w and sheet_h."""
+    touch askew, a galvanised clip at each top corner (`clips` False: none, for a sheet that stands in the world).
+    Its origin is the middle of its top edge, at (x, y, top), so it turns, lifts in the wind or lies down about
+    that point. `relief(u, v)` adds its own offset along X (negative: towards the front); give it a finer `grid`.
+    `size` is the sheet's (width, height) when it is not the usual one; the object remembers it as sheet_w and
+    sheet_h. `flat` scales the bow, curl, lean and wave (0: a flat sheet)."""
     W, Hh = size or (SHEET_W, SHEET_H)
     top = TOP if top is None else top
     rnd = random.Random(seed)
     nu, nv = grid
-    bow, curl, lean = rnd.uniform(0.02, 0.06), rnd.uniform(0.03, 0.09), rnd.uniform(-0.04, 0.04)
-    wave, phase = rnd.uniform(0.008, 0.02), rnd.uniform(0.0, 2 * math.pi)
+    bow, curl, lean = rnd.uniform(0.02, 0.06) * flat, rnd.uniform(0.03, 0.09) * flat, rnd.uniform(-0.04, 0.04) * flat
+    wave, phase = rnd.uniform(0.008, 0.02) * flat, rnd.uniform(0.0, 2 * math.pi)
     verts, uvs = [], []
     for j in range(nv + 1):
         v = j / nv
@@ -229,8 +231,9 @@ def sheet(name, x, y, mat, seed, top=None, grid=(16, 28), relief=None, size=None
     ob.location = (x, y, top)
     ob.rotation_euler = (0.0, 0.0, rnd.uniform(-0.03, 0.03))
     ob["sheet_w"], ob["sheet_h"] = W, Hh
-    metal = A._principled("clip", **{"Base Color": m.srgb("#9A9DA0"), "Metallic": 1.0, "Roughness": 0.35})[0]
-    for side in (-1, 1):                                             # a galvanised clip over the wire at each top corner
-        A.rounded_box(f"{name}_clip{side}", (0.03, 0.06, 0.1), 0.004, [metal],
-                      parent=ob).location = (0, side * (W / 2 - 0.12), 0.0)
+    if clips:
+        metal = A._principled("clip", **{"Base Color": m.srgb("#9A9DA0"), "Metallic": 1.0, "Roughness": 0.35})[0]
+        for side in (-1, 1):                                         # a galvanised clip over the wire at each top corner
+            A.rounded_box(f"{name}_clip{side}", (0.03, 0.06, 0.1), 0.004, [metal],
+                          parent=ob).location = (0, side * (W / 2 - 0.12), 0.0)
     return ob
