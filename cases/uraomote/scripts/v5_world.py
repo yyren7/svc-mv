@@ -35,7 +35,18 @@ H.HERO = {"v4_kv_211"}
 # the stills' pictures; a v5 picture (painted on its plate, cases/uraomote/scripts/v5_plates.py) is full-body and
 # stands where its plate had her
 PICS = {"kv": os.environ.get("KV_PIC", "v4_kv_211"), "w1": os.environ.get("W1_PIC", "v4_w1_211"),
-        "u2": os.environ.get("U2_PIC", "v4_u2_211")}
+        "u2": os.environ.get("U2_PIC", "v4_u2_211"),
+        # the waterline: her 表 standing at nightfall and its 裏 twin (the same silhouette) that the water mirrors
+        "q1s": os.environ.get("Q1S_PIC", ""), "q1u": os.environ.get("Q1U_PIC", "")}
+
+
+def v5(pic):
+    return pic.startswith("v5_")
+
+
+def facing(x, y, eye):
+    """The yaw (degrees) that turns a figure at (x, y) to face a camera at `eye` (0: facing -X)."""
+    return math.degrees(math.atan2(eye[1] - y, eye[0] - x)) - 180.0
 FONT = "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"
 ROSE, GLOW = "#F0285A", "#FF5C8A"
 SAMPLES = int(os.environ.get("SAMPLES", 0))             # 0: each shot's own count
@@ -286,8 +297,8 @@ def still_dawn():
     eye = Vector((-16.0, 3.5, 0.8))
     sun((eye - Vector((0.0, 2.5, 3.6))).normalized(), 5.0, 6200, disc=40.0)
     cyc.put(S.haze_vol.inputs["Density"], 0.003)
-    if PICS["kv"].startswith("v5_"):
-        S.her = figure("her", PICS["kv"], -1.6, -1.2, yaw=0.0)            # full-body, where the kv plate had her
+    if v5(PICS["kv"]):                                                    # full-body, where the kv plate had her
+        S.her = figure("her", PICS["kv"], -1.6, -1.2, yaw=facing(-1.6, -1.2, eye))
     else:
         S.her = figure("her", PICS["kv"], -2.6, -0.3, yaw=0.0, height=1.15)   # the v4 KV shows her to the knees:
         #                                                                     she stands in the water to there
@@ -308,7 +319,8 @@ def still_rain():
     cyc.put(S.rain, 1.0)
     cyc.put(S.rain_t, 0.37)
     cyc.put(S.sea_bump, 0.12)
-    S.her = figure("her", PICS["w1"], -6.0, 0.6, yaw=0.0)
+    eye, target = (-14.5, 1.0, 1.25), (-6.0, 0.6, 1.1)
+    S.her = figure("her", PICS["w1"], -6.0, 0.6, yaw=facing(-6.0, 0.6, eye) if v5(PICS["w1"]) else 0.0)
     glow = cyc.area_light("window_glow", (WALL_T + 0.9, WIN_Y, (WIN_Z0 + WIN_Z1) / 2), (-6.0, WIN_Y, 1.5), 2.0,
                           2000, 520, size_y=3.4, color=ROSE)       # (close behind the pane it edged the reveal in neon)
     glow.visible_glossy = False
@@ -318,7 +330,6 @@ def still_rain():
     S.rain_ob.location = (-7.0, 0.0, 0.0)
     S.rain_ob.scale = (1.4, 1.4, 1.0)
     cyc.put(S.rain_em.inputs["Strength"], 0.5)
-    eye, target = (-14.5, 1.0, 1.25), (-6.0, 0.6, 1.1)
     return cyc.camera("rain", eye, target, 40, 4.0), target, 0.6
 
 
@@ -331,19 +342,23 @@ def still_waterline():
     cyc.put(S.sea_bump, 0.0)
     # she stands in the water to her knees (the KV), 表; where her reflection should be, the water's mirror alone
     # sees her 裏 (U2, hugging her knees) lit by itself
-    if PICS["kv"].startswith("v5_"):
-        S.her = figure("her", PICS["kv"], -3.0, 0.0, yaw=0.0)
+    eye, target = (-8.6, 1.4, 0.7), (-3.0, 0.0, 0.1)
+    if PICS["q1s"]:
+        # v5: her 表 at nightfall facing us (the q1s plate) and its 裏 twin, the same silhouette, as the reflection
+        yaw = facing(-3.0, 0.0, eye)
+        S.her = figure("her", PICS["q1s"], -3.0, 0.0, yaw=yaw)
+        S.her.visible_glossy = False
+        ura = figure("ura", PICS["q1u"], -3.0 - 0.002, 0.0, yaw=yaw, emission=float(os.environ.get("URA_EM", 6.0)))
     else:
         S.her = figure("her", PICS["kv"], -3.0, 0.0, yaw=0.0, height=1.15)
-    S.her.visible_glossy = False
-    ura = figure("ura", PICS["u2"], -3.0 - 0.002, 0.0, yaw=0.0, height=1.1, emission=9.0)
+        S.her.visible_glossy = False
+        ura = figure("ura", PICS["u2"], -3.0 - 0.002, 0.0, yaw=0.0, height=1.1, emission=9.0)
     for attr in ("visible_camera", "visible_diffuse", "visible_transmission", "visible_shadow"):
         setattr(ura, attr, False)
     cold = cyc.area_light("cold", (-6.5, -2.0, 2.6), (-3.0, 0.0, 1.0), 2.0, 9000, 160, color="#7C94FF")
     cold.visible_glossy = False
     rose = cyc.area_light("rose", (-1.4, 1.5, 2.2), (-3.0, 0.0, 0.9), 2.0, 2000, 120, color=ROSE)
     rose.visible_glossy = False
-    eye, target = (-8.6, 1.4, 0.7), (-3.0, 0.0, 0.1)
     return cyc.camera("waterline", eye, target, 28, 5.6), target, 0.4
 
 

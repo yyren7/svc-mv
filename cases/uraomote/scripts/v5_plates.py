@@ -45,7 +45,8 @@ PLATES = {
                lens=90, fstop=4.0),
     "r0": dict(size=TALL, light="night", her=(-12.0, 0.0, "run"), eye=(-16.6, 0.0, 0.55), target=(-12.0, 0.0, 0.85),
                lens=75, fstop=4.0),
-    "f1": dict(size=WIDE, light="twin", her=(-5.0, 10.0, "leap"), eye=(-11.5, 10.0, 1.6), target=(-5.0, 10.0, 2.5),
+    # (looking along +Y: towards +X the camera looked into the sky's mirror seam, a kaleidoscope of clouds)
+    "f1": dict(size=WIDE, light="twin", her=(-5.0, 10.0, "leap"), eye=(-5.0, 3.5, 1.6), target=(-5.0, 10.0, 2.5),
                lens=50, fstop=4.0),
     # pictures the camera enters (WIDE): at the window at dawn, lying on the night water
     # (round 1 had her 4.8 m away at 40 mm: 4% of the picture, painted as a broken doll; now a medium shot, the
@@ -62,9 +63,10 @@ PLATES = {
                lens=85, fstop=2.8),
     "u1": dict(size=WIDE, light="night", her=(-6.0, 1.0, "lie"), eye=(-4.7, 1.0, 2.6), target=(-4.7, 1.0, 0.0),
                lens=40, fstop=4.0),
-    # P7: she sits on the night water hugging her knees, the wall's dark foot behind her
-    "u2": dict(size=WIDE, light="night", her=(-4.0, 0.8, "sit"), eye=(-7.4, 0.3, 0.5), target=(-4.0, 0.8, 0.42),
-               lens=70, fstop=4.0),
+    # P7: she sits on the night water hugging her knees, the wall's dark foot behind her (at 70 mm her head was
+    # out of the frame)
+    "u2": dict(size=WIDE, light="night", her=(-4.0, 0.8, "sit"), eye=(-7.4, 0.3, 0.5), target=(-4.0, 0.8, 0.5),
+               lens=50, fstop=4.0),
 }
 # the 裏 twins: the same camera and place at night, painted from the 表 pick (cases/uraomote/jobs/v5_t3.py), so the
 # silhouette is the same and the two can stand for each other (the reflection that is her 裏, the KV' of P9)
@@ -117,7 +119,7 @@ def mannequin(x, y, how):
     return root, middle
 
 
-def light_dawn(c):
+def light_dawn(c, p=None):
     """The dawn still's light: the sun low behind the wall, through the letters and the window; a cold fill."""
     W.set_sky("s1", 1.8)
     W.sun(SUN_DAWN, 5.0, 6200, disc=40.0)
@@ -127,7 +129,7 @@ def light_dawn(c):
     return -0.2
 
 
-def light_dusk(c):
+def light_dusk(c, p=None):
     """P3: the sky gone dark, a cold lamp before her, a rose edge from behind (the waterline still's light)."""
     W.set_sky("s2", 0.35)
     cyc.put(S.haze_vol.inputs["Density"], 0.002)
@@ -140,7 +142,7 @@ def light_dusk(c):
     return 0.4
 
 
-def light_rain(c):
+def light_rain(c, p=None):
     """P6: a rainy night, the window's rose glow the only light before her, a faint cold key (the rain still's
     light). The rain itself is 3D in the film, so the plate has none."""
     W.set_sky("s2", 0.5)
@@ -157,7 +159,7 @@ def light_rain(c):
     return 0.6
 
 
-def light_night(c):
+def light_night(c, p=None):
     """P7-P9: the world turned 裏: the letters glow rose from behind the wall, rose from low behind her, a faint
     cold light from above."""
     W.set_sky("s2", 0.35)
@@ -173,13 +175,17 @@ def light_night(c):
     return 0.5
 
 
-def light_twin(c):
-    """P10: two suns, a cold one from the viewer's left and a rose one from the right."""
+def light_twin(c, p=None):
+    """P10: two suns low at the two ends of the sky, a cold one on the viewer's left and a rose one on the right,
+    both a little behind her: each lights its half of her and rims it."""
     W.set_sky("s3", 1.6)
     cyc.put(S.haze_vol.inputs["Density"], 0.002)
-    cold = W.sun(Vector((0.3, -1.0, -0.6)), 3.0, 9000, name="sun_cold")
+    fwd = (Vector(p["target"]) - Vector(p["eye"])).normalized() if p else Vector((1.0, 0.0, 0.0))
+    right = fwd.cross(Vector((0.0, 0.0, 1.0))).normalized()
+    up = Vector((0.0, 0.0, 1.0))
+    cold = W.sun(right - 0.45 * up - 0.25 * fwd, 3.0, 9000, name="sun_cold")      # travels to the right: from the left
     cold.data.color = m.srgb("#7C94FF")[:3]
-    rose = W.sun(Vector((0.3, 1.0, -0.4)), 3.0, 2000, name="sun_rose")
+    rose = W.sun(-right - 0.35 * up - 0.25 * fwd, 3.0, 2000, name="sun_rose")
     rose.data.color = m.srgb(ROSE)[:3]
     return 0.0
 
@@ -258,7 +264,7 @@ def plate(name, out, picture=None):
         middle = Vector((x, y, 2.5 if how == "leap" else 0.95))
     else:
         root, middle = mannequin(x, y, how)
-    exposure = LIGHTS[p["light"]](middle)
+    exposure = LIGHTS[p["light"]](middle, p)
     cam = cyc.camera(name, p["eye"], p["target"], p["lens"], p["fstop"])
     cam.data.clip_end = 10000.0
     scene = bpy.context.scene
