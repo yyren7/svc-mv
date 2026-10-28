@@ -48,8 +48,10 @@ PLATES = {
     "f1": dict(size=WIDE, light="twin", her=(-5.0, 10.0, "leap"), eye=(-11.5, 10.0, 1.6), target=(-5.0, 10.0, 2.5),
                lens=50, fstop=4.0),
     # pictures the camera enters (WIDE): at the window at dawn, lying on the night water
-    "a1": dict(size=WIDE, light="dawn", her=(-0.55, -1.6, "stand"), eye=(-5.0, -3.3, 1.5), target=(-0.3, -1.2, 1.9),
-               lens=40, fstop=4.0),
+    # (round 1 had her 4.8 m away at 40 mm: 4% of the picture, painted as a broken doll; now a medium shot, the
+    # letters just out of the frame on the left)
+    "a1": dict(size=WIDE, light="dawn", her=(-0.55, -1.6, "stand"), eye=(-2.9, -3.1, 1.5), target=(-0.4, -1.3, 1.35),
+               lens=45, fstop=4.0),
     "a2": dict(size=WIDE, light="dawn", her=(-2.6, -0.4, "stand"), eye=(-2.9, 3.4, 1.35), target=(-2.6, -0.9, 1.15),
                lens=50, fstop=2.8),
     "a3": dict(size=WIDE, light="dawn", her=(-0.7, -1.2, "stand"), eye=(-3.6, 1.4, 1.45), target=(-0.7, -1.3, 1.45),
@@ -60,23 +62,39 @@ PLATES = {
                lens=85, fstop=2.8),
     "u1": dict(size=WIDE, light="night", her=(-6.0, 1.0, "lie"), eye=(-4.7, 1.0, 2.6), target=(-4.7, 1.0, 0.0),
                lens=40, fstop=4.0),
+    # P7: she sits on the night water hugging her knees, the wall's dark foot behind her
+    "u2": dict(size=WIDE, light="night", her=(-4.0, 0.8, "sit"), eye=(-7.4, 0.3, 0.5), target=(-4.0, 0.8, 0.42),
+               lens=70, fstop=4.0),
 }
-WIDEN = {"stand": (1.45, 1.45, 1.04), "run": (1.75, 1.75, 1.06), "leap": (1.9, 1.9, 1.15), "lie": (1.6, 1.6, 1.1)}
+# the 裏 twins: the same camera and place at night, painted from the 表 pick (cases/uraomote/jobs/v5_t3.py), so the
+# silhouette is the same and the two can stand for each other (the reflection that is her 裏, the KV' of P9)
+PLATES["kvn"] = dict(PLATES["kv"], light="night")
+PLATES["q1u"] = dict(PLATES["q1s"], light="night")
+WIDEN = {"stand": (1.45, 1.45, 1.04), "run": (1.75, 1.75, 1.06), "leap": (1.9, 1.9, 1.15), "lie": (1.6, 1.6, 1.1),
+         "sit": (1.5, 1.5, 1.12)}
 
 
 # ---------------------------------------------------------------- her place and the light
 
 def mannequin(x, y, how):
     """A grey figure of her size where she will be: legs, torso and head on an empty at her feet, so the plate
-    shows the light falling on a body there. Upright, leaning into a run, in mid-air, or lying on the water
-    (along +X, her head to +X). Returns (the empty, her middle)."""
+    shows the light falling on a body there. Upright, leaning into a run, in mid-air, sitting with her knees up
+    (towards -X), or lying on the water (along +X, her head to +X). The water does not mirror it (a grey ghost
+    under her that the picture would keep). Returns (the empty, her middle)."""
     grey = A._principled("mannequin", **{"Base Color": (0.42, 0.42, 0.44, 1.0), "Roughness": 0.8})[0]
     root = bpy.data.objects.new("mann_root", None)
     m._link(root)
     root.location = (x, y, 0.012)
-    for name, add in (("mann_legs", lambda: bpy.ops.mesh.primitive_cylinder_add(radius=0.11, depth=0.78, location=(0, 0, 0.39))),
-                      ("mann_torso", lambda: bpy.ops.mesh.primitive_cylinder_add(radius=0.165, depth=0.66, location=(0, 0, 1.11))),
-                      ("mann_head", lambda: bpy.ops.mesh.primitive_uv_sphere_add(radius=0.105, location=(0, 0, 1.52)))):
+    cyl, ball = bpy.ops.mesh.primitive_cylinder_add, bpy.ops.mesh.primitive_uv_sphere_add
+    if how == "sit":
+        parts = (("mann_torso", lambda: cyl(radius=0.165, depth=0.55, location=(0, 0, 0.36))),
+                 ("mann_head", lambda: ball(radius=0.105, location=(-0.04, 0, 0.76))),
+                 ("mann_knees", lambda: cyl(radius=0.12, depth=0.5, location=(-0.24, 0, 0.3), rotation=(0, 0.35, 0))))
+    else:
+        parts = (("mann_legs", lambda: cyl(radius=0.11, depth=0.78, location=(0, 0, 0.39))),
+                 ("mann_torso", lambda: cyl(radius=0.165, depth=0.66, location=(0, 0, 1.11))),
+                 ("mann_head", lambda: ball(radius=0.105, location=(0, 0, 1.52))))
+    for name, add in parts:
         add()
         ob = bpy.context.active_object
         ob.name = name
@@ -84,7 +102,8 @@ def mannequin(x, y, how):
         for poly in ob.data.polygons:
             poly.use_smooth = True
         ob.parent = root
-    middle = Vector((x, y, 0.95))
+        ob.visible_glossy = False
+    middle = Vector((x, y, 0.45 if how == "sit" else 0.95))
     if how == "run":
         root.rotation_euler.y = math.radians(-14)                 # the top towards -X: into the camera
     elif how == "leap":

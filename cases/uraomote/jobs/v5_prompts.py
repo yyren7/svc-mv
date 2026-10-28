@@ -13,9 +13,8 @@ PLACE = ("The place is the one the picture already shows: an endless still sea l
 # where to paint her: with the plate itself as the second reference, the model sees the grey mannequin
 INTO = ("Paint her into this picture in the empty space left for her, at the full height of that space, her feet on "
         "the water at its bottom, standing on the water's surface. Leave everything around her exactly as it is.")
-INTO_SEEN = ("Paint her into this picture exactly where the grey mannequin stands in the second reference picture, "
-             "replacing it at its size, her feet where its feet are, on the water's surface. Leave everything around "
-             "her exactly as it is.")
+INTO_SEEN = ("Paint her into this picture exactly where the grey mannequin is in the second reference picture, in its "
+             "place and at its size, on the water's surface. Leave everything around her exactly as it is.")
 # the light of each plate, as the plate shows it
 DAWN = ("Dawn. The low sun is behind the wall, so she is lit from behind: a thin warm rim of sunlight runs along her "
         "hair, her shoulders and the edges of her uniform, and her front is in soft cool blue-grey shadow, filled only "
@@ -66,6 +65,47 @@ POSES = {
            "camera, wide sleepless eyes, the first hint of a crooked smile; her hair fans out around her head on the "
            "water like spilled ink, the rose-red underlayer spreading through it; faint rings in the water.",
            NIGHT, LOOSE),
+    "u2": ("She sits on the black night water hugging her knees, her chin resting on them, outlined by rose-red rim "
+           "light from behind; she looks at the viewer with a crooked, unsettling, beautiful smile and glassy eyes; "
+           "her loose hair falls over her arms, the rose-red underlayer glowing.", NIGHT, LOOSE),
 }
-FIGURES = ("kv", "q1s", "w1", "r0", "f1")          # cut out afterwards (scripts/figures.py)
-ENTERED = ("a1", "a2", "a3", "a4", "a5", "u1", "f1")   # the camera enters them: a second, painted pass
+FIGURES = ("kv", "q1s", "w1", "r0", "f1", "u2")          # cut out afterwards (scripts/figures.py)
+ENTERED = ("a1", "a2", "a3", "a4", "a5", "u1", "u2", "f1")   # the camera enters them: a second, painted pass
+
+# Anima for the painted pass (docs/comfyui.md: tags, then a sentence; it redraws in its own anime hand, where Qwen
+# at 0.55 kept the render's look)
+ANIMA_HER = ("1girl, solo, black hair, medium hair, straight hair, blunt bangs, red inner hair, colored inner hair, "
+             "grey eyes, serafuku, white shirt, short sleeves, black sailor collar, black neckerchief, black pleated "
+             "skirt, white socks, loafers")
+ANIMA_NEG = ("worst quality, low quality, blurry, jpeg artifacts, chromatic aberration, watermark, text, signature, "
+             "artist name, logo, photorealistic, realistic, 3d, render")
+ANIMA_TAGS = {
+    "a1": "standing, from side, profile, hand on glass, looking out window, window, window frame, sky, dawn, backlighting, plaster wall, windowsill, glass of water",
+    "a2": "upper body, walking away, looking back, looking at viewer, light smile, outdoors, wall, horizon, ocean, sky, dawn",
+    "a3": "upper body, from behind, adjusting neckerchief, reflection in window, window, window frame, sky, dawn",
+    "a4": "close-up, hand on glass, fingertips, condensation, window, blurry foreground, looking afar, sky, dawn",
+    "a5": "close-up, portrait, closed eyes, leaning back, window, sky, dawn, backlighting",
+    "u1": "from above, lying on water, on back, spread hair, hair spread out, looking at viewer, night, dark, water, ripples, red rim light",
+    "u2": "sitting, hugging own legs, knees up, chin on knees, looking at viewer, crooked smile, night, dark, water, rim lighting, red light",
+    "f1": "midair, jumping, arms spread, head back, closed eyes, sky, clouds, torn paper, flying paper, split lighting, blue light, red light",
+}
+
+
+def anima(name, seed, init, denoise, tags, sentence=""):
+    return dict(model="anima", name=name, seed=seed, w=1664, h=928, init=init, denoise=denoise,
+                prompt="masterpiece, best quality, newest, safe, " + ANIMA_HER + ", " + tags +
+                       ", detailed background, scenery, anime coloring, delicate lineart, soft shading. " + sentence,
+                negative=ANIMA_NEG)
+
+
+# the 裏 twins (v5_t3.py): the 表 pick laid over the night plate from the same camera and repainted where she is,
+# so the pose and the silhouette stay and only her light, face and hair turn
+RELIGHT = ("Repaint her in the light of this picture: keep her pose, her silhouette, her size and her place exactly; "
+           "only the light on her, her expression and her hair change. Leave everything around her as it is.")
+TWINS = {
+    "kvn": ("kv", "She stands on the black night water before the wall with her back to us and turns her head over her "
+                  "shoulder to look back at the viewer; her eyes are wide and wet, lips parted, no longer composed.",
+            NIGHT, LOOSE),
+    "q1u": ("q1s", "She stands on the night water facing the viewer squarely, arms at her sides, her head tilted a little, "
+                   "with a crooked, unsettling, beautiful smile and glassy eyes.", NIGHT, LOOSE),
+}
