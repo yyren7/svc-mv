@@ -1,5 +1,6 @@
 #!/bin/bash
-# After a picture round on ComfyUI: the pictures into art/v5, her cut out of each (anime-seg), the depth and parts
+# After a picture round on ComfyUI: the pictures into art/v5, Qwen's green specks painted out, her cut out of each
+# (anime-seg), the depth and parts
 # maps (maps.py), the flat map from each picture's plate (plate_maps.py), and a contact sheet of the round.
 #   bash cases/uraomote/runs/pics.sh <sheet name> <picture name>...      (on the server, ComfyUI stopped)
 # A picture's plate is the part of its name between v5_ and the seed: v5_kv_211r -> kv, v5_a1_213sp -> a1.
@@ -13,6 +14,7 @@ sheet=$1
 shift
 mkdir -p $ART/figures $ART/maps
 for n in "$@"; do cp -pn /root/autodl-tmp/ComfyUI/output/${n}_00001_.png $ART/ || true; done
+PYTHONPATH=/root/autodl-tmp/pv/pylib $P scripts/despeckle.py $ART "$@"
 PYTHONPATH=/root/autodl-tmp/pv/pylib $P scripts/figures.py $ART "$@"
 DEPTH_MODEL=tmp/hf/Depth-Anything-V2-Small-hf SEG_MODEL=tmp/hf/clipseg-rd64-refined $P -I scripts/maps.py $ART "$@"
 pairs=()
