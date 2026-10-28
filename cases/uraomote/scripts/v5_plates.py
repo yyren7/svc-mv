@@ -223,10 +223,22 @@ def render(cam, samples, denoise, exposure, path, look=True):
     print("wrote", path, flush=True)
 
 
-def plate(name, out):
+def her_figure(picture, x, y, how, eye):
+    """Her, cut out of the finished picture (ART=v5), in the mannequin's place, turned to face the camera: the
+    fit check, the picture back in the light it was painted in."""
+    yaw = math.degrees(math.atan2(eye[1] - y, eye[0] - x)) - 180.0      # the sheet faces -X at yaw 0
+    return W.figure("her", picture, x, y, yaw=yaw, bottom=1.7 if how == "leap" else 0.012)
+
+
+def plate(name, out, picture=None):
     p = PLATES[name]
     W.build()
-    root, middle = mannequin(*p["her"])
+    x, y, how = p["her"]
+    if picture:
+        her_figure(picture, x, y, how, p["eye"])
+        middle = Vector((x, y, 2.5 if how == "leap" else 0.95))
+    else:
+        root, middle = mannequin(x, y, how)
     exposure = LIGHTS[p["light"]](middle)
     cam = cyc.camera(name, p["eye"], p["target"], p["lens"], p["fstop"])
     cam.data.clip_end = 10000.0
@@ -234,21 +246,26 @@ def plate(name, out):
     scene.render.resolution_x, scene.render.resolution_y = p["size"]
     scene.camera = cam
     cyc.autofocus(cam, middle)
+    if picture:
+        bpy.ops.wm.save_as_mainfile(filepath=os.path.join(out, f"{name}_fig.blend"))
+        render(cam, SAMPLES, True, exposure, os.path.join(out, f"{name}_fig_{picture}.png"))
+        return
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(out, f"{name}.blend"))
     render(cam, SAMPLES, True, exposure, os.path.join(out, f"{name}_plate.png"))
     paint("planes")
     render(cam, 16, False, 0.0, os.path.join(out, f"{name}_mask.png"), look=False)
     paint("her")
-    root.scale = WIDEN[p["her"][2]]
+    root.scale = WIDEN[how]
     render(cam, 16, False, 0.0, os.path.join(out, f"{name}_her.png"), look=False)
 
 
 def main():
+    """FIGURE=<picture> renders the plate with her figure from that picture in the mannequin's place instead."""
     out, names = cyc.args(os.path.join(C.RENDERS, "v5_plates"), list(PLATES))
     out = os.path.abspath(out)
     os.makedirs(out, exist_ok=True)
     for name in names:
-        plate(name, out)
+        plate(name, out, os.environ.get("FIGURE"))
 
 
 if __name__ == "__main__":

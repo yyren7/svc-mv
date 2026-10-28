@@ -30,8 +30,12 @@ import mvlib as m  # noqa: E402
 import paper as P  # noqa: E402
 import texlib as T  # noqa: E402
 
-ART = P.ART = os.path.join(C.CASE, "art", "v4")
+ART = P.ART = os.path.join(C.CASE, "art", os.environ.get("ART", "v4"))   # ART=v5: the pictures painted on the plates
 H.HERO = {"v4_kv_211"}
+# the stills' pictures; a v5 picture (painted on its plate, cases/uraomote/scripts/v5_plates.py) is full-body and
+# stands where its plate had her
+PICS = {"kv": os.environ.get("KV_PIC", "v4_kv_211"), "w1": os.environ.get("W1_PIC", "v4_w1_211"),
+        "u2": os.environ.get("U2_PIC", "v4_u2_211")}
 FONT = "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"
 ROSE, GLOW = "#F0285A", "#FF5C8A"
 SAMPLES = int(os.environ.get("SAMPLES", 0))             # 0: each shot's own count
@@ -251,10 +255,10 @@ def sun(direction, energy, kelvin, angle=0.6, name="sun", disc=None):
     return ob
 
 
-def figure(name, picture, x, y, yaw=0.0, height=1.62, seed=0, emission=None):
+def figure(name, picture, x, y, yaw=0.0, height=1.62, seed=0, emission=None, bottom=0.012):
     """Her, cut out of `picture`, standing on the water at (x, y), turned by `yaw` degrees (0: her picture facing
-    -X, the viewer's side)."""
-    ob = H.make_figure(name, picture, x, y, height=height, bottom=0.012, seed=seed, emission=emission)
+    -X, the viewer's side), her feet `bottom` metres up."""
+    ob = H.make_figure(name, picture, x, y, height=height, bottom=bottom, seed=seed, emission=emission)
     ob.rotation_euler.z += math.radians(yaw)
     return ob
 
@@ -282,8 +286,11 @@ def still_dawn():
     eye = Vector((-16.0, 3.5, 0.8))
     sun((eye - Vector((0.0, 2.5, 3.6))).normalized(), 5.0, 6200, disc=40.0)
     cyc.put(S.haze_vol.inputs["Density"], 0.003)
-    S.her = figure("her", "v4_kv_211", -2.6, -0.3, yaw=0.0, height=1.15)   # the KV shows her to the knees: she
-    #                                                                       stands in the water to there
+    if PICS["kv"].startswith("v5_"):
+        S.her = figure("her", PICS["kv"], -1.6, -1.2, yaw=0.0)            # full-body, where the kv plate had her
+    else:
+        S.her = figure("her", PICS["kv"], -2.6, -0.3, yaw=0.0, height=1.15)   # the v4 KV shows her to the knees:
+        #                                                                     she stands in the water to there
     fill = cyc.area_light("fill", (-7.0, -4.0, 3.0), (-2.6, -0.3, 1.2), 4.0, 9000, 70, color="#9FB2D8")
     fill.visible_glossy = False
     # the whole wall as the one thing standing in the sea, its top edge and both ends against the sky, its
@@ -301,7 +308,7 @@ def still_rain():
     cyc.put(S.rain, 1.0)
     cyc.put(S.rain_t, 0.37)
     cyc.put(S.sea_bump, 0.12)
-    S.her = figure("her", "v4_w1_211", -6.0, 0.6, yaw=0.0)
+    S.her = figure("her", PICS["w1"], -6.0, 0.6, yaw=0.0)
     glow = cyc.area_light("window_glow", (WALL_T + 0.9, WIN_Y, (WIN_Z0 + WIN_Z1) / 2), (-6.0, WIN_Y, 1.5), 2.0,
                           2000, 520, size_y=3.4, color=ROSE)       # (close behind the pane it edged the reveal in neon)
     glow.visible_glossy = False
@@ -324,9 +331,12 @@ def still_waterline():
     cyc.put(S.sea_bump, 0.0)
     # she stands in the water to her knees (the KV), 表; where her reflection should be, the water's mirror alone
     # sees her 裏 (U2, hugging her knees) lit by itself
-    S.her = figure("her", "v4_kv_211", -3.0, 0.0, yaw=0.0, height=1.15)
+    if PICS["kv"].startswith("v5_"):
+        S.her = figure("her", PICS["kv"], -3.0, 0.0, yaw=0.0)
+    else:
+        S.her = figure("her", PICS["kv"], -3.0, 0.0, yaw=0.0, height=1.15)
     S.her.visible_glossy = False
-    ura = figure("ura", "v4_u2_211", -3.0 - 0.002, 0.0, yaw=0.0, height=1.1, emission=9.0)
+    ura = figure("ura", PICS["u2"], -3.0 - 0.002, 0.0, yaw=0.0, height=1.1, emission=9.0)
     for attr in ("visible_camera", "visible_diffuse", "visible_transmission", "visible_shadow"):
         setattr(ura, attr, False)
     cold = cyc.area_light("cold", (-6.5, -2.0, 2.6), (-3.0, 0.0, 1.0), 2.0, 9000, 160, color="#7C94FF")
