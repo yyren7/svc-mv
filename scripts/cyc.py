@@ -56,7 +56,8 @@ def cycles(samples=BASE_SAMPLES, caustics=True, bounces=10, volume_bounces=1, lo
                 break
         except TypeError:
             continue
-    scene.cycles.device = "GPU"
+    # CYCLES_DEVICE=CPU: render on the processors while the GPU is busy (ComfyUI holds most of its memory)
+    scene.cycles.device = "CPU" if os.environ.get("CYCLES_DEVICE") == "CPU" else "GPU"
     scene.cycles.samples = samples
     scene.cycles.use_denoising = True
     # keep the GPU fed: denoise on the GPU, and reuse scene data between renders instead of rebuilding

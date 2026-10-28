@@ -39,10 +39,18 @@ TWIN_HAIR = "Her hair keeps its shape, but the rose-red underlayer glows through
 SIZES = {"kvn": TALL, "q1u": TALL}
 
 
+def clean(plates, name):
+    """The plate without its mannequin (round 3 laid her over the plate with it, and it stood out round her)."""
+    path = os.path.join(plates, f"{name}_clean.png")
+    if not os.path.exists(path):
+        sys.exit(f"no {path}: render it (CLEAN_ONLY=1 v5_plates.py ... {name})")
+    return path
+
+
 def twin_prep(plates, art, inp, twin, pick):
     """The 表 pick over the night plate, and the mask of her (widened, stopping at her feet)."""
     pic = np.asarray(Image.open(os.path.join(art, pick + SUFFIX)).convert("RGB")).astype(np.float32)
-    plate = Image.open(os.path.join(plates, f"{twin}_plate.png")).convert("RGB")
+    plate = Image.open(clean(plates, twin)).convert("RGB")
     if plate.size != (pic.shape[1], pic.shape[0]):
         plate = plate.resize((pic.shape[1], pic.shape[0]), Image.LANCZOS)
     fig = Image.open(os.path.join(art, "figures", pick + "_figure.png")).convert("L")
@@ -72,7 +80,7 @@ def twin_jobs(twin):
 def compose(plates, art, inp, plate, pick):
     """Her from the pick over the plate it was painted on: the init of a painted pass. Returns its file name."""
     pic = np.asarray(Image.open(os.path.join(art, pick + SUFFIX)).convert("RGB")).astype(np.float32)
-    bg = Image.open(os.path.join(plates, f"{plate}_plate.png")).convert("RGB")
+    bg = Image.open(clean(plates, plate)).convert("RGB")
     if bg.size != (pic.shape[1], pic.shape[0]):
         bg = bg.resize((pic.shape[1], pic.shape[0]), Image.LANCZOS)
     fig = Image.open(os.path.join(art, "figures", pick + "_figure.png")).convert("L")

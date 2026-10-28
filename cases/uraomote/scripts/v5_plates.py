@@ -4,6 +4,7 @@ of it stands in the light it was painted in, and a picture the camera enters has
 
     blender -b --factory-startup -P cases/uraomote/scripts/v5_plates.py -- [out_dir] [plate ...]
     -> <out>/<plate>_plate.png   the lit world, a grey mannequin where she stands (the picture's own size)
+       <out>/<plate>_clean.png   the same without the mannequin (CLEAN_ONLY=1: this one alone)
        <out>/<plate>_mask.png    flat colours, no mannequin: R the sky (beside the wall, through the window and
                                  the letters), G the water, black the wall and its frame
        <out>/<plate>_her.png     white where she may be painted: the mannequin, widened for hair, arms and skirt
@@ -280,7 +281,18 @@ def plate(name, out, picture=None):
         render(cam, SAMPLES, True, exposure, os.path.join(out, f"{name}_fig_{picture}.png"))
         return
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(out, f"{name}.blend"))
-    render(cam, SAMPLES, True, exposure, os.path.join(out, f"{name}_plate.png"))
+    mann = [ob for ob in bpy.context.scene.objects if ob.name.startswith("mann_")]
+    if not os.environ.get("CLEAN_ONLY"):
+        render(cam, SAMPLES, True, exposure, os.path.join(out, f"{name}_plate.png"))
+    # the world without the mannequin: what a picture's figure is laid over (where the mannequin is wider than
+    # her, the plate showed it round her), and the night plate a 裏 twin is painted on
+    for ob in mann:
+        ob.hide_render = True
+    render(cam, SAMPLES, True, exposure, os.path.join(out, f"{name}_clean.png"))
+    if os.environ.get("CLEAN_ONLY"):
+        return
+    for ob in mann:
+        ob.hide_render = False
     paint("planes")
     render(cam, 16, False, 0.0, os.path.join(out, f"{name}_mask.png"), look=False)
     paint("her")
