@@ -54,6 +54,11 @@ def has_maps(name):
     return os.path.exists(map_path(name, "depth"))
 
 
+def margin_of(ob):
+    """A print's bare border, as make_print remembered it (paper.MARGIN unless it was made full-bleed)."""
+    return ob.get("margin", P.MARGIN)
+
+
 def _blocks(a, n):
     """`a` averaged over n x n blocks: the map at the grid's coarseness, without its pixel noise."""
     h, w = (a.shape[0] // n) * n, (a.shape[1] // n) * n
@@ -70,7 +75,7 @@ def _soften(a, passes=2):
     return a
 
 
-def depth_relief(name, amount=RELIEF, size=None):
+def depth_relief(name, amount=RELIEF, size=None, margin=None):
     """(u, v) -> dx for paper.sheet from the picture's depth map: zero on the paper border and where the picture is
     a flat plane (its sky, water, mirrors stay in the paper), rising towards the viewer (-X) elsewhere."""
     d = load(map_path(name, "depth"))[..., 0]
@@ -86,7 +91,7 @@ def depth_relief(name, amount=RELIEF, size=None):
                       (np.arange(d.shape[1]) * fig.shape[1] // d.shape[1])[None, :]]
         d = d * (0.3 + 0.7 * fig)
     h, w = d.shape
-    mu, mv, rw, rh, s = P.layout(w, h, size)
+    mu, mv, rw, rh, s = P.layout(w, h, size, margin)
 
     def relief(u, v):
         pu = u * s[0] / rw - mu * s[0] / rw + (1 - s[0]) / 2
@@ -104,7 +109,7 @@ def picture_point(ob, name, pu, pv, lift=0.0):
     d = load(map_path(name, "depth"))[..., 0]
     h, w = d.shape
     W, Hh = P.size_of(ob)
-    mu, mv, rw, rh, s = P.layout(w, h, (W, Hh))
+    mu, mv, rw, rh, s = P.layout(w, h, (W, Hh), margin_of(ob))
     u = (pu - (1 - s[0]) / 2) * rw / s[0] + mu
     v = (pv - (1 - s[1]) / 2) * rh / s[1] + mv
     amount = ob.get("relief_amount", RELIEF)
@@ -123,7 +128,7 @@ def anchor(ob, name, part=0, lift=0.03):
         ys, xs = np.array([h // 2]), np.array([w // 2])
     pu, pv = (xs.mean() + 0.5) / w, (ys.mean() + 0.5) / h
     W, Hh = P.size_of(ob)
-    mu, mv, rw, rh, s = P.layout(w, h, (W, Hh))
+    mu, mv, rw, rh, s = P.layout(w, h, (W, Hh), margin_of(ob))
     size = ((xs.max() - xs.min() + 1) / w * rw / s[0] * W, (ys.max() - ys.min() + 1) / h * rh / s[1] * Hh)
     return dict(point=picture_point(ob, name, pu, pv, lift), size=size, uv=(pu, pv))
 
@@ -256,7 +261,7 @@ def _stain(nt, name):
 def sheet_uv(ob, name, pu, pv):
     """The sheet UV under the picture `name`'s point (pu, pv) on the print `ob`."""
     img = P.image(name)
-    mu, mv, rw, rh, s = P.layout(*img.size, P.size_of(ob))
+    mu, mv, rw, rh, s = P.layout(*img.size, P.size_of(ob), margin_of(ob))
     return (pu - (1 - s[0]) / 2) * rw / s[0] + mu, (pv - (1 - s[1]) / 2) * rh / s[1] + mv
 
 
@@ -279,10 +284,11 @@ def ring(name, y, z, r, a):
         cyc.put(rg[k], v)
 
 
-def hybrid_mat(name, front, back, sky, size=None):
+def hybrid_mat(name, front, back, sky, size=None, margin=None):
     """The print's material with its flat planes swapped for the room's: by the facing picture's flat map, G water,
-    B mirror, R the sky behind the window."""
-    mat = P.print_mat(front, back, size=size)
+    B mirror, R the sky behind the window. `margin` as paper.print_mat's (0: full bleed)."""
+    margin = P.MARGIN if margin is None else margin
+    mat = P.print_mat(front, back, size=size, margin=margin)
     nt = mat.node_tree
     out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
     chain = out.inputs["Surface"].links[0].from_socket
@@ -290,11 +296,11 @@ def hybrid_mat(name, front, back, sky, size=None):
     for pic in (front, back):
         path = map_path(pic, "flat")
         bpy.data.images.load(path, check_existing=True).colorspace_settings.name = "Non-Color"
-        flats.append(P.picture(nt, pic, P.MARGIN, file=path, size=size)[0])
+        flats.append(P.picture(nt, pic, margin, file=path, size=size, alpha=True)[0])
     geo = nt.nodes.new("ShaderNodeNewGeometry")
     flat = kit._mix_rgba(nt, geo.outputs["Backfacing"], flats[0], flats[1])
-    picture = kit._mix_rgba(nt, geo.outputs["Backfacing"], P.picture(nt, front, P.MARGIN, size=size)[0],
-                            P.picture(nt, back, P.MARGIN, size=size)[0])
+    picture = kit._mix_rgba(nt, geo.outputs["Backfacing"], P.picture(nt, front, margin, size=size, alpha=True)[0],
+                            P.picture(nt, back, margin, size=size, alpha=True)[0])
     sep = nt.nodes.new("ShaderNodeSeparateColor")
     nt.links.new(flat, sep.inputs[0])
     _stain(nt, name)
@@ -314,11 +320,13 @@ def landscape():
     return (P.SHEET_H, P.SHEET_W)
 
 
-def make_print(name, x, y, front, back, seed, sky=None, top=None, amount=None, fit=False):
+def make_print(name, x, y, front, back, seed, sky=None, top=None, amount=None, fit=False, margin=None):
     """paper.sheet's hybrid twin: the print `name` at (x, y) with the pictures' planes as the room's and the front
     picture's relief (a HERO picture at the full RELIEF, the others a little flatter). With `fit`, a wide picture
-    gets a sheet turned on its side instead of being cropped to the usual one. Without maps, a plain print."""
+    gets a sheet turned on its side instead of being cropped to the usual one. `margin` 0 is a full-bleed print
+    (a dark picture's white border under a lamp is a bar of light). Without maps, a plain print."""
     sky = sky or SKY
+    margin = P.MARGIN if margin is None else margin
     size = None
     if fit:
         img = P.image(front)
@@ -326,10 +334,12 @@ def make_print(name, x, y, front, back, seed, sky=None, top=None, amount=None, f
         if size == landscape() and top is None:
             top = P.TOP - 0.9                           # hung lower, so its middle is where a tall print's is
     if not (has_maps(front) and has_maps(back)):
-        return P.sheet(name, x, y, P.print_mat(front, back, size=size), seed, top=top, size=size)
+        ob = P.sheet(name, x, y, P.print_mat(front, back, size=size, margin=margin), seed, top=top, size=size)
+        ob["margin"] = margin
+        return ob
     amount = amount if amount is not None else (RELIEF if front in HERO else 0.65 * RELIEF)
     grid = (126, 72) if size == landscape() else (72, 126)
-    ob = P.sheet(name, x, y, hybrid_mat(name, front, back, sky, size), seed, top=top, grid=grid,
-                 relief=depth_relief(front, amount, size), size=size)
-    ob["relief_amount"] = amount
+    ob = P.sheet(name, x, y, hybrid_mat(name, front, back, sky, size, margin), seed, top=top, grid=grid,
+                 relief=depth_relief(front, amount, size, margin), size=size)
+    ob["relief_amount"], ob["margin"] = amount, margin
     return ob

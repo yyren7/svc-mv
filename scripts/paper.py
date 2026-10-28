@@ -74,14 +74,15 @@ def size_of(ob):
     return ob.get("sheet_w", SHEET_W), ob.get("sheet_h", SHEET_H)
 
 
-def picture(nt, name, margin=0.0, file=None, size=None):
+def picture(nt, name, margin=0.0, file=None, size=None, alpha=False):
     """An image texture on the sheet's UVs, the middle of the picture where its aspect differs from the sheet's.
     With `margin` (metres) the picture sits inside a border of bare paper and (colour, alpha) come back, alpha 0 on
-    the border; without, it fills the sheet and only the colour does. `file` is another image laid out exactly as
+    the border; without, it fills the sheet and only the colour does, unless `alpha` asks for the pair anyway (a
+    full-bleed print, margin 0, built the same way as a bordered one). `file` is another image laid out exactly as
     the picture `name` is (a map of it); `size` the sheet's (width, height) when it is not the usual one."""
     tex = nt.nodes.new("ShaderNodeTexImage")
     tex.image = bpy.data.images.load(file or path(name), check_existing=True)
-    tex.extension = "CLIP" if margin else "EXTEND"
+    tex.extension = "CLIP" if (margin or alpha) else "EXTEND"
     w, h = tex.image.size
     mu, mv, rw, rh, s = layout(w, h, size, margin)
     mp = nt.nodes.new("ShaderNodeMapping")                           # uv -> the rectangle as 0..1 -> the picture's middle
@@ -90,7 +91,7 @@ def picture(nt, name, margin=0.0, file=None, size=None):
     uv = nt.nodes.new("ShaderNodeTexCoord")
     nt.links.new(uv.outputs["UV"], mp.inputs["Vector"])
     nt.links.new(mp.outputs["Vector"], tex.inputs["Vector"])
-    return (tex.outputs["Color"], tex.outputs["Alpha"]) if margin else tex.outputs["Color"]
+    return (tex.outputs["Color"], tex.outputs["Alpha"]) if (margin or alpha) else tex.outputs["Color"]
 
 
 def multiply(nt, a, b):
@@ -155,14 +156,17 @@ def cockle(nt, co):
     return fine.outputs["Normal"]
 
 
-def print_mat(front, back, wet=None, size=None):
-    """Thin paper printed on both sides: the facing picture inside its border, translucent with both inks."""
+def print_mat(front, back, wet=None, size=None, margin=None):
+    """Thin paper printed on both sides: the facing picture inside its border (MARGIN, or `margin`; 0 is a
+    full-bleed print, the picture to the paper's edge: a dark picture's white border under the same lamp is a bar
+    of light down the frame), translucent with both inks."""
+    margin = MARGIN if margin is None else margin
     mat, nt, out = nodes(f"print_{front}_{back}")
     co = coords(nt)
     paper = bare(nt, co)
 
     def inked(name):
-        col, alpha = picture(nt, name, MARGIN, size=size)
+        col, alpha = picture(nt, name, margin, size=size, alpha=True)
         return kit._mix_rgba(nt, alpha, paper, multiply(nt, paper, col)), alpha
 
     (f, fa), (b, ba) = inked(front), inked(back)

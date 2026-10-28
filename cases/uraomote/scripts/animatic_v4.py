@@ -97,6 +97,17 @@ def sill_glass():
     S.glass_at = Vector((x, y - 0.2, 6.0))
     fx.glass_of_water("glass", S.glass_at)
     S.glass_ink = fx.ink_volume("glass_ink", 3.0)
+    # what the glass refracts: a soft white panel just outside the pane behind it, seen by transmission rays alone
+    # (the camera sees the window as it is), so the glass reads as a glass of water against the light. A cylinder
+    # of water is a lens that shows a wide sweep of what is behind it, and most of that was mullions, piers and
+    # the dark hall: the glass was a tube of black chrome against a white window
+    bpy.ops.mesh.primitive_plane_add(size=1.6, location=(x, V.WD / 2 + 0.3, 6.3), rotation=(math.pi / 2, 0, 0))
+    S.glass_light = bpy.context.active_object
+    S.glass_light.name = "glass_light"
+    S.glass_light.scale = (1.5, 0.75, 1.0)
+    S.glass_light.data.materials.append(fx.emission_mat("glass_light", "#EAF2FF", 3.0)[0])
+    for attr in ("visible_camera", "visible_diffuse", "visible_glossy", "visible_volume_scatter", "visible_shadow"):
+        setattr(S.glass_light, attr, False)
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.0035, segments=16, ring_count=8)
     S.drop = bpy.context.active_object
     S.drop.data.materials.append(fx.emission_mat("drop", ROSE, 3.0)[0])
@@ -199,8 +210,10 @@ def props():
     # the two prints seen closest, under raking lamps: a flatter relief, or its grain mottles the paper
     S.q_print = H.make_print("q_print", QC.x, QC.y, "v4_q1_211", "v4_u2_211", seed=91, fit=True,
                              amount=0.45 * H.RELIEF)
+    # C1 printed full-bleed: its dark water to the paper's edge. With a bare border, the spill shot's pull back
+    # showed the margin beside her dark picture as a white bar down the frame under the same lamp
     S.c1_print = H.make_print("c1_print", C1C.x, C1C.y, "v4_c1_211", "v4_u1_211", seed=92, fit=True,
-                              amount=0.4 * H.RELIEF)
+                              amount=0.4 * H.RELIEF, margin=0.0)
     S.float_print = P.sheet("float_print", 34.0, -4.0, P.print_mat("v4_q1_211", "v4_u4_211"), seed=94, top=0.0)
     # lying on the water, face up, its top at +X. Laid down, the sheet's bow and curl point into the water, so
     # they are pressed to a few millimetres and the whole sheet held just over the surface (as hung, all but its
@@ -229,6 +242,9 @@ def props():
     for attr in ("visible_camera", "visible_diffuse", "visible_transmission", "visible_volume_scatter",
                  "visible_shadow"):
         setattr(S.moon, attr, False)
+    # the 表 print whose reflection is her 裏 faces +X, down the hall: the camera on its far side looks back along
+    # the rows of prints glowing in the dark, so her face has the hall's depth behind it (facing -X, the camera
+    # had the plaster of the far wall 2 m behind the print, and the shot was a print on a wall)
     S.refl_omote = P.sheet("refl_omote", REFL.x, REFL.y, P.print_mat("v4_q1_211", "v4_u4_211"), seed=95, top=2.25)
     glow, nt, out = P.nodes("refl_ura")             # lit by itself: the water reflects only a few percent
     em = nt.nodes.new("ShaderNodeEmission")
@@ -236,15 +252,16 @@ def props():
     #                                                   where the water gives back a quarter, was blown white)
     nt.links.new(P.picture(nt, "v4_u4_211"), em.inputs["Color"])
     nt.links.new(em.outputs[0], out.inputs["Surface"])
-    S.refl_ura = P.sheet("refl_ura", REFL.x - 0.002, REFL.y, glow, seed=95, top=2.25)
+    S.refl_ura = P.sheet("refl_ura", REFL.x + 0.002, REFL.y, glow, seed=95, top=2.25)
     glow2, nt2, out2 = P.nodes("refl_flash")         # and 表 lit the same way, for the beat the reflection is 表
     em2 = nt2.nodes.new("ShaderNodeEmission")         # again: the paper print itself in the mirror was dim and
     em2.inputs["Strength"].default_value = 9.0        # speckled with its fibre at that grazing angle
     nt2.links.new(P.picture(nt2, "v4_q1_211"), em2.inputs["Color"])
     nt2.links.new(em2.outputs[0], out2.inputs["Surface"])
-    S.refl_flash = P.sheet("refl_flash", REFL.x - 0.001, REFL.y, glow2, seed=95, top=2.25)
+    S.refl_flash = P.sheet("refl_flash", REFL.x + 0.001, REFL.y, glow2, seed=95, top=2.25)
     for ob in (S.refl_omote, S.refl_ura, S.refl_flash):
         ob.scale = (0.5, 0.5, 0.5)                    # small and low, so the print and all of its reflection fit
+        ob.rotation_euler.z += math.pi                # the picture towards +X
     S.refl_omote.visible_glossy = False
     for ob in (S.refl_ura, S.refl_flash):
         for attr in ("visible_camera", "visible_transmission", "visible_diffuse", "visible_shadow"):
@@ -263,9 +280,9 @@ def props():
         "w1_rose": (al("w1_rose", W1C + Vector((2.5, 0.5, 1.4)), W1C, 1.5, 2000, 60, color=ROSE), 60.0),
         "w1_back": (al("w1_back", W1C + Vector((3.2, -1.8, 1.2)), W1C + Vector((0, 0, -0.6)), 2.0, 9000, 140,
                        color="#7C94FF"), 140.0),
-        "refl_cold": (al("refl_cold", REFL + Vector((-4.0, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 9000, 120,
+        "refl_cold": (al("refl_cold", REFL + Vector((4.0, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 9000, 120,
                          color="#7C94FF"), 120.0),
-        "refl_rose": (al("refl_rose", REFL + Vector((1.6, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 2000, 200,
+        "refl_rose": (al("refl_rose", REFL + Vector((-1.6, 0, 2.0)), REFL + Vector((0, 0, 1.4)), 2.0, 2000, 200,
                          color=ROSE), 200.0),
         "under": (al("under", (V.L / 2, 0, 0.12), (V.L / 2, 0, 3), 40, 2000, 2500, size_y=14, color=ROSE), 2500.0),
         "float_sun": (al("float_sun", (31.9, -0.5, 6.0), FLOAT_C, 3.0, 8000, 900), 900.0),
@@ -291,7 +308,8 @@ def setup():
     prints = V.hang(make=H.make_print)
     for key, (x, y) in STAGE.items():                   # the 2D shots' pictures, as prints too, each its own way up
         prints.append(H.make_print(f"stage_{key}", x, y, _pic(key), _pic(STAGE_BACKS[key]), seed=70 + len(prints),
-                                   fit=True))
+                                   fit=True, margin=0.0 if key == "r0" else None))   # R0 full-bleed: its top
+        #                                                 margin, lit, was a white bar across the frame as it tore
     S.prints_by = {p.name: p for p in prints}
     S.prints_by["stage_u1"].rotation_euler.z += math.pi   # her water faces the hall, so it has the hall to mirror
     S.prints = {p.name: p for p in prints}
@@ -365,7 +383,8 @@ def setup():
     S.home = {ob.name: (ob.location.copy(), ob.rotation_euler.copy())
               for ob in list(S.prints.values()) + S.panels + [S.kv]}
     S.everything_lit = S.dawn + S.cold + S.fronts + S.bulbs + list(S.behind.values()) + list(S.lights.values())
-    S.hidden = [S.rain, S.conf, S.dust, S.drop, S.zero, S.moon, S.ink["ob"], S.burst["ob"], S.glass_ink["ob"]] + \
+    S.hidden = [S.rain, S.conf, S.dust, S.drop, S.zero, S.moon, S.glass_light, S.ink["ob"], S.burst["ob"],
+                S.glass_ink["ob"]] + \
         [s["ob"] for s in S.shards] + [ob for hv in S.halves.values() for ob, _ in hv] + S.letter_lamps
     return scene
 
@@ -518,7 +537,7 @@ def into(key, zoom=1.0, cx=None, cy=None, lens=35.0, fstop=2.8, cold=1.0, rose=0
     p, name, on_back = S.where[key]
     W, Hh = P.size_of(p)
     img = bpy.data.images.load(_path(key), check_existing=True)
-    mu, mv, rw, rh, s = P.layout(*img.size, (W, Hh))
+    mu, mv, rw, rh, s = P.layout(*img.size, (W, Hh), H.margin_of(p))
     half = (W * rw / zoom) * 9 / 16 / (Hh * rh) / 2                             # the frame's half height, of the picture
     if cy is None:                                                              # one subject: her face, in frame
         hv = H.anchor(p, name, 0)["uv"][1]
@@ -701,6 +720,7 @@ def p1_drop(u, t, b):
     scene.cycles.glossy_bounces = 14           # a refraction counts as a glossy bounce too: at the default 4 the
     #                                            path died in the glass's far wall, and the glass was a black tube
     sky("s1", 1.5)                                                              # the glass against the bright window
+    S.glass_light.hide_render = False                                           # and bright through its water
     scene.view_settings.exposure = -0.5
     g, t15 = S.glass_at, at(15)
     if t15 - 0.35 <= t < t15:
@@ -727,6 +747,7 @@ def p1_seep(u, t, b):
         return
     dawn()
     g = S.glass_at
+    S.glass_light.hide_render = False
     ink(S.glass_ink, g + Vector((0, 0, 0.035)), (0.026, 0.026, 0.03), 1.2, 0.05)
     eye = Vector((5.35, 3.45, 4.85))
     look(eye, g + Vector((0, 0, 0.04)), lens=50, fstop=1.4, focus=0.9 + ((g - eye).length - 0.9) * ease(b - 19))
@@ -972,7 +993,7 @@ def p7_ura(u, t, b):
         night(cold=0.1, rose=0.3)
         light("refl_cold")
         light("refl_rose")                                                      # the print and all of its reflection
-        look(REFL + Vector((-4.4, 0.5, 1.1)), REFL + Vector((0, 0, 0.3)), lens=24, fstop=5.6)
+        look(REFL + Vector((4.4, 0.5, 1.1)), REFL + Vector((0, 0, 0.3)), lens=24, fstop=5.6)
     elif key:
         night(cold=0.0, rose=0.0, density=0.003)
         into(key, 1.05 + 0.08 * v, yaw=-6 + 12 * v, cold=0.6, rose=0.7)      # rose on her, the paper still cold
@@ -992,9 +1013,9 @@ def p7_reflect(u, t, b):
     # after U3's whole print over its whole reflection: from her face in the print, a slow tilt down the paper,
     # over the water line, into her other face lying reflected on the water in front of the print (both faces in
     # one frame leave the print a sixth of the width), and every beat a ring through that reflected face
-    eye = REFL + Vector((-3.8, 0.5, 0.9))
+    eye = REFL + Vector((3.8, 0.5, 0.9))                                        # on the print's +X side: the hall behind her
     w = ease((u - 0.12) / 0.7)
-    face, mirror = REFL + Vector((0, 0, 1.65)), REFL + Vector((-3.8 + 3.8 * 0.9 / (0.9 + 1.65), 0.5, 0.0))
+    face, mirror = REFL + Vector((0, 0, 1.65)), REFL + Vector((3.8 - 3.8 * 0.9 / (0.9 + 1.65), 0.5, 0.0))
     # the water stilled and barely a ring: a long lens close to a mirror sees a far virtual image, and a normal
     # tilted a few degrees moves that image by most of a metre, so any ripple here was liquid chrome
     put(S.water_bump, 0.0)
@@ -1009,7 +1030,7 @@ def p7_crack(u, t, b):
     look((9.0, 3.0, 3.0), (11.0, 7.0, 8.4), lens=35, fstop=5.6)
 
 
-SHARD_CUTS = [((10, 2, 7), (16, 6.5, 9.5)), ((14, 6, 9), (18, 1, 5)), ((20, 1.5, 5.5), (22, 7, 9.0)),
+SHARD_CUTS = [((10, 2, 7), (16, 6.5, 9.5)), ((14, 6, 9), (18, 1, 5)), ((20, 1.5, 5.5), (22, 7, 7.8)),
               ((24, 4, 8), (19, 6.5, 5.5)), ((12, 4, 5.5), (18, 6.5, 10)), ((17, 6.2, 7.5), (17, -2, 6)),
               ((26, 2, 9), (16, 6, 6))]           # never down the hall's length: far plaster lit flat is a grey slab
 #                                                   (the fourth cut, aimed at (16, 2, 6) and then (16, -2.5, 5), had
