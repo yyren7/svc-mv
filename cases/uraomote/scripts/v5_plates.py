@@ -65,10 +65,10 @@ PLATES = {
                lens=85, fstop=2.8),
     "u1": dict(size=WIDE, light="night", her=(-6.0, 1.0, "lie"), eye=(-4.7, 1.0, 2.6), target=(-4.7, 1.0, 0.0),
                lens=40, fstop=4.0),
-    # P7: she sits on the night water hugging her knees, the wall's dark foot behind her (at 70 mm her head was
-    # out of the frame)
-    "u2": dict(size=WIDE, light="night", her=(-4.0, 0.8, "sit"), eye=(-7.4, 0.3, 0.5), target=(-4.0, 0.8, 0.5),
-               lens=50, fstop=4.0),
+    # P7: she sits on the night water hugging her knees, the wall's dark foot behind her (the mannequin's head
+    # touched the top of the frame, but Qwen sat her lower and the picture holds)
+    "u2": dict(size=WIDE, light="night", her=(-4.0, 0.8, "sit"), eye=(-7.4, 0.3, 0.5), target=(-4.0, 0.8, 0.42),
+               lens=70, fstop=4.0),
 }
 # the 裏 twins: the same camera and place at night, painted from the 表 pick (cases/uraomote/jobs/v5_t3.py), so the
 # silhouette is the same and the two can stand for each other (the reflection that is her 裏, the KV' of P9)

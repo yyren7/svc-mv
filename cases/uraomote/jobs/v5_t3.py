@@ -24,8 +24,8 @@ SUFFIX = "_00001_.png"
 # the picks (picture names without the suffix); filled in from the contact sheets
 TWIN_PICKS = {"kvn": "v5_kv_213s", "q1u": None}
 ENTERED_PICKS = {}                     # plate -> pick, painted whole
-AGAIN = {"w1": (215, 217, 219), "u2": (215, 217), "f1": (215, 217)}   # plate -> seeds, drawn again (U2 and F1
-#   on their corrected plates: her head was out of U2's frame, F1 looked into the sky's mirror seam)
+AGAIN = {"w1": (215, 217, 219), "f1": (215, 217, 219)}   # plate -> seeds, drawn again (F1 on its corrected
+#   plate: it looked into the sky's mirror seam)
 PAINT_WITH = os.environ.get("PAINT_WITH", "qwen:0.7")      # round 2's test: Qwen at 0.7 paints the wall, the frame
 #   and the sea in her hand and keeps them where they were (the horizon within a few pixels); Anima at 0.55/0.65
 #   turned the rose hair orange and the sea into floor tiles and planks
