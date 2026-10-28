@@ -62,7 +62,10 @@ QC = Vector((33.5, 0.0, 2.9))                        # Q1 / Q2's print (P3); the
 #                                                      camera inside its back picture stands 4 m behind it
 W1C = Vector((35.5, 5.0, 2.1))                       # her cardboard in the rain (P6)
 C1C = Vector((29.0, -1.6, 2.6))                      # C1's print, its ink running off into the water (P5.1)
-REFL = Vector((38.0, -5.0, 0.0))                     # a 表 print whose reflection is her 裏 (P7.3, U3)
+REFL = Vector((35.2, -5.6, 0.0))                     # a 表 print whose reflection is her 裏 (P7.3, U3); it faces +X
+#                                                      and the camera 4 m beyond it looks back down the hall (at x 38
+#                                                      that camera stood outside the far wall); clear of the shot from
+#                                                      above (x 29.8-34.0)
 PATH = ["print_1_+1.6", "print_2_+0.0", "print_3_+1.6", "print_4_+0.0", "print_5_+1.6", "print_6_+0.0"]
 # the pictures of the 2D shots hang as hybrid prints (wide ones on their side) behind the cameras' usual places,
 # before row 0: a shot goes into one (into()) instead of putting a card before the lens. The water picture in the
@@ -97,15 +100,16 @@ def sill_glass():
     S.glass_at = Vector((x, y - 0.2, 6.0))
     fx.glass_of_water("glass", S.glass_at)
     S.glass_ink = fx.ink_volume("glass_ink", 3.0)
-    # what the glass refracts: a soft white panel just outside the pane behind it, seen by transmission rays alone
-    # (the camera sees the window as it is), so the glass reads as a glass of water against the light. A cylinder
-    # of water is a lens that shows a wide sweep of what is behind it, and most of that was mullions, piers and
-    # the dark hall: the glass was a tube of black chrome against a white window
-    bpy.ops.mesh.primitive_plane_add(size=1.6, location=(x, V.WD / 2 + 0.3, 6.3), rotation=(math.pi / 2, 0, 0))
+    # what the glass refracts: a soft white panel just inside the pane behind it, in front of the mullions and the
+    # piers, seen by transmission rays alone (the camera sees the window as it is), so the glass reads as a glass
+    # of water against the light. A cylinder of water is a lens that shows a wide sweep of what is behind it, and
+    # most of that was mullions, piers and the dark hall: the glass was a tube of black chrome against a white
+    # window (a panel outside the pane changed little: the mullions stayed between it and the glass)
+    bpy.ops.mesh.primitive_plane_add(size=1.6, location=(x, V.WD / 2 - 0.02, 6.5), rotation=(math.pi / 2, 0, 0))
     S.glass_light = bpy.context.active_object
     S.glass_light.name = "glass_light"
-    S.glass_light.scale = (1.5, 0.75, 1.0)
-    S.glass_light.data.materials.append(fx.emission_mat("glass_light", "#EAF2FF", 3.0)[0])
+    S.glass_light.scale = (1.6, 1.0, 1.0)
+    S.glass_light.data.materials.append(fx.emission_mat("glass_light", "#EAF2FF", 4.0)[0])
     for attr in ("visible_camera", "visible_diffuse", "visible_glossy", "visible_volume_scatter", "visible_shadow"):
         setattr(S.glass_light, attr, False)
     bpy.ops.mesh.primitive_uv_sphere_add(radius=0.0035, segments=16, ring_count=8)
@@ -407,7 +411,7 @@ def reset(scene, t, b):
     for ob in S.hidden:
         if not ob.hide_render:
             ob.hide_render = True
-    for p in S.prints.values():
+    for p in list(S.prints.values()) + [S.float_print]:
         if p.hide_render:
             p.hide_render = False
     for name, (loc, rot) in S.home.items():
@@ -993,6 +997,7 @@ def p7_ura(u, t, b):
         night(cold=0.1, rose=0.3)
         light("refl_cold")
         light("refl_rose")                                                      # the print and all of its reflection
+        S.float_print.hide_render = True              # (it lies on the water just beyond the print, in this view)
         look(REFL + Vector((4.4, 0.5, 1.1)), REFL + Vector((0, 0, 0.3)), lens=24, fstop=5.6)
     elif key:
         night(cold=0.0, rose=0.0, density=0.003)
@@ -1008,6 +1013,7 @@ def p7_reflect(u, t, b):
     night(cold=0.1, rose=0.3)
     light("refl_cold")
     light("refl_rose", 0.6)
+    S.float_print.hide_render = True
     flash = t - at(math.floor(b)) < 2 / FPS                                     # once a bar the reflection is 表 again
     S.refl_ura.visible_glossy, S.refl_flash.visible_glossy = not flash, flash
     # after U3's whole print over its whole reflection: from her face in the print, a slow tilt down the paper,
