@@ -865,8 +865,10 @@ def p4_chorus(u, t, b):
         x = 6.8 + 7.0 * v                                                       # the paper wet so the light comes through
         wet(S.prints["print_2_+0.0"], V.WET + 0.5)
         look((x, 0.15, 2.9), (x + 5, 0.15, 2.9), lens=20, fstop=5.6, focus=(max(10.0, x + 2.0), 0.15, 2.9))
-    else:                                                                       # from under the water
-        look((4.0 + 1.5 * v, -0.8, -0.012), (12, 0.5, 4.5), lens=20, fstop=8)
+    else:                                                                       # from the water, looking up at the prints
+        look((4.0 + 1.5 * v, -0.8, 0.02), (12, 0.5, 6.5), lens=20, fstop=8)    # (from under the surface it was a
+    #                                                                              jumble: prints through Snell's window
+    #                                                                              over a mirror of the floor)
     tb = at(math.floor(b) + beat / 4)
     if beat == 0 and t - tb < 1.0 / FPS:
         S.lineart.default_value = 1.0                                           # D4: one frame as the negative on paper
