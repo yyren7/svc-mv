@@ -266,10 +266,14 @@ def sun(direction, energy, kelvin, angle=0.6, name="sun", disc=None):
     return ob
 
 
+FIG_GLOW = float(os.environ.get("FIG_GLOW", 0.0))       # the paper figure also gives off its picture (world_mat)
+
+
 def figure(name, picture, x, y, yaw=0.0, height=1.62, seed=0, emission=None, bottom=0.012):
     """Her, cut out of `picture`, standing on the water at (x, y), turned by `yaw` degrees (0: her picture facing
     -X, the viewer's side), her feet `bottom` metres up."""
-    ob = H.make_figure(name, picture, x, y, height=height, bottom=bottom, seed=seed, emission=emission)
+    ob = H.make_figure(name, picture, x, y, height=height, bottom=bottom, seed=seed, emission=emission,
+                       glow=0.0 if emission else FIG_GLOW)
     ob.rotation_euler.z += math.radians(yaw)
     return ob
 

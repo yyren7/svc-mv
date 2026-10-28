@@ -329,19 +329,38 @@ def figure_box(name):
     return (xs.min() / w, ys.min() / h, (xs.max() + 1) / w, (ys.max() + 1) / h)
 
 
-def world_mat(name, picture, size=None, cutout=False, sky=True, water=True, emission=None):
+def world_mat(name, picture, size=None, cutout=False, sky=True, water=True, emission=None, glow=0.0):
     """The print's material for a picture set into the world itself: its flat planes cut through to whatever is
     behind the paper (R sky or window and G water become transparent, so the world's real sky and water show in
     them; B mirror stays mirror glass), the paper's back bare; with `cutout`, everything that is not her (the
     figure from scripts/figures.py) is transparent too, and the sheet is a 2D figure standing in a 3D place. The
     ink stain (STAINS) is on it as on a hybrid print. With `emission` (a strength) the picture is lit by itself
-    instead of being paper: the version of her that only the water's mirror sees."""
+    instead of being paper: the version of her that only the water's mirror sees. With `glow`, paper that also
+    gives off its picture at that strength, front only: a picture painted in the world's light already holds that
+    light, and paper alone, lit again by the lamps, came out either murky or flattened."""
     if emission is None:
         mat = P.print_mat(picture, None, size=size, margin=0.0)
         nt = mat.node_tree
         out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
         chain = out.inputs["Surface"].links[0].from_socket
         _stain(nt, name)
+        if glow:
+            em = nt.nodes.new("ShaderNodeEmission")
+            nt.links.new(P.picture(nt, picture, 0.0, size=size, alpha=True)[0], em.inputs["Color"])
+            front = nt.nodes.new("ShaderNodeMath")
+            front.operation = "SUBTRACT"
+            front.inputs[0].default_value = 1.0
+            nt.links.new(nt.nodes.new("ShaderNodeNewGeometry").outputs["Backfacing"], front.inputs[1])
+            k = nt.nodes.new("ShaderNodeMath")
+            k.operation = "MULTIPLY"
+            k.name = k.label = "glow"
+            k.inputs[1].default_value = glow
+            nt.links.new(front.outputs[0], k.inputs[0])
+            nt.links.new(k.outputs[0], em.inputs["Strength"])
+            add = nt.nodes.new("ShaderNodeAddShader")
+            nt.links.new(chain, add.inputs[0])
+            nt.links.new(em.outputs[0], add.inputs[1])
+            chain = add.outputs[0]
     else:
         mat, nt, out = P.nodes(f"lit_{picture}")
         em = nt.nodes.new("ShaderNodeEmission")
@@ -381,7 +400,7 @@ def world_mat(name, picture, size=None, cutout=False, sky=True, water=True, emis
 
 
 def make_figure(name, picture, x, y, height=1.62, bottom=0.01, seed=0, amount=None, grid=None, emission=None,
-                flat=0.3):
+                flat=0.3, glow=0.0):
     """Her cut out of `picture` as a 2D figure standing in the world at (x, y): a sheet the picture's own aspect,
     sized so she is `height` metres tall with her feet `bottom` metres over the floor, her figure in relief, the
     rest of the paper transparent, no clips and nearly flat. Returns the sheet (origin: the middle of its top
@@ -393,7 +412,7 @@ def make_figure(name, picture, x, y, height=1.62, bottom=0.01, seed=0, amount=No
     size = (Hh * w / h, Hh)
     amount = amount if amount is not None else (RELIEF if picture in HERO else 0.65 * RELIEF)
     grid = grid or ((72, 126) if h >= w else (126, 72))
-    ob = P.sheet(name, x, y, world_mat(name, picture, size, cutout=True, emission=emission), seed,
+    ob = P.sheet(name, x, y, world_mat(name, picture, size, cutout=True, emission=emission, glow=glow), seed,
                  top=bottom + Hh * (1 - v0), grid=grid, relief=depth_relief(picture, amount, size, 0.0), size=size,
                  clips=False, flat=flat)
     ob["relief_amount"], ob["margin"], ob["picture"] = amount, 0.0, picture
