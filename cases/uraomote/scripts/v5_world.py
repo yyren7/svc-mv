@@ -238,15 +238,17 @@ def build():
 def still_dawn():
     """Sunrise behind the wall: the letters as light with their long reflections, the window full of the dawn
     sky, and her (the KV) standing on the water before the wall, lit from behind, her reflection under her."""
-    set_sky("s1", 0.9)
+    set_sky("s1", 1.1)
     sun((-1.0, 0.25, -0.17), 5.0, 6200)                 # low, from behind the wall, a little from the viewer's left
     cyc.put(S.haze_vol.inputs["Density"], 0.0025)
     S.her = figure("her", "v4_kv_211", -2.6, -0.3, yaw=0.0, height=1.15)   # the KV shows her to the knees: she
     #                                                                       stands in the water to there
     fill = cyc.area_light("fill", (-7.0, -4.0, 3.0), (-2.6, -0.3, 1.2), 4.0, 9000, 70, color="#9FB2D8")
     fill.visible_glossy = False
-    eye, target = (-10.5, 2.4, 0.55), (-1.4, -0.6, 1.5)
-    return cyc.camera("dawn", eye, target, 35, 5.6), target, -0.4
+    # the whole wall as the one thing standing in the sea, its top edge and both ends against the sky, its
+    # reflection under it; she is small before it (a drawn girl in a real place)
+    eye, target = (-16.0, 3.5, 0.8), (-0.5, -0.3, 2.6)
+    return cyc.camera("dawn", eye, target, 32, 5.6), target, -0.5
 
 
 def still_rain():
@@ -259,8 +261,8 @@ def still_rain():
     cyc.put(S.rain_t, 0.37)
     cyc.put(S.sea_bump, 0.12)
     S.her = figure("her", "v4_w1_211", -6.0, 0.6, yaw=0.0)
-    glow = cyc.area_light("window_glow", (WALL_T + 0.4, WIN_Y, (WIN_Z0 + WIN_Z1) / 2), (-6.0, WIN_Y, 1.5), 2.0,
-                          2000, 600, size_y=3.4, color=ROSE)
+    glow = cyc.area_light("window_glow", (WALL_T + 0.9, WIN_Y, (WIN_Z0 + WIN_Z1) / 2), (-6.0, WIN_Y, 1.5), 2.0,
+                          2000, 520, size_y=3.4, color=ROSE)       # (close behind the pane it edged the reveal in neon)
     glow.visible_glossy = False
     key = cyc.area_light("key", (-9.5, -2.5, 2.4), (-6.0, 0.6, 1.1), 1.5, 9000, 110, color="#7C94FF")
     key.visible_glossy = False
@@ -290,7 +292,7 @@ def still_waterline():
     cold.visible_glossy = False
     rose = cyc.area_light("rose", (-1.4, 1.5, 2.2), (-3.0, 0.0, 0.9), 2.0, 2000, 120, color=ROSE)
     rose.visible_glossy = False
-    eye, target = (-8.2, 0.9, 0.7), (-3.0, 0.0, 0.1)
+    eye, target = (-8.6, 1.4, 0.7), (-3.0, 0.0, 0.1)
     return cyc.camera("waterline", eye, target, 28, 5.6), target, 0.4
 
 
