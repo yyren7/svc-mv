@@ -38,7 +38,8 @@ SAMPLES = int(os.environ.get("SAMPLES", 0))             # 0: each shot's own cou
 SEA, DOME = 2000.0, 3000.0                               # the water's radius, the sky's
 WALL_W, WALL_H, WALL_T = 8.0, 6.0, 0.4                  # the wall: along y, up, thick (x 0..T, the viewer at -X)
 WIN_Y, WIN_W, WIN_Z0, WIN_Z1 = -1.2, 2.4, 0.9, 4.5        # the window: centre y (the viewer's right is -Y), width, sill, head
-LETTERS = [("表", 2.6, -(WALL_H - 3.9)), ("裏", 2.6, -(WALL_H - 2.9))]   # the viewer's left, 3.9 and 2.9 m up
+LETTERS = [("表", 2.5, -(WALL_H - 4.35)), ("裏", 2.5, -(WALL_H - 2.95))]   # the viewer's left, 4.35 and 2.95 m up
+LETTER_H = 1.1                                           # a letter's height: the KV's big characters, not a sign
 SKIES = {"s1": "v4_s1_211", "s2": "v4_s2_211", "s3": "v4_s3_211"}
 
 
@@ -105,7 +106,7 @@ def sky():
     el = g.math("POWER", g.math("DIVIDE", sep.outputs["Z"], DOME, clamp=True), 0.6)              # 0 horizon .. 1 zenith
     uv = g.node("ShaderNodeCombineXYZ")
     g.link(g.math("MULTIPLY", az, 1.0), uv.inputs["X"])
-    g.link(g.math("ADD", g.math("MULTIPLY", el, 0.88), 0.1), uv.inputs["Y"])
+    g.link(g.math("ADD", g.math("MULTIPLY", el, 0.78), 0.22), uv.inputs["Y"])   # the picture's own horizon at the horizon
     tex = g.node("ShaderNodeTexImage", extension="MIRROR")
     tex.image = P.image(SKIES["s1"])
     g.link(uv.outputs[0], tex.inputs["Vector"])
@@ -135,6 +136,13 @@ def wall():
     ob = A.rounded_box("wall", (WALL_T, WALL_W, WALL_H), 0.0, [plaster])
     ob.data.transform(Matrix.Translation((WALL_T / 2, 0.0, -WALL_H / 2)))     # x 0..T, z 0..-H about the top edge
     ob.location = (0.0, 0.0, WALL_H)
+    for poly in ob.data.polygons:
+        poly.use_smooth = False
+    # cut on a fine grid, not on six quads: the booleans' long sliver triangles across a whole face shaded as dark
+    # rays radiating from the letters over the plaster
+    sub = ob.modifiers.new("grid", "SUBSURF")
+    sub.subdivision_type = "SIMPLE"
+    sub.levels = sub.render_levels = 5
     S.plaster = plaster
     # the window: a hole, cut with a box a little deeper than the wall
     hh = WIN_Z1 - WIN_Z0
@@ -163,7 +171,7 @@ def wall():
     sill.location = (WALL_T / 2 - 0.15, WIN_Y, WIN_Z0 - 0.04)
     S.sill_top = WIN_Z0
     glow = fx.emission_mat("letter_lamp", "#FF8DA6", 1.1)[0]
-    S.letter_lamps = fx.cut_letters(ob, FONT, LETTERS, 0.7, glow, radius=0.42, offsets=(-0.22, 0.0, 0.22),
+    S.letter_lamps = fx.cut_letters(ob, FONT, LETTERS, LETTER_H, glow, radius=0.65, offsets=(-0.34, 0.0, 0.34),
                                     x=WALL_T + 0.3, at=WALL_T / 2, extrude=WALL_T / 2 + 0.05)
     for lamp in S.letter_lamps:
         lamp.hide_render = True
@@ -230,15 +238,15 @@ def build():
 def still_dawn():
     """Sunrise behind the wall: the letters as light with their long reflections, the window full of the dawn
     sky, and her (the KV) standing on the water before the wall, lit from behind, her reflection under her."""
-    set_sky("s1", 1.4)
-    sun((-1.0, 0.25, -0.17), 7.0, 6200)                 # low, from behind the wall, a little from the viewer's left
-    cyc.put(S.haze_vol.inputs["Density"], 0.006)
+    set_sky("s1", 0.9)
+    sun((-1.0, 0.25, -0.17), 5.0, 6200)                 # low, from behind the wall, a little from the viewer's left
+    cyc.put(S.haze_vol.inputs["Density"], 0.0025)
     S.her = figure("her", "v4_kv_211", -2.6, -0.3, yaw=0.0, height=1.15)   # the KV shows her to the knees: she
     #                                                                       stands in the water to there
-    fill = cyc.area_light("fill", (-7.0, -4.0, 3.0), (-2.6, -0.3, 1.2), 4.0, 9000, 90, color="#9FB2D8")
+    fill = cyc.area_light("fill", (-7.0, -4.0, 3.0), (-2.6, -0.3, 1.2), 4.0, 9000, 70, color="#9FB2D8")
     fill.visible_glossy = False
     eye, target = (-10.5, 2.4, 0.55), (-1.4, -0.6, 1.5)
-    return cyc.camera("dawn", eye, target, 35, 5.6), target, 0.3
+    return cyc.camera("dawn", eye, target, 35, 5.6), target, -0.4
 
 
 def still_rain():
@@ -252,7 +260,7 @@ def still_rain():
     cyc.put(S.sea_bump, 0.12)
     S.her = figure("her", "v4_w1_211", -6.0, 0.6, yaw=0.0)
     glow = cyc.area_light("window_glow", (WALL_T + 0.4, WIN_Y, (WIN_Z0 + WIN_Z1) / 2), (-6.0, WIN_Y, 1.5), 2.0,
-                          2000, 900, size_y=3.4, color=ROSE)
+                          2000, 600, size_y=3.4, color=ROSE)
     glow.visible_glossy = False
     key = cyc.area_light("key", (-9.5, -2.5, 2.4), (-6.0, 0.6, 1.1), 1.5, 9000, 110, color="#7C94FF")
     key.visible_glossy = False
@@ -268,20 +276,22 @@ def still_waterline():
     """Her face over the water line and, in the water under it, her 裏 (U2) where her reflection should be: the
     water's mirror alone sees a lit U2 figure standing in her place."""
     set_sky("s2", 0.35)
-    cyc.put(S.haze_vol.inputs["Density"], 0.004)
+    cyc.put(S.haze_vol.inputs["Density"], 0.002)
     cyc.put(S.haze_vol.inputs["Color"], m.srgb("#C4BCD0"))
     cyc.put(S.sea_bump, 0.0)
-    S.her = figure("her", "v4_q1_211", -3.0, 0.0, yaw=0.0, height=0.78)      # Q1 is a bust: head to chest
+    # she stands in the water to her knees (the KV), 表; where her reflection should be, the water's mirror alone
+    # sees her 裏 (U2, hugging her knees) lit by itself
+    S.her = figure("her", "v4_kv_211", -3.0, 0.0, yaw=0.0, height=1.15)
     S.her.visible_glossy = False
-    ura = figure("ura", "v4_u2_211", -3.0 - 0.002, 0.0, yaw=0.0, height=0.78, emission=9.0)
+    ura = figure("ura", "v4_u2_211", -3.0 - 0.002, 0.0, yaw=0.0, height=1.1, emission=9.0)
     for attr in ("visible_camera", "visible_diffuse", "visible_transmission", "visible_shadow"):
-        setattr(ura, attr, False)                       # only the water's mirror sees her 裏
-    cold = cyc.area_light("cold", (-6.5, -2.0, 2.6), (-3.0, 0.0, 1.3), 2.0, 9000, 160, color="#7C94FF")
+        setattr(ura, attr, False)
+    cold = cyc.area_light("cold", (-6.5, -2.0, 2.6), (-3.0, 0.0, 1.0), 2.0, 9000, 160, color="#7C94FF")
     cold.visible_glossy = False
-    rose = cyc.area_light("rose", (-1.4, 1.5, 2.2), (-3.0, 0.0, 1.2), 2.0, 2000, 120, color=ROSE)
+    rose = cyc.area_light("rose", (-1.4, 1.5, 2.2), (-3.0, 0.0, 0.9), 2.0, 2000, 120, color=ROSE)
     rose.visible_glossy = False
-    eye, target = (-7.6, 0.8, 0.8), (-3.0, 0.0, 0.25)
-    return cyc.camera("waterline", eye, target, 28, 5.6), target, 0.5
+    eye, target = (-8.2, 0.9, 0.7), (-3.0, 0.0, 0.1)
+    return cyc.camera("waterline", eye, target, 28, 5.6), target, 0.4
 
 
 STILLS = {"dawn": still_dawn, "rain": still_rain, "waterline": still_waterline}
