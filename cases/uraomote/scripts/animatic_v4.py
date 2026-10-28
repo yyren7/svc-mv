@@ -703,7 +703,8 @@ def letters(kv):
     # the glyph's right along -Y and its up along +Z, as seen from the front of the print (from -X)
     turn = Matrix(((0, 0, -1, 0), (-1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
     S.letter_lamps = []
-    glow = _emission_mat("letter_lamp", ROSE, 1.5)[0]     # (at 6 the letters were a neon sign)
+    glow = _emission_mat("letter_lamp", "#FF8DA6", 1.1)   # paler and dimmer than the rose: light through paper, not
+    #                                                        a sign (side by side with ROSE at 1.5 on the back cover)[0]     # (at 6 the letters were a neon sign)
     for k, (ch, z) in enumerate((("表", -1.05), ("裏", -1.95))):
         cu = bpy.data.curves.new(f"letter{k}", "FONT")
         cu.body, cu.font, cu.size, cu.extrude = ch, font, 1.0, 0.25
