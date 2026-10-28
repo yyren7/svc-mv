@@ -357,6 +357,8 @@ def rain():
     verts, faces = [], []
     for i in range(3200):
         x, y, z = r.uniform(-7, 7), r.uniform(-7, 7), r.uniform(0, 16)
+        if x * x + y * y < 0.8 ** 2:                 # none within arm's reach of the camera, which rides at the
+            continue                                 # block's axis: those were white rods the height of the frame
         ln, w = r.uniform(0.3, 0.7), r.uniform(0.0006, 0.0016)
         lx, ly = 0.07 * ln + r.uniform(-0.01, 0.01), 0.03 * ln + r.uniform(-0.01, 0.01)   # the wind, along +X
         for dx, dy in ((w, 0), (0, w)):
