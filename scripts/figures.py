@@ -7,6 +7,7 @@ the edge, a guided filter pulls the edge onto the picture's own hair strands), p
        <art dir>/figures/<name>_check.jpg      the picture over mid grey where she is not
     env: MODELS=/root/autodl-tmp/pv/models (anime-seg/isnetis.onnx, from scripts/onepic_setup.sh)
          PIC_SUFFIX=_00001_.png
+         PLATES=<dir>   a picture painted on a plate (v5_<plate>_...) is looked for inside the plate's mannequin
 
 Runs on the server (onnxruntime, OpenCV in pv/pylib). scripts/hybrid.py reads the figure for a cut-out print.
 """
@@ -43,17 +44,24 @@ def guided(guide, src, r, eps):
     return (box(a) * guide + box(b)).clip(0, 1)
 
 
-def figure(img):
+def figure(img, hint=None):
     """The character's alpha 0..1: whole picture, then her box, then the guided edge; only alpha within 12 px of
-    where she is solid is kept (ISNet leaves a haze over glowing background beside her)."""
-    m = seg(img)
-    ys, xs = np.nonzero(m > 0.5)
-    if len(xs) == 0:
-        return m
-    H, W = m.shape
+    where she is solid is kept (ISNet leaves a haze over glowing background beside her). `hint`: a box (x0, y0,
+    x1, y1) where she is known to be (the mannequin of the picture's plate), used instead of the first pass, which
+    misses a figure 4% of a wide picture."""
+    H, W = img.shape[:2]
     pad = int(0.04 * W)
-    y0, y1, x0, x1 = max(ys.min() - pad, 0), min(ys.max() + pad, H), max(xs.min() - pad, 0), min(xs.max() + pad, W)
-    m = np.zeros_like(m)
+    if hint is not None:
+        x0, y0, x1, y1 = hint
+        hw, hh = (x1 - x0) * 0.25, (y1 - y0) * 0.12
+        y0, y1, x0, x1 = (max(int(y0 - hh), 0), min(int(y1 + hh), H), max(int(x0 - hw), 0), min(int(x1 + hw), W))
+    else:
+        m = seg(img)
+        ys, xs = np.nonzero(m > 0.5)
+        if len(xs) == 0:
+            return m
+        y0, y1, x0, x1 = max(ys.min() - pad, 0), min(ys.max() + pad, H), max(xs.min() - pad, 0), min(xs.max() + pad, W)
+    m = np.zeros((H, W), np.float32)
     m[y0:y1, x0:x1] = seg(img[y0:y1, x0:x1])
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY).astype(np.float32) / 255
     m = guided(gray, m.astype(np.float32), 4, 1e-4)
@@ -62,13 +70,27 @@ def figure(img):
     return (m * core).clip(0, 1)
 
 
+def plate_hint(name, size):
+    """With PLATES=<dir> (cases/uraomote/scripts/v5_plates.py's renders) and a picture named v5_<plate>_..., the box
+    of the plate's mannequin, scaled to the picture."""
+    plates = os.environ.get("PLATES")
+    if not plates or not name.startswith("v5_"):
+        return None
+    path = os.path.join(plates, name[3:].split("_")[0] + "_her.png")
+    if not os.path.exists(path):
+        return None
+    her = np.asarray(Image.open(path).convert("L").resize(size, Image.NEAREST)) > 128
+    ys, xs = np.nonzero(her)
+    return (xs.min(), ys.min(), xs.max() + 1, ys.max() + 1) if len(xs) else None
+
+
 def main():
     art, names = sys.argv[1], sys.argv[2:]
     out = os.path.join(art, "figures")
     os.makedirs(out, exist_ok=True)
     for name in names:
         img = np.asarray(Image.open(os.path.join(art, name + SUFFIX)).convert("RGB"))
-        a = figure(img)
+        a = figure(img, plate_hint(name, (img.shape[1], img.shape[0])))
         Image.fromarray((a * 255).astype(np.uint8), "L").save(os.path.join(out, f"{name}_figure.png"))
         grey = np.full_like(img, 110)
         chk = (img.astype(np.float32) * a[..., None] + grey * (1 - a[..., None])).astype(np.uint8)
