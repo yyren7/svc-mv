@@ -28,7 +28,7 @@ TWIN_PICKS = {"kvn": "v5_kv_213s", "q1u": "v5_q1s_211s"}
 # window behind A4, a door frame behind A2, halos, specks); "whole" paints the picture as it is (A3: her face
 # reflected in the glass is outside her figure and must stay)
 ENTERED_PICKS = {"a1": ("v5_a1_217s", "compose"), "a3": ("v5_a3_213s", "whole"), "a4": ("v5_a4_211s", "compose"),
-                 "a5": ("v5_a5_213s", "compose"), "u2": ("v5_u2_211s", "compose")}
+                 "a5": ("v5_a5_213s", "compose"), "u2": ("v5_u2_211s", "compose"), "u1": ("v5_u1_211s", "compose")}
 AGAIN = {"w1": (215, 217, 219), "f1": (215, 217, 219), "a2": (215, 217)}   # plate -> seeds, drawn again (F1 on its corrected
 #   plate: it looked into the sky's mirror seam; A2 with the wall in the frame)
 PAINT_WITH = os.environ.get("PAINT_WITH", "qwen:0.7")      # round 2's test: Qwen at 0.7 paints the wall, the frame
