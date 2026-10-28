@@ -38,8 +38,9 @@ SAMPLES = int(os.environ.get("SAMPLES", 0))             # 0: each shot's own cou
 SEA, DOME = 2000.0, 3000.0                               # the water's radius, the sky's
 WALL_W, WALL_H, WALL_T = 8.0, 6.0, 0.4                  # the wall: along y, up, thick (x 0..T, the viewer at -X)
 WIN_Y, WIN_W, WIN_Z0, WIN_Z1 = -1.2, 2.4, 0.9, 4.5        # the window: centre y (the viewer's right is -Y), width, sill, head
-LETTERS = [("表", 2.5, -(WALL_H - 4.35)), ("裏", 2.5, -(WALL_H - 2.95))]   # the viewer's left, 4.35 and 2.95 m up
+LETTERS = [("表", 2.5, 4.35), ("裏", 2.5, 2.95)]        # (character, y of the wall (the viewer's left is +Y), height up)
 LETTER_H = 1.1                                           # a letter's height: the KV's big characters, not a sign
+LETTERS_MASK = os.path.join(C.CASE, "art", "v5", "letters_mask.png")   # scripts/text_mask.py, 128 px a metre
 SKIES = {"s1": "v4_s1_211", "s2": "v4_s2_211", "s3": "v4_s3_211"}
 
 
@@ -103,10 +104,10 @@ def sky():
     sep = g.node("ShaderNodeSeparateXYZ")
     g.link(g.node("ShaderNodeTexCoord").outputs["Object"], sep.inputs[0])
     az = g.math("DIVIDE", g.math("ARCTAN2", sep.outputs["Y"], sep.outputs["X"]), math.pi)        # -1..1 round
-    el = g.math("POWER", g.math("DIVIDE", sep.outputs["Z"], DOME, clamp=True), 0.6)              # 0 horizon .. 1 zenith
+    el = g.math("POWER", g.math("DIVIDE", sep.outputs["Z"], DOME, clamp=True), 0.45)             # 0 horizon .. 1 zenith
     uv = g.node("ShaderNodeCombineXYZ")
     g.link(g.math("MULTIPLY", az, 1.0), uv.inputs["X"])
-    g.link(g.math("ADD", g.math("MULTIPLY", el, 0.78), 0.22), uv.inputs["Y"])   # the picture's own horizon at the horizon
+    g.link(g.math("ADD", g.math("MULTIPLY", el, 0.72), 0.28), uv.inputs["Y"])   # the picture's own horizon at the horizon
     tex = g.node("ShaderNodeTexImage", extension="MIRROR")
     tex.image = P.image(SKIES["s1"])
     g.link(uv.outputs[0], tex.inputs["Vector"])
@@ -170,13 +171,39 @@ def wall():
     sill = A.rounded_box("sill", (WALL_T + 0.3, WIN_W + 0.3, 0.08), 0.004, [plaster])
     sill.location = (WALL_T / 2 - 0.15, WIN_Y, WIN_Z0 - 0.04)
     S.sill_top = WIN_Z0
-    glow = fx.emission_mat("letter_lamp", "#FF8DA6", 1.1)[0]
-    S.letter_lamps = fx.cut_letters(ob, FONT, LETTERS, LETTER_H, glow, radius=0.65, offsets=(-0.34, 0.0, 0.34),
-                                    x=WALL_T + 0.3, at=WALL_T / 2, extrude=WALL_T / 2 + 0.05)
-    for lamp in S.letter_lamps:
-        lamp.hide_render = True
+    letters(ob, plaster)
     S.wall = ob
     return ob
+
+
+def letters(wall_ob, plaster):
+    """表 裏 cut through the wall in its shader: where the mask image (scripts/text_mask.py, laid over the wall by
+    its own y and z) is white, both faces of the wall are transparent, so the sky shows through the letters and
+    the sun throws them onto the water. (Booleans with the glyphs' overlapping contours failed silently: one
+    letter vanished, the other lost strokes.) The wall's own material gets the mix, so the sill and the frame
+    stay plain plaster through their own copies."""
+    mat = plaster.copy()
+    mat.name = "plaster_letters"
+    wall_ob.data.materials[0] = mat
+    nt = mat.node_tree
+    g = kit.G(nt)
+    out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
+    surface = out.inputs["Surface"].links[0].from_socket
+    sep = g.node("ShaderNodeSeparateXYZ")
+    g.link(g.node("ShaderNodeTexCoord").outputs["Object"], sep.inputs[0])
+    uv = g.node("ShaderNodeCombineXYZ")
+    g.link(g.math("SUBTRACT", 0.5, g.math("DIVIDE", sep.outputs["Y"], WALL_W)), uv.inputs["X"])   # the viewer's left is +Y
+    g.link(g.math("ADD", 1.0, g.math("DIVIDE", sep.outputs["Z"], WALL_H)), uv.inputs["Y"])        # z runs down from the top
+    tex = g.node("ShaderNodeTexImage", extension="CLIP", interpolation="Cubic")
+    tex.image = bpy.data.images.load(LETTERS_MASK, check_existing=True)
+    tex.image.colorspace_settings.name = "Non-Color"
+    g.link(uv.outputs[0], tex.inputs["Vector"])
+    mix = g.node("ShaderNodeMixShader")
+    g.link(tex.outputs["Color"], mix.inputs["Fac"])
+    g.link(surface, mix.inputs[1])
+    g.link(g.node("ShaderNodeBsdfTransparent").outputs[0], mix.inputs[2])
+    g.link(mix.outputs[0], out.inputs["Surface"])
+    S.letter_lamps = []
 
 
 def glass():
@@ -203,13 +230,24 @@ def haze(density):
     return cyc.haze("haze", (80.0, 80.0, 24.0), (0.0, 0.0, 11.5), density, color="#E4ECF4", anisotropy=0.3)
 
 
-def sun(direction, energy, kelvin, angle=0.6, name="sun"):
+def sun(direction, energy, kelvin, angle=0.6, name="sun", disc=None):
+    """A sun: `direction` is the way its light travels. With `disc` (strength) a glowing disc stands 500 m away
+    where the sun is, 2 degrees wide, so it shows through the letters and the window and lies on the water."""
     lt = bpy.data.lights.new(name, "SUN")
     lt.energy, lt.angle, lt.color = energy, math.radians(angle), A.kelvin(kelvin)
     ob = bpy.data.objects.new(name, lt)
     m._link(ob)
     ob.rotation_mode = "QUATERNION"
-    ob.rotation_quaternion = Vector(direction).normalized().to_track_quat("-Z", "Y")     # direction: the way the light travels
+    d = Vector(direction).normalized()
+    ob.rotation_quaternion = d.to_track_quat("-Z", "Y")
+    if disc:
+        at = -d * 500.0
+        bpy.ops.mesh.primitive_circle_add(vertices=48, radius=9.0, fill_type="NGON", location=at)
+        sd = bpy.context.active_object
+        sd.name = f"{name}_disc"
+        sd.rotation_euler = d.to_track_quat("Z", "Y").to_euler()
+        sd.data.materials.append(fx.emission_mat(f"{name}_disc", "#FFF1DC", disc)[0])
+        sd.visible_shadow = sd.visible_diffuse = False
     return ob
 
 
@@ -238,17 +276,19 @@ def build():
 def still_dawn():
     """Sunrise behind the wall: the letters as light with their long reflections, the window full of the dawn
     sky, and her (the KV) standing on the water before the wall, lit from behind, her reflection under her."""
-    set_sky("s1", 1.1)
-    sun((-1.0, 0.25, -0.17), 5.0, 6200)                 # low, from behind the wall, a little from the viewer's left
-    cyc.put(S.haze_vol.inputs["Density"], 0.0025)
+    set_sky("s1", 1.8)
+    # low behind the wall, where the camera sees the letters: its disc blazes through 表 裏 and the window
+    eye = Vector((-16.0, 3.5, 0.8))
+    sun(((Vector((0.0, 2.5, 3.6)) - eye) * -1.0).normalized() * -1.0, 5.0, 6200, disc=40.0)
+    cyc.put(S.haze_vol.inputs["Density"], 0.003)
     S.her = figure("her", "v4_kv_211", -2.6, -0.3, yaw=0.0, height=1.15)   # the KV shows her to the knees: she
     #                                                                       stands in the water to there
     fill = cyc.area_light("fill", (-7.0, -4.0, 3.0), (-2.6, -0.3, 1.2), 4.0, 9000, 70, color="#9FB2D8")
     fill.visible_glossy = False
     # the whole wall as the one thing standing in the sea, its top edge and both ends against the sky, its
     # reflection under it; she is small before it (a drawn girl in a real place)
-    eye, target = (-16.0, 3.5, 0.8), (-0.5, -0.3, 2.6)
-    return cyc.camera("dawn", eye, target, 32, 5.6), target, -0.5
+    target = (-0.5, -0.3, 2.6)
+    return cyc.camera("dawn", tuple(eye), target, 32, 5.6), target, -0.2
 
 
 def still_rain():
