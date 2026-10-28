@@ -14,7 +14,7 @@ jobs files.
 
 | Case | What it is |
 |---|---|
-| [cases/uraomote](cases/uraomote/) | The first experiment: six sets as stills, an animatic cut on the downbeats, a script for 2D and 3D invading each other |
+| [cases/uraomote](cases/uraomote/) | 3D 混入 2D 的 PV：一座挂满两面印刷的她的晾画大厅，画里的天空、水、镜子是大厅自己的面，墨、雨、发丝、碎纸进到画的立体部分；按重拍剪的动态分镜，Cycles 渲染，九个 pass 逐版审到位。做法和经验在 [docs/hybrid.md](docs/hybrid.md) |
 | [cases/kimishira](cases/kimishira/) | 一图流鉴赏 PV：一张插画拆层摆成 2.5D 场景，人物随风摆、跟着唱，粒子、月亮外圈的星环跟着歌走，1080p60 成片 |
 
 Templates: a finished case saved so a new song only needs its own audio and text.
@@ -54,6 +54,19 @@ Audio and lyrics:
 | `scripts/mvlib.py` | 2D layout kit in Blender: flat / toon / halftone materials, text in Mincho / Gothic / DIN, rules, marks, barcodes |
 | `scripts/riso.py` | 2D material as a risograph print (PIL): paper, halftone screens, inks that overprint out of register; `separate()` turns an illustration into the inks |
 
+3D mixed into 2D, the hybrid PV ([docs/hybrid.md](docs/hybrid.md)):
+
+| File | What it does |
+|---|---|
+| `scripts/maps.py` | Per illustration: a depth map, a map of its flat planes (sky / window, water, mirror) and a map of her parts (hair, face, clothes), Depth Anything V2 + CLIPSeg, with a check picture (AutoDL) |
+| `scripts/paper.py` | The two-sided paper print: a thin sheet printed on both sides inside a bare border, cotton rag with cockle and fibre, translucent by `WET`; the hung sheet mesh |
+| `scripts/hybrid.py` | The hybrid print: the picture's flat planes swapped for the scene's own surfaces (a sky portal with parallax, the scene's water with a beat ring, mirror glass), her figure as a relief from the depth map, anchors for 3D things at her parts, stains |
+| `scripts/hybrid_fx.py` | The 3D things inside the picture and round the prints: ink volumes, cracks of light, rain, torn paper, dust, shards of glass with pieces of her pictures, strands of her hair, a print in two halves, letters cut out of a print, the pulse ring on the water, the painted sky |
+| `scripts/animatic.py` | The animatic engine: the song's clock from `analyze.py`'s timing, the frame loop (any frame alone, existing frames skipped, `AT=` / `ONLY=` / `DRY=`), the camera, the finish (bloom, the negative-on-paper flash), the frame label |
+| `scripts/cut.py` | Frames + the song to MP4, the film's finish on top (halation, vignette, grain) |
+| `scripts/sheet.py`, `scripts/grab.py` | Contact sheets of a frames folder; full frames saved as jpg |
+| `scripts/exp.sh`, `scripts/patch.py`, `scripts/queue.sh` | Side-by-side experiments on the server: a worktree of HEAD with a json of substitutions, a few frames, a sheet; a queue by GPU memory |
+
 Illustrations on ComfyUI (AutoDL):
 
 | File | What it does |
@@ -81,6 +94,7 @@ Notes that apply to every case:
 - [docs/comfyui.md](docs/comfyui.md): drawing illustrations on ComfyUI: the server, the two models, the jobs file, and the recipes that worked.
 - [docs/models.md](docs/models.md): Qwen-Image-2.1, Anima and Krea 2 compared on quality, and what every model in the pipeline allows commercially.
 - [docs/onepic.md](docs/onepic.md)：一图流 PV 的做法和踩过的坑。
+- [docs/hybrid.md](docs/hybrid.md)：3D 混入 2D 的 PV：管线、混合印刷的原理、审核通过的做法和参数、否决的想法、渲染器和流程的教训。
 
 ## Local and the GPU server
 
@@ -118,6 +132,7 @@ cases/<name>/
   audio/         mix, vocal, lines, timing.json (not in git)
   jobs/          ComfyUI jobs files for the case's own illustrations, one per round
   art/           the pictures they drew (not in git)
+  runs/          how its renders are launched on the server (full passes, patches), experiment specs, bare tests
 ```
 
 A one-picture PV ([cases/kimishira](cases/kimishira/)) has `pv.py` and its render scripts in `scripts/` instead of
