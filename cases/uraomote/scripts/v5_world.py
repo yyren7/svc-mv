@@ -277,9 +277,10 @@ def still_dawn():
     """Sunrise behind the wall: the letters as light with their long reflections, the window full of the dawn
     sky, and her (the KV) standing on the water before the wall, lit from behind, her reflection under her."""
     set_sky("s1", 1.8)
-    # low behind the wall, where the camera sees the letters: its disc blazes through 表 裏 and the window
+    # low behind the wall, where the camera sees the letters: its disc blazes through 表 裏 and the window. The
+    # light travels from the sun towards the camera, so the direction is eye - letters
     eye = Vector((-16.0, 3.5, 0.8))
-    sun(((Vector((0.0, 2.5, 3.6)) - eye) * -1.0).normalized() * -1.0, 5.0, 6200, disc=40.0)
+    sun((eye - Vector((0.0, 2.5, 3.6))).normalized(), 5.0, 6200, disc=40.0)
     cyc.put(S.haze_vol.inputs["Density"], 0.003)
     S.her = figure("her", "v4_kv_211", -2.6, -0.3, yaw=0.0, height=1.15)   # the KV shows her to the knees: she
     #                                                                       stands in the water to there
@@ -345,6 +346,7 @@ def main():
         sys.exit("one still a run (the sky and the lights differ): " + " ".join(STILLS))
     build()
     cam, target, exposure = STILLS[shots[0]]()
+    cam.data.clip_end = 10000.0                           # the sky dome is 3 km away (clipped, the sky was grey haze)
     cyc.render_shots({shots[0]: cam}, shots, out, "world", focus={shots[0]: target},
                      samples={shots[0]: SAMPLES or 128}, exposure={shots[0]: exposure},
                      blend=f"world_{shots[0]}.blend")
