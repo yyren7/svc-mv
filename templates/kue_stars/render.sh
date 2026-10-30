@@ -30,6 +30,7 @@ if [ ! -f $CASE/audio/bands.npz ]; then
 fi
 [ -f $CASE/plan.json ] || $PY $T/plan.py make $CASE
 eval "$($PY $T/plan.py env $CASE)"
+RING=$($PY -c "import json; print(json.load(open('$CASE/song.json')).get('ring', 'fancy'))")
 P=$R/player_$HEIGHT
 ENDARG=(); [ -n "$END" ] && ENDARG=(--end "$END")
 KTV=; [ "$LYRICS_STYLE" = ktv ] && [ -n "$LRC" ] && [ -f "$LRC" ] && KTV=1
@@ -60,6 +61,7 @@ if [ -z "${SKIP_RENDER:-}" ]; then
     if [ -z "${RESUME:-}" ]; then
         $B -b --factory-startup -P $T/pv.py -- build > $R/logs/build.log 2>&1
         rm -f $R/chunks/*
+        rm -rf $R/matte $R/ring_$HEIGHT $R/ring2d_tables.npz
     fi
     # 到最后一帧（给了 end 就到 end）
     export F1=${4:-$($PY -c "import numpy as np; n = len(np.load('$CASE/audio/bands.npz')['loud']); e = '$END'; print(min(n, round(float(e) * 60)) - 1 if e else n - 1)")}
@@ -80,14 +82,21 @@ if [ -z "${SKIP_RENDER:-}" ]; then
         echo "unfinished chunks start at: $todo -- run again with RESUME=1"
         exit 1
     fi
+    if [ "$RING" = 2d ]; then       # 2D 星环：人物、花丛的遮罩（1080p，已有的跳过），再逐帧画
+        seq ${3:-0} $SIZE $F1 | xargs -P $N -I{} bash -c '
+            a={}; b=$((a + SIZE - 1)); [ $b -gt $F1 ] && b=$F1
+            RES=50 $B -b $R/scene.blend -P templates/kue_stars/pv.py -s $a -e $b -a -- matte > $R/logs/matte_$a.log 2>&1'
+        $PY $T/ring2d.py $CASE $R/ring_$HEIGHT --height $HEIGHT --fps 60 --matte $R/matte > $R/logs/ring2d.log 2>&1
+    fi
 fi
 
 [ -n "$PLAYER" ] && wait $PLAYER
 [ -n "$TITLEJOB" ] && wait $TITLEJOB
+RL=; [ "$RING" = 2d ] && RL=$R/ring_$HEIGHT
 ARGS=()
 [ -z "$KTV" ] && [ -n "$LRC" ] && [ -f "$LRC" ] && ARGS+=(--lrc "$LRC")
 [ -n "$TLRC" ] && [ -f "$TLRC" ] && ARGS+=(--tlrc "$TLRC")
 $PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "$LYRICS_OFFSET" --credits-at $CREDITS_AT --lift 150 --style "${LYRICS_STYLE/ktv/line}" \
     --res $((HEIGHT * 16 / 9)) $HEIGHT
-$PY scripts/onepic_finish.py $R/chunks "$MIX" $R/${NAME}_pv_${HEIGHT}p.mp4 --ass $R/subs.ass --overlay $TT --overlay $TE ${KTV:+--overlay $TL} --overlay $P "${ENDARG[@]}"
+$PY scripts/onepic_finish.py $R/chunks "$MIX" $R/${NAME}_pv_${HEIGHT}p.mp4 --ass $R/subs.ass ${RL:+--overlay $RL} --overlay $TT --overlay $TE ${KTV:+--overlay $TL} --overlay $P "${ENDARG[@]}"
 touch $R/render_done

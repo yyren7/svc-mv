@@ -30,6 +30,7 @@ OUT=$R/${NAME}_preview_${HEIGHT}p${TAG:+_$TAG}.mp4
 
 ENDARG=(); [ -n "$END" ] && ENDARG=(--end "$END")
 KTV=; [ "$LYRICS_STYLE" = ktv ] && [ -n "$LRC" ] && [ -f "$LRC" ] && KTV=1
+RING=$($PY -c "import json; print(json.load(open('$CASE/song.json')).get('ring', 'fancy'))")
 RANGE=(); [ "$LEN" -gt 0 ] && RANGE=(--range $START $((START + LEN)))
 nice -n 19 $PY scripts/onepic_player.py $CASE/audio/bands.npz $R/player_p$HEIGHT --title "$TITLE" --sub "$SUB" \
     --fps 30 --height $HEIGHT --show $SHOW "${ENDARG[@]}" > $R/logs/player.log 2>&1 &
@@ -49,12 +50,24 @@ for k in 0 1 2 3; do
 done
 wait
 
+RL=
+if [ "$RING" = 2d ]; then
+    rm -rf $R/matte $R/ring_p$HEIGHT $R/ring2d_tables.npz
+    for k in 0 1 2 3; do
+        a=$((F0 + k * step)); b=$((a + step - 1)); [ $k -eq 3 ] && b=$F1
+        RES=50 $B -b $R/scene.blend -P $T/pv.py -s $a -e $b -j 2 -a -- matte > $P/matte_$k.txt 2>&1 &
+    done
+    wait
+    $PY $T/ring2d.py $CASE $R/ring_p$HEIGHT --height $HEIGHT --fps 30 --matte $R/matte "${RANGE[@]}" > $R/logs/ring2d.log 2>&1
+    RL=$R/ring_p$HEIGHT
+fi
+
 ARGS=()
 [ -z "$KTV" ] && [ -n "$LRC" ] && [ -f "$LRC" ] && ARGS+=(--lrc "$LRC")
 [ -n "$TLRC" ] && [ -f "$TLRC" ] && ARGS+=(--tlrc "$TLRC")
 $PY scripts/lrc2ass.py $R/subs.ass "${ARGS[@]}" --offset "$LYRICS_OFFSET" --credits-at $CREDITS_AT --lift 150 --style "${LYRICS_STYLE/ktv/line}" \
     --res $((HEIGHT * 16 / 9)) $HEIGHT
-$PY scripts/onepic_finish.py $P "$MIX" $OUT --ass $R/subs.ass --overlay $R/title_p$HEIGHT --overlay $R/ending_p$HEIGHT ${KTV:+--overlay $R/lyrics_p$HEIGHT} \
+$PY scripts/onepic_finish.py $P "$MIX" $OUT --ass $R/subs.ass ${RL:+--overlay $RL} --overlay $R/title_p$HEIGHT --overlay $R/ending_p$HEIGHT ${KTV:+--overlay $R/lyrics_p$HEIGHT} \
     --overlay $R/player_p$HEIGHT --crf 20 --preset fast "${ENDARG[@]}" \
     --fade-out $([ "$LEN" -gt 0 ] && echo 1 || echo 4) ${START:+--start $START}
 echo "-> $OUT"

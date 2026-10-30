@@ -55,7 +55,7 @@ TITLE_Y = 0.5          # 开头对焦在镜头前 0.5 米（标题在那儿）�
 SHADE_Y = 0.8          # 3D 标题的暗晕放在 0.8 米：对焦在标题上时虚开约画面宽的 0.5%
 GLINTS = [(0.667, 0.283), (0.705, 0.313), (0.625, 0.114)]   # 发夹的花、丝带上的花、头顶的蝴蝶结（插画坐标）
 LAYER_GAIN = {"near": 2.2, "far": 0.8}
-BEAM_GAIN, BEAM_MASK, STREAK_GAIN = 2.0, 2.8, 0.8
+BEAM_GAIN, BEAM_MASK, STREAK_GAIN = 2.0, 1.3, 0.8    # 光束的光源只取月亮本身（原来 2.8 R：月亮旁边的亮星也拉出放射的直线）
 
 
 def camera_keys():
@@ -472,14 +472,20 @@ def matte():
         if ob.type == "MESH" and ob.name not in ("char", "mid", "near"):
             ob.hide_render = True
     s.render.film_transparent = True
-    s.render.use_compositing = False
     s.camera.data.dof.use_dof = False
+    # 合成只留 alpha（灰度 PNG 比带颜色的小一个量级）
+    tree = s.compositing_node_group
+    rl = next(n for n in tree.nodes if n.bl_idname == "CompositorNodeRLayers")
+    for vl in s.view_layers:
+        vl.use = vl.name == rl.layer
+    tree.links.new(rl.outputs["Alpha"], next(n for n in tree.nodes if n.bl_idname == "NodeGroupOutput").inputs[0])
+    s.render.use_overwrite = False      # 续渲时跳过已有的
     s.render.resolution_percentage = int(os.environ.get("RES", 50))
     s.eevee.taa_render_samples = 4
     im = s.render.image_settings
     im.media_type = "IMAGE"
     im.file_format = "PNG"
-    im.color_mode = "RGBA"
+    im.color_mode = "BW"
     s.render.filepath = os.path.join(RENDERS, "matte", "m_#####")
 
 

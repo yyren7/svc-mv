@@ -223,13 +223,15 @@ def frame(args):
     if a.matte:
         m = cv2.imread(os.path.join(a.matte, f"m_{fsrc:05d}.png"), cv2.IMREAD_UNCHANGED)
         if m is not None:
-            m = cv2.resize(m[..., 3], (FW, H), interpolation=cv2.INTER_CUBIC)[:, :W]
+            m = cv2.resize(m if m.ndim == 2 else m[..., 3], (FW, H), interpolation=cv2.INTER_CUBIC)[:, :W]
             img *= (1 - m.astype(np.float32) / 255)[..., None]
     # 透明 PNG：alpha 取最亮的通道，颜色除回去（普通 alpha 叠就接近滤色）
     img = np.clip(img, 0, 1)
     al = img.max(2)
+    al[al < 3 / 255] = 0        # 辉光很淡的外缘不要，PNG 小很多
     rgb = img / np.maximum(al, 1e-4)[..., None]
-    out = np.dstack([(rgb * 255 + 0.5).astype(np.uint8), (al * 255 + 0.5).astype(np.uint8)])
+    rgb[al == 0] = 0
+    out = np.dstack([(np.clip(rgb, 0, 1) * 255 + 0.5).astype(np.uint8), (al * 255 + 0.5).astype(np.uint8)])
     cv2.imwrite(os.path.join(a.out, f"o_{f:05d}.png"), cv2.cvtColor(out, cv2.COLOR_RGBA2BGRA), [cv2.IMWRITE_PNG_COMPRESSION, 3])
 
 
