@@ -312,7 +312,8 @@ def effects():
     S.lifted = lifted_sea()
     make_wall_pieces()
     big = random.Random(31)
-    faces = {k: H.LIVE[f"into_{k}"]["meta"] for k in ("a1", "a3", "a4", "a5", "u1", "u2") if f"into_{k}" in H.LIVE}
+    faces = {k: H.LIVE[S.into[k].material_slots[0].material.name]["meta"] for k in ("a1", "a3", "a4", "a5", "u1", "u2")
+             if k in S.into and S.into[k].material_slots[0].material.name in H.LIVE}
     for s, key in zip(S.shards, fx.SHARD_KEYS):            # the loose shards large, each a moment of her: her face and hair
         if s.get("grid") is None:
             s["big"] = big.uniform(1.6, 3.6)
@@ -400,6 +401,9 @@ def setup():
     W.build()
     sc = scene_settings()
     S.glass_light_lamp = S.glass_light                       # the panel behind the glass (an emitter, hidden)
+    # the glass's water a weak lens: at 1.33 its column gathers the wall and the jambs from far to the side, grey-brown
+    water = bpy.data.materials["glass_water"].node_tree
+    next(n for n in water.nodes if n.type == "BSDF_PRINCIPLED").inputs["IOR"].default_value = 1.08
     deep_water()
     lights()
     letters_back()
