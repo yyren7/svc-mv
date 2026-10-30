@@ -38,14 +38,19 @@ def face_of(hair, skin, her):
         w = her
     ys, xs = np.mgrid[0:hair.shape[0], 0:hair.shape[1]]
     cx, cy = (w * xs).sum() / w.sum(), (w * ys).sum() / w.sum()
-    # the centroid again from the pixels round it, so a far arm does not pull it
     d = np.hypot(xs - cx, ys - cy)
-    r0 = np.sqrt((w > 0.5 * w.max()).sum() / np.pi)
-    w2 = w * (d < 2.5 * max(r0, 1.0))
-    if w2.sum() >= 1.0:
-        cx, cy = (w2 * xs).sum() / w2.sum(), (w2 * ys).sum() / w2.sum()
-    r = max(np.sqrt((w2 > 0.5 * w2.max()).sum() / np.pi), 0.02 * max(hair.shape))
-    return cx, cy, r, np.hypot(xs - cx, ys - cy)
+    # her size bounds the face: a head is a seventh of a standing figure, and at most a third of a close-up. Grow the
+    # radius to the skin that is actually round the centroid (a thresholded area alone finds only the middle of it)
+    ys0, xs0 = np.nonzero(her > 0.5)
+    size = float(max(ys0.max() - ys0.min(), xs0.max() - xs0.min())) if len(ys0) else float(max(hair.shape))
+    r = size / 14.0
+    for _ in range(4):
+        near_face = (d < 1.5 * r) & (skin > 0.5)
+        if near_face.any():
+            cx, cy = xs[near_face].mean(), ys[near_face].mean()
+            d = np.hypot(xs - cx, ys - cy)
+            r = float(np.clip(np.sqrt(near_face.sum() / np.pi), size / 22.0, size / 3.0))
+    return cx, cy, r, d
 
 
 def maps(art, name, force=False):
