@@ -165,6 +165,19 @@ def lights():
     S.lamps = [S.sun, S.fill, S.window_glow, S.letters_glow, S.key, S.cold, S.rose, S.sun_cold, S.sun_rose, S.red_deep]
 
 
+def letters_back():
+    """A rose panel close behind 表 裏, seen through the letters and mirrored by the water (the lamp behind them
+    lights nothing the camera sees: at night the letters were holes onto a dark sky, and the back cover was black)."""
+    bpy.ops.mesh.primitive_plane_add(size=1.0, location=(W.WALL_T + 0.35, 2.5, 3.65), rotation=(0.0, math.pi / 2, 0.0))
+    ob = bpy.context.active_object
+    ob.name = "letters_back"
+    ob.scale = (3.2, 1.8, 1.0)
+    mat, em = fx.emission_mat("letters_back", GLOW, 0.0)
+    ob.data.materials.append(mat)
+    ob.visible_shadow = ob.visible_diffuse = False
+    S.letters_back, S.letters_em = ob, em
+
+
 def shutter():
     """A black board in the window opening: the window stays dark while the letters light first (P0.2)."""
     mat = A._principled("shutter", **{"Base Color": (0.0, 0.0, 0.0, 1.0), "Roughness": 1.0})[0]
@@ -224,9 +237,8 @@ def plate_frame(plate):
     sensor fit (36 mm on its longer side)."""
     p = PL.PLATES[plate]
     eye, target = Vector(p["eye"]), Vector(p["target"])
-    f = (target - eye).normalized()
-    r = f.cross(Vector((0.0, 0.0, 1.0))).normalized()
-    u = r.cross(f)
+    q = (target - eye).to_track_quat("-Z", "Y")            # as cyc.camera aims it (a plate straight down: U1)
+    f, r, u = q @ Vector((0.0, 0.0, -1.0)), q @ Vector((1.0, 0.0, 0.0)), q @ Vector((0.0, 1.0, 0.0))
     w, h = p["size"]
     tw = 18.0 / p["lens"] * (1.0 if w >= h else w / h)
     th = 18.0 / p["lens"] * (h / w if w >= h else 1.0)
@@ -260,6 +272,7 @@ def place_on_plate(ob, plate, aspect, d=D_SHEET, over=1.02):
     s = 2 * d * tw * over                                      # the sheet is 1 m wide: scale to the view's width
     centre = eye + f * d
     rot = Matrix((f, -r, u)).transposed()                      # sheet X (its normal) along the view, Y to the left
+    #                                                            (f, r, u from the plate's own aim)
     ob.matrix_world = Matrix.Translation(centre + u * (aspect * s / 2)) @ rot.to_4x4() @ Matrix.Scale(s, 4)
 
 
@@ -304,6 +317,7 @@ def setup():
     S.glass_light_lamp = S.glass_light                       # the panel behind the glass (an emitter, hidden)
     deep_water()
     lights()
+    letters_back()
     shutter()
     figures()
     into_sheets()
@@ -315,7 +329,7 @@ def setup():
     S.lineart, S.glare = AN.compositor()
     AN.stamp()
     S.hidden = [S.ink["ob"], S.burst["ob"], S.glass_ink["ob"], S.rain_ob, S.dust, S.conf, S.deep, S.sea_under,
-                S.shutter, S.lifted, S.glass_light] + [s["ob"] for s in S.shards] + [ob for ob, _ in S.halves] + \
+                S.shutter, S.lifted, S.glass_light, S.letters_back] + [s["ob"] for s in S.shards] + [ob for ob, _ in S.halves] + \
         [c.ob for c in S.cracks.values()] + list(S.figs.values()) + \
         list(S.into.values()) + S.discs + [S.sun_disc]
     return sc
@@ -365,6 +379,7 @@ def reset(scene, t, b):
         sky.rotation_euler.z = 0.0
     put(S.lineart, 0.0)
     put(S.glare, 0.4)
+    put(S.letters_em.inputs["Strength"], 0.0)
     scene.view_settings.view_transform = "AgX"
     scene.view_settings.exposure = 0.0
     scene.cycles.samples = SAMPLES
@@ -429,6 +444,8 @@ def night(letters=1.0, sky=0.35):
     W.set_sky("s2", sky)
     haze(0.003, "#C4BCD0")
     energy(S.letters_glow, 400.0 * letters)
+    put(S.letters_em.inputs["Strength"], 3.0 * letters)
+    S.letters_back.hide_render = letters <= 0
     bpy.context.scene.view_settings.exposure = 0.5
 
 
@@ -533,11 +550,11 @@ def into(key, zoom=1.0, at_point=None, pan=0.0, tilt=0.0, roll=0.0, glow=1.0, ex
         target = eye + f + r * (2 * pu - 1) * tw + u * (2 * pv - 1) * th
     if pan or tilt:
         d = (target - eye).normalized()
-        d = Matrix.Rotation(math.radians(pan), 3, "Z") @ d
-        d = Matrix.Rotation(math.radians(tilt), 3, d.cross(Vector((0, 0, 1)))) @ d
+        d = Matrix.Rotation(math.radians(pan), 3, u) @ d
+        d = Matrix.Rotation(math.radians(tilt), 3, r) @ d
         target = eye + d
     lens = 18.0 / tw * zoom                                   # the frame (36 mm wide) as wide as the plate's view
-    look(eye, target, lens=lens, fstop=16.0, roll=roll, focus=D_SHEET)
+    look(eye, target, lens=lens, fstop=16.0, roll=roll, focus=D_SHEET, up=tuple(u))
     S.cam.data.dof.use_dof = False
     if not wall:
         hide_wall(True)
@@ -574,10 +591,11 @@ def seep(key, v, blob=None):
     air just before the picture, running down."""
     ob, pic = S.into[key], INTO[key][0]
     hair = H.anchor(ob, pic, 0)
-    H.stain(ob.name, *H.sheet_uv(ob, pic, *hair["uv"]), 0.02 + 0.12 * v)
-    if blob is not None:
-        p = hair["point"] + (S.eye - hair["point"]).normalized() * 0.03
-        ink(blob, p + Vector((0.0, 0.0, -0.02 * v)), (0.006 + 0.004 * v, 0.006 + 0.004 * v, 0.02 + 0.05 * v), 2.0, 0.0)
+    H.stain(ob.name, *H.sheet_uv(ob, pic, *hair["uv"]), 0.02 + 0.07 * v)
+    if blob is not None:                                        # a thread of ink running down the air before her
+        s = ob.matrix_world.to_scale()[0]                       # (the sheet is metres wide; at 0.5 m from the lens a
+        p = hair["point"] + (S.eye - hair["point"]).normalized() * 0.02 * s   # few mm is a strand of hair)
+        ink(blob, p + Vector((0.0, 0.0, -0.03 * v * s)), (0.0015 * s, 0.0015 * s, (0.006 + 0.03 * v) * s), 2.5, 0.0)
 
 
 def dust(center):
@@ -663,6 +681,7 @@ def p1_drop(u, t, b):
     into it and blooms down through the water, the film's first colour."""
     dawn(1.0)
     S.glass_light.hide_render = False
+    S.glass_light.location.z = 1.5                             # behind the glass (it sees the low panes, inverted)
     g = S.glass_at
     look(g + Vector((-0.55, 0.12, 0.08)), g + Vector((0.0, 0.0, 0.05)), lens=85, fstop=2.8)
     bpy.context.scene.cycles.glossy_bounces = 14
@@ -746,6 +765,8 @@ def p2_out(u, t, b):
     k = 1.0 - 0.25 * beat_in_bar() - 0.25 * ease((b % 0.25) * 4)
     dawn(max(0.0, k))
     energy(S.letters_glow, 400.0 * (1 - max(0.0, k)))
+    put(S.letters_em.inputs["Strength"], 3.0 * (1 - max(0.0, k)))
+    S.letters_back.hide_render = k >= 1.0
     reveal("sea", 1.0)
     look((-18.0, 0.0, 0.6), (0.0, 0.6, 2.4), lens=40, fstop=8.0)
 
@@ -803,7 +824,7 @@ def p4_chorus(u, t, b):
     kind = CHORUS_CAMS[(bar - 35) % 5]
     if beat == 3 and v < 0.5:
         key = CHORUS[(bar - 35) % 4]
-        into_free(key, (-8.0, -1.0, -1.6), (-2.0, -0.6, -1.2), 35.0)
+        into_free(key, (-8.0, -1.0, -4.0), (-2.0, -0.6, -4.4), 35.0)
         underwater(red=0.4 + red, shafts=0.8)
         return
     if kind in ("half", "up"):
@@ -826,9 +847,9 @@ def p5_spill(u, t, b):
     """P5.1: inside C1 the ink round her rises along her hair; her water is the sea: the camera follows the ink
     out of the picture and up through the surface, and from above the red spreads on the sea."""
     if u < 0.55:
-        into_free("c1", (-8.0, -1.0, -1.6 + 0.8 * u), (-2.0, -0.6, -1.2 + 0.8 * u), 35.0)
+        into_free("c1", (-8.0, -1.0, -4.0 + 1.2 * u), (-2.0, -0.6, -4.4 + 1.6 * u), 35.0)
         underwater(red=0.6, shafts=0.8)
-        ink(S.ink, Vector((-7.4, -0.95, -1.5 + 1.6 * u)), (0.08, 0.08, 0.25 + 0.4 * u), 2.0, 0.4)
+        ink(S.ink, Vector((-7.45, -0.97, -3.95 + 1.3 * u)), (0.004, 0.004, 0.03 + 0.05 * u), 2.5, 0.4)
     else:
         dawn(1.0)
         k = (u - 0.55) / 0.45
@@ -916,7 +937,7 @@ def p6_lines(u, t, b):
     tilt = ease(clamp((b - 67.5) * 2.0))
     look(eye, Vector((-6.0, 0.6, 1.0 - 2.2 * tilt)), lens=40, fstop=4.0, roll=40.0 * tilt)
     rain3d((eye.x + 3.0, eye.y, 6.0), t, 0.5)
-    if 66.0 <= b < 67.0:
+    if 66.0 <= b < 67.0 and _T.t - CLK.last_beat(_T.t) < 1.6 / FPS:
         put(S.lineart, 1.0)
 
 
