@@ -18,7 +18,7 @@ PYTHONPATH=/root/autodl-tmp/pv/pylib $P scripts/despeckle.py $ART "$@"
 PLATES=$C/renders/v5_plates PYTHONPATH=/root/autodl-tmp/pv/pylib $P scripts/figures.py $ART "$@"
 DEPTH_MODEL=tmp/hf/Depth-Anything-V2-Small-hf SEG_MODEL=tmp/hf/clipseg-rd64-refined $P -I scripts/maps.py $ART "$@"
 pairs=()
-for n in "$@"; do p=${n#v5_}; pairs+=("${p%%_*}=$n"); done
+for n in "$@"; do p=${n#v5_}; p=${p%%_*}; [ "$p" = a5o ] && p=a5; pairs+=("$p=$n"); done   # A5 open-eyed: A5's plate
 $M scripts/plate_maps.py $C/renders/v5_plates $ART "${pairs[@]}"
 files=()
 for n in "$@"; do files+=("$ART/${n}_00001_.png"); done
