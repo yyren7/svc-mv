@@ -28,8 +28,26 @@ from contact sheets and refined pass by pass. The reusable method, with everythi
 The stills: **dawn**, the whole wall standing in the sea at sunrise, the letters cut through it, the window full of
 the dawn sky, her small before it with her reflection; **rain**, a rainy night, W1 with her back to us far out on
 the water, the window the only light, rings on the whole sea; **waterline**, her face over the water line and, in
-the water where her reflection should be, her 裏 (U2) that only the mirror sees. Next: `animatic_v5.py`, section 5
-of the script on `scripts/animatic.py`, then the 640 → 1280 → 1920 passes.
+the water where her reflection should be, her 裏 (U2) that only the mirror sees. The first stills (with the v4
+pictures) are kept as `world_*_v4art.png`; the current ones use the v5 pictures (`runs/stills_v5art.sh`), plus
+`world_dawn_near.png`.
+
+The v4 pictures were drawn before the world and never sat in its light, so the pictures were drawn again *into* it
+(docs/hybrid.md, 画要画进世界里：底板):
+
+| File | What it does |
+|---|---|
+| `scripts/v5_plates.py` | `PLATES`: each picture's size, light, where she is and the camera. Renders the world from that camera: `renders/v5_plates/<p>_plate.png` (a grey mannequin where she stands), `_clean.png`, `_mask.png` (R sky, G water), `_her.png` (where she may be painted) |
+| `jobs/v5_prompts.py`, `jobs/v5_t1.py` … `v5_t5.py` | The five picture rounds: her painted into the plates (the plate the init and the second reference), the painted passes of the pictures the camera enters (composed over the clean plate, Qwen 0.7), the 裏 twins on the night plates, A5 open-eyed |
+| `runs/pics.sh` | After a round: despeckle, cut out (inside the plate's mannequin), depth and parts maps, the flat map from the plate, a contact sheet (`art/v5/_sheet_*.png`) |
+| `scripts/animatic_v5.py` | Section 5 of script v5 in this world: her as the cut-outs at their plates' places, the camera inside the pictures on their plates' image planes (their sky and water the world's) |
+| `runs/full_v5.sh [W] [S]` | The whole film at W px / S samples: `renders/animatic_v5/frames_W`, `animatic_v5_W.mp4`, `sheetW_0..5.jpg` |
+
+The picks (art/v5, on both sides): KV `v5_kv_213s`, KV' `v5_kvn_211n90`, Q1 standing `v5_q1s_211s` and its 裏
+`v5_q1u_211n90`, W1 `v5_w1_217s`, R0 `v5_r0_213s`, U2 `v5_u2_211s` (inside: `_c_pq70`), F1 `v5_f1_215s`, A1
+`v5_a1_217s_c_pq70` and the wide `v5_a1w_211s_pq70`, A2 `v5_a2_215s`, A3 `v5_a3_213s_pq70`, A4 `v5_a4_211s_c_pq70`,
+A5 `v5_a5_213s_c_pq70` and open-eyed `v5_a5o_213`, U1 `v5_u1_211s_c_pq70`; the chorus close-ups C1–C4, W2, U4, F2
+are still the v4 ones (no plate).
 
 ## v4 files (the hall; kept as the record of passes 1–10)
 
