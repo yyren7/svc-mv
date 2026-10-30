@@ -684,7 +684,8 @@ def p1_drop(u, t, b):
     S.glass_light.hide_render = False
     S.glass_light.location.z = 1.5                             # behind the glass (it sees the low panes, inverted)
     g = S.glass_at
-    look(g + Vector((-0.55, 0.12, 0.08)), g + Vector((0.0, 0.0, 0.05)), lens=85, fstop=2.8)
+    # from a little above: through the water the glass sees the sky in the panes, not the sill and the transom
+    look(g + Vector((-0.5, 0.1, 0.2)), g + Vector((0.0, 0.0, 0.05)), lens=85, fstop=2.8)
     bpy.context.scene.cycles.glossy_bounces = 14
     bpy.context.scene.cycles.max_bounces = bpy.context.scene.cycles.transmission_bounces = 14
     v = clamp((t - at(15.0)) / 1.4)
@@ -703,7 +704,7 @@ def p1_seep(u, t, b):
     dawn(1.0)
     key = "a5o" if "a5o" in S.into else "a5"
     into(key, zoom=1.1 + 0.06 * u)
-    seep(key, ease(u), S.ink)
+    seep(key, ease(u))                                          # (a wisp of ink before her face read as a nosebleed)
 
 
 def p1_glass_top(u, t, b):
@@ -1138,9 +1139,12 @@ def p10_f2(u, t, b):
 def p11_back(u, t, b):
     """P11: straight down on the still water at the wall's foot: in the wall's reflection the two letters read
     backwards, 裏表; the light behind them goes out; black; one tiny ring on the water."""
-    night(letters=max(0.0, 1.0 - ease(u * 1.4)), sky=0.2)
-    look((-7.0, 2.5, 7.5), (-3.4, 2.5, 0.0), lens=35, fstop=8.0)            # high and steep: the wall just out
-    if u > 0.8:                                                                 # of the top, its reflection fills it
+    lit = max(0.0, 1.0 - ease(u * 1.4))
+    night(letters=lit, sky=0.2)
+    put(S.letters_em.inputs["Strength"], 8.0 * lit)
+    # low over the water at the reflection: from straight above the near-black water mirrors next to nothing
+    look((-11.0, 2.5, 1.6), (0.0, 2.5, -3.6), lens=50, fstop=8.0)
+    if u > 0.8:
         ring(at(116.0) + 0.85 * (CLK.duration - at(116.0)), -2.4, 2.5, amp=0.4, speed=0.6, life=1.5)
 
 
