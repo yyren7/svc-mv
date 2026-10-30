@@ -30,7 +30,7 @@ OUT=$R/${NAME}_preview_${HEIGHT}p${TAG:+_$TAG}.mp4
 
 ENDARG=(); [ -n "$END" ] && ENDARG=(--end "$END")
 KTV=; [ "$LYRICS_STYLE" = ktv ] && [ -n "$LRC" ] && [ -f "$LRC" ] && KTV=1
-RING=$($PY -c "import json; print(json.load(open('$CASE/song.json')).get('ring', 'fancy'))")
+RING=$($PY -c "import json; print(json.load(open('$CASE/song.json', encoding='utf-8')).get('ring', 'fancy'))")
 RANGE=(); [ "$LEN" -gt 0 ] && RANGE=(--range $START $((START + LEN)))
 nice -n 19 $PY scripts/onepic_player.py $CASE/audio/bands.npz $R/player_p$HEIGHT --title "$TITLE" --sub "$SUB" \
     --fps 30 --height $HEIGHT --show $SHOW "${ENDARG[@]}" > $R/logs/player.log 2>&1 &

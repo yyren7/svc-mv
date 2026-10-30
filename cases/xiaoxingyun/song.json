@@ -9,5 +9,6 @@
   "lyrics_offset": -0.25,
   "credits": "credits.txt",
   "end": 260.35,
-  "lyrics_style": "ktv"
+  "lyrics_style": "ktv",
+  "ring": "2d"
 }

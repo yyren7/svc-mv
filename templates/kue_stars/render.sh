@@ -30,7 +30,7 @@ if [ ! -f $CASE/audio/bands.npz ]; then
 fi
 [ -f $CASE/plan.json ] || $PY $T/plan.py make $CASE
 eval "$($PY $T/plan.py env $CASE)"
-RING=$($PY -c "import json; print(json.load(open('$CASE/song.json')).get('ring', 'fancy'))")
+RING=$($PY -c "import json; print(json.load(open('$CASE/song.json', encoding='utf-8')).get('ring', 'fancy'))")
 P=$R/player_$HEIGHT
 ENDARG=(); [ -n "$END" ] && ENDARG=(--end "$END")
 KTV=; [ "$LYRICS_STYLE" = ktv ] && [ -n "$LRC" ] && [ -f "$LRC" ] && KTV=1
