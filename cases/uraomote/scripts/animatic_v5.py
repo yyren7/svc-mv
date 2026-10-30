@@ -401,9 +401,12 @@ def setup():
     W.build()
     sc = scene_settings()
     S.glass_light_lamp = S.glass_light                       # the panel behind the glass (an emitter, hidden)
-    # the glass's water a weak lens: at 1.33 its column gathers the wall and the jambs from far to the side, grey-brown
-    water = bpy.data.materials["glass_water"].node_tree
-    next(n for n in water.nodes if n.type == "BSDF_PRINCIPLED").inputs["IOR"].default_value = 1.08
+    # the glass and its water weak lenses: at full strength the lathe gathers the wall and the jambs from far to the
+    # side, grey-brown, and hid the ink inside it (with the glass hidden the water was clear and the ink red)
+    clear = bpy.data.objects["glass"].material_slots[0].material.copy()
+    bpy.data.objects["glass"].material_slots[0].material = clear
+    for mat in (clear, bpy.data.materials["glass_water"]):
+        next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED").inputs["IOR"].default_value = 1.08
     deep_water()
     lights()
     letters_back()
@@ -889,7 +892,7 @@ def p1_drop(u, t, b):
     # level with the water, the window behind it: from above it saw the sill through the water, brown
     v = clamp((t - at(15.0)) / 1.4)
     near = 0.1 * u + 0.05 * (1.0 - math.exp(-5.0 * v))
-    look(g + Vector((-0.5 + near, 0.08, 0.075)), g + Vector((0.0, 0.0, 0.07)), lens=85, fstop=2.8)
+    look(g + Vector((-0.8 + near, 0.08, 0.06)), g + Vector((0.0, 0.0, 0.05)), lens=85, fstop=2.8)
     bpy.context.scene.cycles.glossy_bounces = 14
     bpy.context.scene.cycles.max_bounces = bpy.context.scene.cycles.transmission_bounces = 14
     if t >= at(15.0) - 0.15:
@@ -897,8 +900,8 @@ def p1_drop(u, t, b):
             k = (at(15.0) - t) / 0.15
             ink(S.burst, g + Vector((0.0, 0.0, 0.09 + 0.25 * k)), (0.004, 0.004, 0.008), 6.0, 0.2)
         else:
-            ink(S.glass_ink, g + Vector((0.0, 0.0, 0.075 - 0.025 * v)), (0.006 + 0.012 * v, 0.006 + 0.012 * v,
-                                                                         0.008 + 0.03 * v), 3.0, 0.15)
+            ink(S.glass_ink, g + Vector((0.0, 0.0, 0.058 - 0.022 * v)), (0.005 + 0.013 * v, 0.005 + 0.013 * v,
+                                                                         0.006 + 0.022 * v), 3.0, 0.15)
 
 
 def p1_seep(u, t, b):
