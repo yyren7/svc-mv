@@ -315,7 +315,7 @@ def effects():
     faces = {k: H.LIVE[f"into_{k}"]["meta"] for k in ("a1", "a3", "a4", "a5", "u1", "u2") if f"into_{k}" in H.LIVE}
     for s, key in zip(S.shards, fx.SHARD_KEYS):            # the loose shards large, each a moment of her: her face and hair
         if s.get("grid") is None:
-            s["big"] = big.uniform(3.0, 6.5)
+            s["big"] = big.uniform(1.6, 3.6)
             if key in faces:
                 shard_on_face(s["ob"], faces[key], big)
 
@@ -562,7 +562,7 @@ def rain3d(center, t, strength=0.5):
 
 def twin_suns(view_from, view_to, a=1.0):
     """P10: two suns low at the two ends of the sky, the cold one on the camera's left, the rose one on its right."""
-    W.set_sky("s3", 1.6)
+    W.set_sky("s3", 1.0)
     haze(0.002)
     f = (Vector(view_to) - Vector(view_from)).normalized()
     r = f.cross(Vector((0.0, 0.0, 1.0))).normalized()
@@ -1289,6 +1289,7 @@ def p8_shards(u, t, b):
         eye = pos + Vector((-2.4 * abs(math.cos(ang)), 2.4 * math.sin(ang), rnd.uniform(-0.3, 0.5)))
         eye.z = max(0.3, eye.z)
         hero["ob"].rotation_quaternion = (eye - pos).to_track_quat("X", "Z")
+        hero["ob"].scale = (5.0,) * 3
         look(eye.lerp(pos, 0.12 * v), pos, lens=32, fstop=4.0, roll=rnd.uniform(-20.0, 20.0))
     else:
         look((-11.0 + 1.5 * v, rnd.uniform(-1.5, 1.5), 1.4), (-5.0, 0.0, 1.6), lens=30, fstop=5.6)
@@ -1305,7 +1306,7 @@ def p9_run(u, t, b):
     step = (b * 4.0) % 1.0
     foot = 1.0 if int(b * 4.0) % 2 else -1.0
     r = show("r0", x=x, y=0.08 * foot * math.sin(math.pi * step))
-    eye = Vector((x - 2.7, 0.35 * math.sin(u * 7.0), 0.42 + 0.06 * abs(math.sin(math.pi * step))))
+    eye = Vector((x - 2.2, 0.35 * math.sin(u * 7.0), 0.42 + 0.06 * abs(math.sin(math.pi * step))))
     facing(r, eye)
     r.location.z += 0.13 * math.sin(math.pi * step)
     r.rotation_euler.z += math.radians(9.0 * foot * math.sin(math.pi * step))
@@ -1365,11 +1366,11 @@ def p10_tear(u, t, b):
     the camera rising and going round with her."""
     twin_suns((-5.0, 3.5, 1.6), (-5.0, 10.0, 2.5))
     if b < 103.0:
-        lift(80.0, 75.0 * ease(clamp((b - 99.0) / 3.5)) ** 1.5)
+        lift(80.0, 50.0 * ease(clamp((b - 99.0) / 3.5)) ** 1.5)
         burst = clamp((b - 101.0) / 2.0)
         if b >= 101.0:
             hide_wall(True)
-            wall_pieces(1.0 - math.exp(-6.0 * burst), t)
+            wall_pieces(1.0 - math.exp(-3.0 * burst), t)
             if b < 101.1:
                 put(S.lineart, 1.0)
         v = snap((b - 99.0) * 2, 3.5) / 8
