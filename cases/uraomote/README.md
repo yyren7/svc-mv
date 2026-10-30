@@ -40,8 +40,9 @@ The v4 pictures were drawn before the world and never sat in its light, so the p
 | `scripts/v5_plates.py` | `PLATES`: each picture's size, light, where she is and the camera. Renders the world from that camera: `renders/v5_plates/<p>_plate.png` (a grey mannequin where she stands), `_clean.png`, `_mask.png` (R sky, G water), `_her.png` (where she may be painted) |
 | `jobs/v5_prompts.py`, `jobs/v5_t1.py` … `v5_t5.py` | The five picture rounds: her painted into the plates (the plate the init and the second reference), the painted passes of the pictures the camera enters (composed over the clean plate, Qwen 0.7), the 裏 twins on the night plates, A5 open-eyed |
 | `runs/pics.sh` | After a round: despeckle, cut out (inside the plate's mannequin), depth and parts maps, the flat map from the plate, a contact sheet (`art/v5/_sheet_*.png`) |
-| `scripts/animatic_v5.py` | Section 5 of script v5 in this world: her as the cut-outs at their plates' places, the camera inside the pictures on their plates' image planes (their sky and water the world's) |
-| `runs/full_v5.sh [W] [S]` | The whole film at W px / S samples: `renders/animatic_v5/frames_W`, `animatic_v5_W.mp4`, `sheetW_0..5.jpg` |
+| `scripts/animatic_v5.py` | Section 5 of script v5 in this world: her as the cut-outs at their plates' places, the camera inside the pictures on their plates' image planes (their sky and water the world's). `alive()` runs last on every frame: the hand on the camera, the kick and the light's jump on the beats, her hair, head and breath (`ENERGY` says how much, section by section) |
+| `scripts/live_maps.py` (shared) | What moves in each picture: `art/v5/maps/<name>_live.png` (R hair, G head, B chest), `_plx.png`, `_live.json`; `--force` to write over them (hand-painted ones are kept otherwise). Run it for any new pick |
+| `runs/full_v5.sh [W] [S] [FPS]` | The whole film at W px / S samples, a section at a time, restarting from the frames it has when Blender crashes, no cut unless every frame is there: `renders/animatic_v5/frames_W`, `animatic_v5_W.mp4`, `sheetW_*.jpg` (the first, incomplete pass is in `renders/animatic_v5/pass1/`) |
 
 The picks (art/v5, on both sides): KV `v5_kv_213s`, KV' `v5_kvn_211n90`, Q1 standing `v5_q1s_211s` and its 裏
 `v5_q1u_211n90`, W1 `v5_w1_217s`, R0 `v5_r0_213s`, U2 `v5_u2_211s` (inside: `_c_pq70`), F1 `v5_f1_215s`, A1

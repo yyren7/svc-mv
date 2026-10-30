@@ -141,6 +141,7 @@ def deep_water():
     bsdf = next(n for n in S.sea.data.materials[0].node_tree.nodes if n.type == "BSDF_PRINCIPLED")
     S.sea_base = bsdf.inputs["Base Color"]
     S.SEA_BASE = tuple(S.sea_base.default_value)
+    S.sea_metal = bsdf.inputs["Metallic"]
     # the red that fills the deep from bar 41: a wide soft lamp low in the water, under the wall
     S.red_deep = cyc.area_light("red_deep", (-6.0, 0.0, -7.0), (-6.0, 0.0, 0.0), 30.0, 2000, 0.0, color=ROSE)
 
@@ -461,6 +462,7 @@ def reset(scene, t, b):
     put(S.sea_glow, 0.0)
     put(S.rip["a"], 0.0)
     put(S.sea_base, S.SEA_BASE)
+    put(S.sea_metal, 0.0)
     for key, ob in S.figs.items():
         loc, rot = S.fig_home[key]
         if ob.location != loc:
@@ -1416,7 +1418,9 @@ def p10_fast(u, t, b):
         frm, to = {"w_sky": ((-6.0, 0.0, 1.5), (4.0, 3.0, 9.0)), "w_high": ((-6.0, 0.0, 9.0), (6.0, 0.0, 3.0)),
                    "w_low": ((-6.0, 0.0, 0.3), (6.0, 2.0, 2.0)), "w_kv": ((-8.0, 4.0, 1.4), (6.0, -2.0, 4.0))}[item]
         twin_suns(to if swap else frm, frm if swap else to)
-        S.sea.hide_render = True
+        put(S.sea_metal, 1.0)                                  # no water: the sky below too (hidden, the bed showed grey)
+        put(S.sea_base, (1.0, 1.0, 1.0, 1.0))
+        put(S.sea_bump, 0.0)
         rnd = random.Random(k)
         eye = Vector(frm).lerp(Vector(to), 0.2 * rush)
         look(eye, to, lens=24, fstop=8.0, roll=rnd.uniform(-35.0, 35.0) + 25.0 * v)
