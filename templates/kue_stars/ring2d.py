@@ -7,7 +7,7 @@ onepic_finish.py 用 --overlay 叠上去（线条不过景深、不过抗锯齿�
 遮挡：pv.py 的 matte 渲的人物、花丛的 alpha（m_#####.png），星环在她们身后。
 
 美术上的规矩（长曝光星轨 + 动画里的小星）：
-- 星等分三档：七成很暗、四分之一中等、二十分之一亮，亮的也只是小而锐的点，没有大光球；
+- 星等分三档：六成偏暗、三成中等、不到一成亮，亮的也只是小而锐的点，没有大光球；
 - 尾巴是一笔收锋：头细而亮、越往后越细越淡，颜色从近白退到本色；后面三成碎成星尘（亮暗按轨道上固定的位置，像光扫过尘埃）；
 - 星芒：只有亮的那档有，小的四芒，全部同一个朝向（同一支镜头的衍射），按每颗 6–14 秒慢慢明灭；
 - 配色收敛：轨道本色（里暖白 -> 外冰蓝），少数淡金、淡玫瑰、淡紫，不要彩虹、麻花、离子尾；
@@ -32,7 +32,7 @@ import star_ring as sr
 
 SRC_FPS = 60
 W_FRAC = 0.80           # 只画画面左边这么宽（最外道到不了更右）
-PALETTE = (((1.00, 0.86, 0.62), 0.11), ((1.00, 0.76, 0.84), 0.07), ((0.80, 0.74, 1.00), 0.05))  # 淡金、淡玫瑰、淡紫，占比
+PALETTE = (((1.00, 0.78, 0.45), 0.13), ((1.00, 0.62, 0.78), 0.08), ((0.72, 0.62, 1.00), 0.06))  # 淡金、淡玫瑰、淡紫，占比
 SPIKE_ANGLE = np.radians(12.0)
 HAIRLINE = 0.045        # 轨道发丝线的亮度
 
@@ -49,11 +49,12 @@ def tables(case):
     rng = np.random.default_rng(23)
     n = ring.n
     u = rng.random(n)
-    mag = np.where(u < 0.70, 0.30 + 0.20 * rng.random(n),
-                   np.where(u < 0.95, 0.52 + 0.20 * rng.random(n), 0.85 + 0.15 * rng.random(n)))
+    mag = np.where(u < 0.60, 0.50 + 0.20 * rng.random(n),
+                   np.where(u < 0.92, 0.70 + 0.15 * rng.random(n), 0.90 + 0.10 * rng.random(n)))
     tk = np.asarray(sr.ORBIT_TAIL_K)[ring.track]
     mag = mag * (0.75 + 0.25 * np.minimum(tk * 1.5, 1.0))        # 短尾的密道暗一些
-    col = np.array(ring.track)[:, None] / (len(sr.ORBIT_RADII) - 1) * (np.array(sr.OUTER) - np.array(sr.INNER)) + np.array(sr.INNER)
+    INNER, OUTER = np.array((1.0, 0.90, 0.74)), np.array((0.50, 0.74, 1.0))      # 比 Ring 的本色饱和一些，细线上才看得出颜色
+    col = np.array(ring.track)[:, None] / (len(sr.ORBIT_RADII) - 1) * (OUTER - INNER) + INNER
     v = rng.random(n)
     lo = 0.0
     for c, p in PALETTE:
@@ -162,8 +163,8 @@ def frame(args):
         theta = th[i, i0] * (1 - fr) + th[i, i1] * fr
         b = br[i, i0] * (1 - fr) + br[i, i1] * fr
         x, y = pos(theta, r[i])
-        sig = s * (0.42 + 0.95 * mag[i]) * (0.30 + 0.70 * q ** 1.4)      # 收锋
-        I = b * mag[i] * q ** 2.0
+        sig = s * (0.7 + 1.0 * mag[i]) * (0.35 + 0.65 * q ** 1.2)      # 收锋
+        I = b * mag[i] * (0.10 + 0.90 * q ** 1.5) * np.minimum(q / 0.06, 1)
         # 尾巴后面碎成尘：亮暗按轨道上固定的位置
         n1 = np.sin(theta * r[i] * 37.0 + G["noise"][i]) * np.sin(theta * r[i] * 91.0 + 2.1 * G["noise"][i])
         grain = np.clip(0.5 + 1.6 * n1, 0, 1)
@@ -171,8 +172,8 @@ def frame(args):
         I = I * (1 - dis + dis * grain)
         hot = (q ** 7)[:, None]
         cc = col[i] * (1 - hot) + hot
-        nx, ny = np.sin(theta), -np.cos(theta)      # 朝外（屏幕上 y 朝下，az 的 y 是负的，下面取正负都对称）
-        for off in (-1.5, -0.75, 0.0, 0.75, 1.5):
+        nx, ny = (x - c[0]) / (r[i] * Rpx), (y - c[1]) / (r[i] * Rpx)      # 屏幕上朝外
+        for off in (-3.0, -2.25, -1.5, -0.75, 0.0, 0.75, 1.5, 2.25, 3.0):
             g = np.exp(-0.5 * (off * s / sig) ** 2)
             A.add(x + off * s * nx, y + off * s * ny, cc * (I * g * 0.62)[:, None])
     # 星尘
@@ -190,7 +191,7 @@ def frame(args):
     img = A.image()
     # 光头和星芒
     heads = Acc(W, H)
-    rad = int(np.ceil(8 * s)) + 2
+    rad = int(np.ceil(11 * s)) + 2
     yy, xx = np.mgrid[-rad:rad + 1, -rad:rad + 1]
     for i in vis:
         b = br[i, fsrc]
@@ -199,13 +200,13 @@ def frame(args):
             continue
         xs, ys = np.round(x0) + xx, np.round(y0) + yy
         d2 = (xs - x0) ** 2 + (ys - y0) ** 2
-        sg = s * (0.8 + 0.9 * mag[i])
-        I = b * mag[i] * (1.15 * np.exp(-d2 / (2 * sg * sg)) + 0.10 * np.exp(-d2 / (2 * (3.2 * sg) ** 2)))
+        sg = s * (1.2 + 1.2 * mag[i])
+        I = b * mag[i] * (1.4 * np.exp(-d2 / (2 * sg * sg)) + 0.20 * np.exp(-d2 / (2 * (3.2 * sg) ** 2)))
         white = col[i] * 0.3 + 0.7
         heads.add(xs.ravel().astype(np.float32), ys.ravel().astype(np.float32), (white[None] * I.ravel()[:, None]).astype(np.float32))
-        if mag[i] > 0.7:         # 小四芒：同一个朝向，慢慢明灭
+        if mag[i] > 0.85:         # 小四芒：同一个朝向，慢慢明灭
             tw = 0.5 + 0.5 * np.sin(2 * np.pi * t / G["spike_p"][i] + G["spike_ph"][i])
-            Ls = s * (12 + 18 * tw) * mag[i]
+            Ls = s * (18 + 26 * tw) * mag[i]
             for an in (SPIKE_ANGLE, SPIKE_ANGLE + np.pi / 2):
                 u = np.linspace(-1, 1, int(2 * Ls / 0.8) + 2, dtype=np.float32)
                 k = b * mag[i] * (0.15 + 0.5 * tw) * (1 - np.abs(u)) ** 2.2 * 0.7
@@ -215,7 +216,7 @@ def frame(args):
     small = cv2.resize(img, (W // 4, H // 4), interpolation=cv2.INTER_AREA)
     g1 = cv2.GaussianBlur(small, (0, 0), max(1.5 * s, 0.6))
     g2 = cv2.GaussianBlur(small, (0, 0), max(6.0 * s, 1.0))
-    img = img + cv2.resize(0.9 * g1 + 0.8 * g2, (W, H), interpolation=cv2.INTER_LINEAR)
+    img = img + cv2.resize(2.5 * g1 + 2.0 * g2, (W, H), interpolation=cv2.INTER_LINEAR)
     # 淡入、让位、遮挡
     k = np.clip((t - (G["t_in"] - 2.0)) / 2.0, 0, 1)
     img *= (k * k * (3 - 2 * k)) * G["quiet"][..., None]
