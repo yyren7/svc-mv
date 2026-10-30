@@ -378,6 +378,8 @@ def build():
                            cross_k=0.65, streak_gain=0.0, spark_flicker=7.0, trail={"comet": (1.7, 1.15)},
                            quiet=layout.QUIET)
         of.galaxy(pic, audio, sky, quiet=layout.QUIET, twinkle=0.8)      # 小星 8 秒明灭一次（原来 2.7 秒）
+    elif RING == "2d":
+        of.galaxy(pic, audio, sky, quiet=layout.QUIET, twinkle=0.8)
     elif RING == "classic":
         op.star_ring(pic, sr.Ring(spec, d["loud"], FPS, float(d["grid_beat"]), float(d["grid_phase"])))
     if SONG.get("title_3d"):       # 默认标题是 title.py 画的 2D 叠加层：3D 字被抗锯齿和景深磨得发糊
@@ -396,6 +398,14 @@ def build():
             spans.append([t, t, w])
     print("camera out of the picture:", [f"{a:.1f}-{b:.1f}s +{w:.3f}" for a, b, w in spans if w > 0.008], flush=True)
     op.meteors(pic, pick_meteors(pic, cam, sky), FPS)
+    if RING == "2d":       # 星环是 ring2d.py 画的 2D 层：存下每帧月亮中心和 R 的两个方向在画面上的位置（0..1，y 朝下）
+        mu, mv, mr = pic.meta["moon"]
+        y = pic.y_sky * 0.97
+        c, Rm = pic.point(mu, mv, y), mr * pic.sx * y
+        pts = (c, c + op.Vector((Rm, 0, 0)), c + op.Vector((0, 0, Rm)))
+        xy = np.array([[cam.project(f, p) for p in pts] for f in range(n)], np.float32)
+        xy[..., 1] = 1 - xy[..., 1]
+        np.savez(os.path.join(RENDERS, "ring_cam.npz"), xy=xy)
 
     src = op.beam_source({"far"})
     tree, beam, bmask, streak, moonmask = op.compositor(streak="streak" in FX, beam_layer=src)
@@ -454,6 +464,25 @@ def stills(seconds):
         print("still", s.render.filepath, flush=True)
 
 
+def matte():
+    """遮挡星环的东西（人物、花丛）的 alpha：-a 或 -f 渲成透明 PNG 到 <case>/renders/matte/m_#####.png，RES 默认 50，
+    不要景深、合成。"""
+    s = bpy.context.scene
+    for ob in bpy.data.objects:
+        if ob.type == "MESH" and ob.name not in ("char", "mid", "near"):
+            ob.hide_render = True
+    s.render.film_transparent = True
+    s.render.use_compositing = False
+    s.camera.data.dof.use_dof = False
+    s.render.resolution_percentage = int(os.environ.get("RES", 50))
+    s.eevee.taa_render_samples = 4
+    im = s.render.image_settings
+    im.media_type = "IMAGE"
+    im.file_format = "PNG"
+    im.color_mode = "RGBA"
+    s.render.filepath = os.path.join(RENDERS, "matte", "m_#####")
+
+
 def clip(name):
     """几秒的 PNG 小样：RES（默认 50）、SAMPLES（默认 16），到 <case>/renders/clips/<name>/；帧号是 60 fps 的。"""
     s = bpy.context.scene
@@ -480,6 +509,8 @@ if __name__ == "__main__":
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     if argv and argv[0] == "stills":
         stills(argv[1:])
+    elif argv and argv[0] == "matte":
+        matte()
     elif argv and argv[0] == "preview":
         preview()
     elif argv and argv[0] == "clip":
