@@ -515,7 +515,8 @@ def ring(t0, x, y, amp=1.0, speed=2.4, life=1.2):
 
 
 def ink(blob, loc, scale, density=1.0, glow=0.3):
-    fx.ink(blob, loc, scale, density, glow, _T.t)
+    # at least 3 mm a side: OpenVDB aborts the render on a volume a fraction of a millimetre thin
+    fx.ink(blob, loc, tuple(max(0.003, c) for c in scale), density, glow, _T.t)
 
 
 def flash():
