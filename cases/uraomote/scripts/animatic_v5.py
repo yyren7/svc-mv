@@ -592,7 +592,8 @@ def seep(key, v, blob=None):
     air just before the picture, running down."""
     ob, pic = S.into[key], INTO[key][0]
     hair = H.anchor(ob, pic, 0)
-    H.stain(ob.name, *H.sheet_uv(ob, pic, *hair["uv"]), 0.02 + 0.07 * v)
+    hu, hv = hair["uv"]                                         # the hair's middle is over her face: the stain
+    H.stain(ob.name, *H.sheet_uv(ob, pic, hu + 0.1, hv - 0.2), 0.02 + 0.05 * v)   # soaks in at her red ends
     if blob is not None:                                        # a thread of ink running down the air before her
         s = ob.matrix_world.to_scale()[0]                       # (the sheet is metres wide; at 0.5 m from the lens a
         p = hair["point"] + (S.eye - hair["point"]).normalized() * 0.02 * s   # few mm is a strand of hair)
