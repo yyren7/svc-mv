@@ -393,6 +393,9 @@ def dust(ob, items, t, center=(2.0, 0.0, 0.0)):
 
 # ---------------------------------------------------------------- shards of glass
 
+SHARD_KEYS = []                             # the picture each shard of the last shards() call carries
+
+
 def shards(pictures, hero, sheet, grid=(8, 12), n=160, seed=13, home=((9.0, 27.0), (1.0, 6.5), (5.0, 10.5)),
            line=(24.0, 0.9)):
     """Windows burst into `n` shards hanging in the air, each with a piece of one of her pictures in its glass:
@@ -428,6 +431,7 @@ def shards(pictures, hero, sheet, grid=(8, 12), n=160, seed=13, home=((9.0, 27.0
         mats[key] = mat
     others = [k for k in mats if k != hero]
     out = []
+    SHARD_KEYS.clear()
     cols, rows = grid
     W, Hh = sheet
     cw, ch = W / cols, Hh / rows
@@ -435,6 +439,7 @@ def shards(pictures, hero, sheet, grid=(8, 12), n=160, seed=13, home=((9.0, 27.0
     for k in range(n):
         mine = k < cols * rows
         key = hero if mine else r.choice(others)
+        SHARD_KEYS.append(key)
         i, j = (k % cols, k // cols) if mine else (r.randrange(cols), r.randrange(rows))
         u0, u1, v0, v1 = i / cols, (i + 1) / cols, 1 - (j + 1) / rows, 1 - j / rows
         jit = [Vector((0, r.uniform(-0.15, 0.15) * cw, r.uniform(-0.15, 0.15) * ch)) for _ in range(4)]

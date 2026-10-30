@@ -12,6 +12,8 @@ folder beside the pictures). A case sets `hybrid.SKY` (the sky picture its windo
 (the pictures that get the full RELIEF; the others a little flatter) before hanging prints; RELIEF=0.14 (metres)
 in the environment is how far the nearest part of a picture stands off the paper.
 """
+import json
+import math
 import os
 
 import bpy
@@ -37,7 +39,7 @@ _MAPS = {}
 
 
 def map_path(name, kind):
-    """The `kind` (depth, flat, parts) map of picture `name`."""
+    """The `kind` (depth, flat, parts, live, plx) map of picture `name`."""
     return os.path.join(MAPS or os.path.join(P.ART, "maps"), f"{name}_{kind}.png")
 
 
@@ -399,7 +401,68 @@ def world_mat(name, picture, size=None, cutout=False, sky=True, water=True, emis
         nt.links.new(chain, mix.inputs[2])
         chain = mix.outputs[0]
     nt.links.new(chain, out.inputs["Surface"])
+    live(mat, picture, size)
     return mat
+
+
+LIVE = {}                                   # material name -> the live values live() made in it (none: no live map)
+
+
+def live(mat, picture, size=None):
+    """Make the picture on `mat` move: every image of it is read through one warp of the sheet's UVs, driven by the
+    picture's live maps (scripts/live_maps.py) and a few Value nodes set per frame: the hair's waves (t1, t2, t3 their
+    phases, amp their size) and the wind on it (wx, wy), the head's shift and turn about the neck (hx, hy, rot), the
+    chest's rise (breath), she against her background (px, py). Sizes are in her own heights. The picture, its plane
+    map and its cut-out move as one, so the sky and water cut through it stay where her hair is not. Keeps a material
+    whose picture has no live map as it was."""
+    file = map_path(picture, "live")
+    if not os.path.exists(file):
+        return None
+    nt = mat.node_tree
+    g = kit.G(nt)
+    maps = [n for n in nt.nodes if n.type == "MAPPING" and n.inputs["Vector"].is_linked
+            and n.inputs["Vector"].links[0].from_node.type == "TEX_COORD"]
+    meta = json.load(open(os.path.join(os.path.dirname(file), f"{picture}_live.json")))
+    uv = g.node("ShaderNodeTexCoord").outputs["UV"]
+    sep = g.node("ShaderNodeSeparateXYZ")
+    g.link(uv, sep.inputs[0])
+    u, v = sep.outputs["X"], sep.outputs["Y"]
+    for f in (file, map_path(picture, "plx")):
+        bpy.data.images.load(f, check_existing=True).colorspace_settings.name = "Non-Color"
+    parts = g.node("ShaderNodeSeparateColor")
+    g.link(P.picture(nt, picture, 0.0, file=file, size=size), parts.inputs[0])
+    plx = g.node("ShaderNodeRGBToBW")
+    g.link(P.picture(nt, picture, 0.0, file=map_path(picture, "plx"), size=size), plx.inputs[0])
+    hair, head, chest = parts.outputs["Red"], parts.outputs["Green"], parts.outputs["Blue"]
+    s = {k: kit.value(nt) for k in ("t1", "t2", "t3", "amp", "wx", "wy", "hx", "hy", "rot", "breath", "px", "py")}
+
+    def wave(a, b, phase):                                  # sin 2 pi (a u + b v) - phase
+        return g.math("SINE", g.math("SUBTRACT", g.math("MULTIPLY", g.math("ADD", g.math("MULTIPLY", u, a),
+                                                                           g.math("MULTIPLY", v, b)), 2 * math.pi), phase))
+
+    def add(*xs):
+        total = xs[0]
+        for x in xs[1:]:
+            total = g.math("ADD", total, x)
+        return total
+
+    mul = lambda a, b: g.math("MULTIPLY", a, b)             # noqa: E731
+    pu, pv = meta["pivot"]
+    w, h = meta["w"], meta["h"]
+    sx, sy = meta["her"] / w, meta["her"] / h               # her height, in picture widths and picture heights
+    dx = add(mul(hair, add(mul(s["amp"], add(wave(0.7, 2.2, s["t1"]), mul(0.5, wave(-1.1, 3.9, s["t2"])))), s["wx"])),
+             mul(head, add(s["hx"], mul(s["rot"], mul(g.math("SUBTRACT", v, pv), h / w / sx)))), mul(plx.outputs[0], s["px"]))
+    dy = add(mul(hair, add(mul(mul(s["amp"], 0.35), wave(2.7, 0.9, s["t3"])), s["wy"])),
+             mul(head, add(s["hy"], mul(s["rot"], mul(g.math("SUBTRACT", pu, u), w / h / sy)))),
+             mul(chest, s["breath"]), mul(plx.outputs[0], s["py"]))
+    off = g.node("ShaderNodeCombineXYZ")
+    g.link(mul(dx, -sx), off.inputs["X"])                   # the texture is read from where the point came from
+    g.link(mul(dy, -sy), off.inputs["Y"])
+    warped = g.vmath("ADD", uv, off.outputs[0])
+    for mp in maps:
+        g.link(warped, mp.inputs["Vector"])
+    LIVE[mat.name] = dict(s, meta=meta)
+    return s
 
 
 def make_figure(name, picture, x, y, height=1.62, bottom=0.01, seed=0, amount=None, grid=None, emission=None,

@@ -145,6 +145,21 @@ def compositor(paper="#CFC8BA", threshold=0.8, strength=0.4, size=0.6, dispersio
     return lineart, kit.sock(glare.inputs, "Strength")
 
 
+def speed_blur():
+    """A directional blur at the end of compositor()'s tree (an impact's zoom, a whip's streak): returns its sockets
+    (Samples, Scale, Amount, Direction, Rotation), idle at Samples 1, Scale 1, Amount 0. Cycles' own motion blur needs
+    keyframes, and every frame here is posed alone."""
+    tree = bpy.context.scene.compositing_node_group
+    g = kit.G(tree)
+    out = next(n for n in tree.nodes if n.type == "GROUP_OUTPUT")
+    last = out.inputs[0].links[0].from_socket
+    blur = g.node("CompositorNodeDBlur")
+    g.link(last, blur.inputs["Image"])
+    g.link(blur.outputs[0], out.inputs[0])
+    blur.inputs["Samples"].default_value = 1
+    return blur.inputs
+
+
 def stamp(size=11):
     """Only the note on the frame (section, shot, bar, time), in a small font."""
     r = bpy.context.scene.render

@@ -1,6 +1,7 @@
 """v5 animatic: script_v5.md section 5 in the world of v5_world.py (the sky, the sea to the horizon, the one wall
 with its window and 表 裏 cut through it, the glass of water on the sill), cut on the song's downbeats and
-rendered small to judge the pacing, the cameras and the dimension events before the real render.
+rendered small to judge the pacing, the cameras and the dimension events before the real render. Nothing on screen is at rest: alive() runs last on every frame and
+moves the camera, her and the light by the music (see there); a shot only says how much (_T.gain, _T.wind, _T.blur).
 
 She is in the world two ways (script_v5 section 2), both from the pictures painted into the world's own plates
 (cases/uraomote/scripts/v5_plates.py, jobs/v5_t*.py):
@@ -18,13 +19,14 @@ She is in the world two ways (script_v5 section 2), both from the pictures paint
 Every frame starts from the world at rest (reset(): every light off, every figure and picture put away, the sea
 still) and the shot sets what it needs, so any frame renders alone and bar ranges run side by side.
 """
+import json
 import math
 import os
 import random
 import sys
 
 import bpy
-from mathutils import Matrix, Quaternion, Vector
+from mathutils import Euler, Matrix, Quaternion, Vector
 
 os.environ.setdefault("ART", "v5")                       # the pictures painted into the world (before v5_world)
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -48,8 +50,17 @@ at, bar_at, punch = CLK.at, CLK.bar_at, CLK.punch
 ease, clamp, put, energy = AN.ease, AN.clamp, AN.put, AN.energy
 ROSE, GLOW, COLD = W.ROSE, W.GLOW, "#7C94FF"
 S = W.S                                                   # the world's registry; the animatic adds to it
-PUNCH = [(35, 47), (51, 55), (87, 116)]                   # bars with the impact push on every beat
+PUNCH = [(24, 28), (35, 47), (51, 55), (83, 116)]         # bars with the impact push on every beat
+# how much the film moves from this bar on: handheld, kicks, her hair, the light's jump on the beat
+ENERGY = [(-2, 0.1), (8, 0.25), (24, 0.7), (31, 0.5), (35, 1.0), (56, 0.0), (57, 0.3), (68, 0.25), (83, 1.0), (87, 1.2),
+          (97, 0.8), (99, 1.2), (107, 1.5), (116, 0.03)]
+_TIMING = json.load(open(os.path.join(C.AUDIO, "urao_timing.json"), encoding="utf-8"))
+ONSET, LOUD = _TIMING["onset"], _TIMING["loud_mix"]
+ONSET_TOP = sorted(ONSET)[int(len(ONSET) * 0.98)] or 1.0
+LOUD_TOP = max(LOUD) or 1.0
 DUTCH = (87, 99)                                          # bars with the Dutch angle, ±12° turning each bar
+SKY_IN_PICTURE = 0.75                                     # the sky's strength behind a picture the camera is inside
+SKY_TURN = 35.0                                           # degrees
 D_SHEET = 0.5                                             # a picture the camera is inside: this far before the lens
 
 # the picks (art/v5): she stands in the world as these cut-outs, at their plates' places
@@ -73,6 +84,10 @@ STILL_EYE = Vector((-16.0, 3.5, 0.8))                     # the dawn still's cam
 
 class _T:
     t = b = 0.0
+    gain = 1.0                                            # her hair and head, this shot (reset to 1 each frame)
+    wind = (0.0, 0.0)                                     # the wind on her hair, in her heights
+    blur = None                                           # this frame's speed blur: dict(scale=, amount=, direction=)
+    flutter = 1.0                                         # how much a paper figure turns in the air
 
 
 # ---------------------------------------------------------------- building
@@ -295,20 +310,90 @@ def effects():
                          home=((-12.0, -2.0), (-4.5, 4.5), (0.2, 4.2)), line=(-5.0, 0.15))
     S.halves = fx.halves(S.into["r0"]) if "r0" in S.into else []
     S.lifted = lifted_sea()
+    make_wall_pieces()
+    big = random.Random(31)
+    faces = {k: H.LIVE[f"into_{k}"]["meta"] for k in ("a1", "a3", "a4", "a5", "u1", "u2") if f"into_{k}" in H.LIVE}
+    for s, key in zip(S.shards, fx.SHARD_KEYS):            # the loose shards large, each a moment of her: her face and hair
+        if s.get("grid") is None:
+            s["big"] = big.uniform(3.0, 6.5)
+            if key in faces:
+                shard_on_face(s["ob"], faces[key], big)
 
 
 def lifted_sea():
     """P9 end / P10: the sea far behind her lifted like a sheet into a black wall of water, hinged on a line across
-    it; a copy of the sea's material on a 300 x 60 m sheet that swings up about its near edge."""
-    bpy.ops.mesh.primitive_grid_add(x_subdivisions=60, y_subdivisions=24, size=1.0)
-    ob = bpy.context.active_object
-    ob.name = "lifted"
-    ob.data.transform(Matrix.Translation((0.5, 0.0, 0.0)))                # hinge at x 0, the sheet towards +X
-    ob.data.transform(Matrix.Diagonal((60.0, 300.0, 1.0, 1.0)))
-    ob.data.materials.append(S.sea.data.materials[0])
-    ob.location = (8.0, 0.0, 0.005)
-    ob.hide_render = True
-    return ob
+    it: two halves, 60 x 150 m, swinging up about their near edge, meeting on a torn edge that lift() pulls apart.
+    Near-black, so it reads against the bright sky behind it. Returns the two."""
+    mat = A._principled("lifted", **{"Base Color": (0.006, 0.007, 0.01, 1.0), "Roughness": 0.25})[0]
+    out = []
+    for side in (-1.0, 1.0):
+        r = random.Random(7)                                   # the same seed: the two edges fit
+        nx, ny = 60, 24
+        verts, faces = [], []
+        tear = [r.uniform(-5.0, 5.0) * (0.3 + 0.7 * i / nx) for i in range(nx + 1)]
+        for i in range(nx + 1):
+            for j in range(ny + 1):
+                y = 150.0 * j / ny + side * tear[i] * (1.0 - j / ny) ** 3
+                verts.append((60.0 * i / nx, side * y, 0.0))
+        for i in range(nx):
+            for j in range(ny):
+                a, c = i * (ny + 1) + j, (i + 1) * (ny + 1) + j
+                faces.append((a, c, c + 1, a + 1) if side > 0 else (a, a + 1, c + 1, c))
+        ob = fx.mesh(f"lifted_{int(side)}", verts, faces, mats=[mat])
+        ob.location = (8.0, 0.0, 0.005)
+        ob.hide_render = True
+        out.append(ob)
+    return out
+
+
+def lift(angle, gap):
+    """The lifted sea up by `angle` degrees, its two halves `gap` metres apart (each moved by half)."""
+    for ob, side in zip(S.lifted, (-1.0, 1.0)):
+        ob.hide_render = False
+        ob.rotation_euler.y = -math.radians(angle)
+        ob.location.y = side * gap / 2
+
+
+def make_wall_pieces():
+    """P10: the wall as blocks of its own plaster, to take its place on the downbeat it bursts."""
+    r = random.Random(23)
+    plaster = bpy.data.objects["wall"].data.materials[0]
+    S.pieces = []
+    ny, nz = 8, 6
+    for i in range(ny):
+        for j in range(nz):
+            size = (W.WALL_T, W.WALL_W / ny * 0.98, W.WALL_H / nz * 0.98)
+            ob = A.rounded_box(f"piece_{i}_{j}", size, 0.0, [plaster])
+            ob.rotation_mode = "QUATERNION"
+            ob.hide_render = True
+            home = Vector((W.WALL_T / 2, W.WALL_W * ((i + 0.5) / ny - 0.5), W.WALL_H * (j + 0.5) / nz))
+            out = (home - Vector((0.0, 0.0, 1.0))).normalized()
+            S.pieces.append(dict(ob=ob, home=home, v=Vector((r.uniform(-16.0, -3.0), out.y * r.uniform(6.0, 22.0),
+                                                             r.uniform(1.0, 14.0))),
+                                 spin=Vector((r.uniform(-1, 1), r.uniform(-1, 1), r.uniform(-1, 1))).normalized(),
+                                 rate=r.uniform(1.0, 5.0), ph=r.uniform(0.0, 6.3)))
+
+
+def wall_pieces(k, t):
+    """The pieces `k` of the way out (0 where the wall stood), tumbling."""
+    for p in S.pieces:
+        p["ob"].hide_render = False
+        p["ob"].location = p["home"] + p["v"] * k
+        p["ob"].rotation_quaternion = Quaternion(p["spin"], p["rate"] * (0.15 * t + k * 2.0) + p["ph"] * k)
+
+
+def shard_on_face(ob, meta, r):
+    """The shard's piece of the picture moved to round her face, wide enough to read as her."""
+    fu, fv = meta["face"]
+    su, sv = 0.55 * meta["her"] / meta["w"], 0.55 * meta["her"] / meta["h"]
+    cu, cv = fu + r.uniform(-0.3, 0.3) * su, fv + r.uniform(-0.3, 0.3) * sv
+    data = ob.data.uv_layers.active.data
+    uvs = [d.uv.copy() for d in data]
+    mu, mv = sum(c.x for c in uvs) / len(uvs), sum(c.y for c in uvs) / len(uvs)
+    du = max(max(abs(c.x - mu) for c in uvs), 1e-4)
+    dv = max(max(abs(c.y - mv) for c in uvs), 1e-4)
+    for d, c in zip(data, uvs):
+        d.uv = (min(1.0, max(0.0, cu + (c.x - mu) / du * su / 2)), min(1.0, max(0.0, cv + (c.y - mv) / dv * sv / 2)))
 
 
 def setup():
@@ -327,9 +412,13 @@ def setup():
     S.cam.data.clip_end = 10000.0
     sc.camera = S.cam
     S.lineart, S.glare = AN.compositor()
+    S.speed = AN.speed_blur()
+    S.live_obs = [ob for ob in list(S.figs.values()) + list(S.into.values())
+                  if ob.material_slots[0].material.name in H.LIVE]
     AN.stamp()
     S.hidden = [S.ink["ob"], S.burst["ob"], S.glass_ink["ob"], S.rain_ob, S.dust, S.conf, S.deep, S.sea_under,
-                S.shutter, S.lifted, S.glass_light, S.letters_back] + [s["ob"] for s in S.shards] + [ob for ob, _ in S.halves] + \
+                S.shutter, S.glass_light, S.letters_back] + S.lifted + [p["ob"] for p in S.pieces] + \
+        [s["ob"] for s in S.shards] + [ob for ob, _ in S.halves] + \
         [c.ob for c in S.cracks.values()] + list(S.figs.values()) + \
         list(S.into.values()) + S.discs + [S.sun_disc]
     return sc
@@ -345,6 +434,7 @@ def reveal(name, v):
 
 def reset(scene, t, b):
     _T.t, _T.b = t, b
+    _T.gain, _T.wind, _T.blur, _T.flutter = 1.0, (0.0, 0.0), None, 1.0
     for lt in S.lamps:
         if lt.data.energy != 0.0:
             lt.data.energy = 0.0
@@ -374,9 +464,8 @@ def reset(scene, t, b):
         H.stain(name, 0.0, 0.0, -1.0)
     for c in S.cracks.values():
         c["reveal"] = 0.0
-    sky = bpy.data.objects["sky"]
-    if sky.rotation_euler.z != 0.0:
-        sky.rotation_euler.z = 0.0
+    # the clouds are always going, and the seam of the sky's mirrored picture is kept out of the view along +X
+    bpy.data.objects["sky"].rotation_euler.z = math.radians(SKY_TURN + 0.1 * t)
     put(S.lineart, 0.0)
     put(S.glare, 0.4)
     put(S.letters_em.inputs["Strength"], 0.0)
@@ -388,7 +477,9 @@ def reset(scene, t, b):
     scene.render.use_motion_blur = False
     S.cam.data.type = "PERSP"
     S.cam.data.dof.use_dof = True
-    S.lifted.rotation_euler.y = 0.0
+    for ob in S.lifted:
+        ob.rotation_euler.y = 0.0
+        ob.location.y = 0.0
 
 
 def look(eye, target, lens=35.0, fstop=8.0, roll=0.0, focus=None, up=(0, 0, 1), ortho=None):
@@ -396,8 +487,9 @@ def look(eye, target, lens=35.0, fstop=8.0, roll=0.0, focus=None, up=(0, 0, 1), 
     eye, target = Vector(eye), Vector(target)
     if any(a <= _T.b < z for a, z in PUNCH):
         eye = eye + (target - eye) * punch(_T.t, 0.03)
-    if DUTCH[0] <= _T.b < DUTCH[1]:
-        roll += 12.0 if math.floor(_T.b) % 2 else -12.0
+    if DUTCH[0] <= _T.b < DUTCH[1]:                        # turning over within a beat, not jumping
+        side = 1.0 if math.floor(_T.b) % 2 else -1.0
+        roll += 12.0 * side * (2.0 * ease(clamp((_T.b % 1.0) * 4.0)) - 1.0)
     S.eye, S.fwd = AN.aim(S.cam, eye, target, lens, fstop, roll, focus, up, ortho)
 
 
@@ -529,6 +621,95 @@ def beat_in_bar():
     return int((_T.b % 1.0) * 4)
 
 
+def snap(x, k=5.0):
+    """A count that goes in steps: each whole number of `x` it leaps most of the way to the next and then settles (a
+    camera that moves on the beat instead of sliding at one speed)."""
+    n = math.floor(x)
+    return n + (1.0 - math.exp(-k * (x - n))) / (1.0 - math.exp(-k))
+
+
+def overshoot(x):
+    """1 down to 0 with a little swing past it, as a whip pan lands."""
+    return (1.0 - x) ** 2 * math.cos(x * math.pi * 1.5) if x < 1.0 else 0.0
+
+
+def since_beat(decay=0.14):
+    """1 on the beat, dying away over `decay` seconds."""
+    return math.exp(-(_T.t - CLK.last_beat(_T.t)) / decay)
+
+
+def face(key, du=0.0, dv=0.0):
+    """Her face in picture `key` (u, v from its bottom left; scripts/live_maps.py), moved by (du, dv)."""
+    meta = H.LIVE.get(S.into[key].material_slots[0].material.name, {}).get("meta")
+    fu, fv = meta["face"] if meta else (0.5, 0.6)
+    return (fu + du, fv + dv)
+
+
+def energy_at(b):
+    e = ENERGY[0][1]
+    for bar, v in ENERGY:
+        if b >= bar:
+            e = v
+    return e
+
+
+def alive(t):
+    """The last thing on every frame: nothing on screen is at rest, and what moves moves with the song.
+    The camera: a hand's slow wander, and a kick on each beat as strong as the beat's onset in the mix. The light: the
+    exposure jumps on the beats, with a zoom blur, where the film has energy. Her: every picture and figure on screen
+    has its hair waving and flung on the beats, her head turning and nodding on the downbeats, her chest breathing,
+    her standing off her background (hybrid.live); a paper figure turns a little in the air."""
+    b, e = _T.b, energy_at(_T.b)
+    beat_t = CLK.last_beat(t)
+    dt = t - beat_t
+    i = min(int(beat_t * 30), len(ONSET) - 1)
+    hit = min(1.0, max(ONSET[max(0, i - 1):i + 3]) / ONSET_TOP) * math.exp(-dt / 0.14)
+    loud = LOUD[min(int(t * 30), len(LOUD) - 1)] / LOUD_TOP
+    seed = random.Random(int(beat_t * 1000))
+    cam = S.cam
+    if e > 0 and cam.data.type == "PERSP":
+        k = min(1.4, 35.0 / cam.data.lens) * e
+        yaw = k * (0.30 * math.sin(1.7 * t + 0.4) + 0.14 * math.sin(3.7 * t + 2.1) + hit * seed.uniform(-0.7, 0.7))
+        pitch = k * (0.22 * math.sin(1.3 * t + 1.2) + 0.12 * math.sin(4.1 * t) + hit * seed.uniform(-0.7, 0.7))
+        rock = k * (0.45 * math.sin(0.9 * t + 2.0) + hit * seed.uniform(-1.2, 1.2))
+        turn = Euler((math.radians(pitch), math.radians(yaw), math.radians(rock)))
+        cam.matrix_world = cam.matrix_world @ turn.to_matrix().to_4x4()
+    sc = bpy.context.scene
+    blur = dict(_T.blur or {})
+    if e >= 0.7 and sc.view_settings.exposure > -5.0:
+        sc.view_settings.exposure += 0.3 * e * hit
+        blur.setdefault("scale", 1.0 + 0.035 * e * hit)
+    scale, amount = blur.get("scale", 1.0), blur.get("amount", 0.0)
+    put(S.speed["Scale"], scale)
+    put(S.speed["Amount"], amount)
+    put(S.speed["Direction"], blur.get("direction", 0.0))
+    samples = 16 if amount > 0.002 or scale > 1.004 else 1
+    if S.speed["Samples"].default_value != samples:
+        S.speed["Samples"].default_value = samples
+    down = max(0.0, t - at(math.floor(b)))
+    side = 1.0 if int(beat_t * 1000) % 2 else -1.0
+    g = _T.gain
+    amp = g * (0.004 + 0.007 * e) * (0.7 + 0.6 * loud)
+    speed = 0.5 + 0.8 * e
+    pose = dict(t1=2 * math.pi * 0.55 * speed * t, t2=2 * math.pi * 0.83 * speed * t + 1.0,
+                t3=2 * math.pi * 0.69 * speed * t, amp=amp,
+                wx=_T.wind[0] + 0.012 * e * g * side * math.exp(-dt / 0.3),
+                wy=_T.wind[1] + 0.004 * e * g * math.exp(-dt / 0.3),
+                hx=0.0025 * math.sin(0.8 * t), hy=-(0.003 + 0.006 * e) * min(g, 1.5) * math.exp(-down / 0.24),
+                rot=math.radians(0.6 + 0.6 * e) * math.sin(0.7 * t + 1.0),
+                breath=0.005 * math.sin(2 * math.pi * t / 3.2), px=(0.6 + e) * 0.006 * math.sin(0.6 * t),
+                py=(0.6 + e) * 0.003 * math.sin(0.45 * t + 1.0))
+    for ob in S.live_obs:
+        if ob.hide_render:
+            continue
+        socks = H.LIVE[ob.material_slots[0].material.name]
+        for key, v in pose.items():
+            put(socks[key], v)
+    for ob in S.figs.values():
+        if not ob.hide_render:
+            ob.rotation_euler.z += math.radians(_T.flutter * (1.5 + 2.0 * e) * math.sin(0.9 * t + 0.5))
+
+
 def hide_wall(h=True):
     for ob in S.wall_parts:
         ob.hide_render = h
@@ -544,6 +725,10 @@ def into(key, zoom=1.0, at_point=None, pan=0.0, tilt=0.0, roll=0.0, glow=1.0, ex
     ob = S.into[key]
     ob.hide_render = False
     put(S.into_mats[key].inputs["Strength"], glow)
+    zoom = max(zoom, 1.05)                                    # room for the hand's wander inside the picture
+    # the view here is the plain sRGB one, where the sky behind the panes burnt white at the 3D shots' strength
+    put(S.sky_em.inputs["Strength"], min(S.sky_em.inputs["Strength"].default_value, SKY_IN_PICTURE))
+    S.sun_disc.hide_render = True
     eye, f, r, u, lens, tw, th = plate_frame(plate)
     target = eye + f
     if at_point is not None:
@@ -564,9 +749,9 @@ def into(key, zoom=1.0, at_point=None, pan=0.0, tilt=0.0, roll=0.0, glow=1.0, ex
     sc.view_settings.exposure = exposure
 
 
-def into_free(key, eye, target, lens, d=0.6, glow=1.0, exposure=0.0):
-    """A v4 close-up (no plate): the picture on the image plane `d` before a camera at `eye`, filling the frame,
-    the world behind its planes."""
+def into_free(key, eye, target, lens, d=0.6, glow=1.0, exposure=0.0, zoom=1.08):
+    """A v4 close-up (no plate): the picture on the image plane `d` before a camera at `eye`, filling the frame at
+    `lens`, `zoom` times closer, the world behind its planes."""
     ob = S.into[key]
     ob.hide_render = False
     put(S.into_mats[key].inputs["Strength"], glow)
@@ -580,7 +765,7 @@ def into_free(key, eye, target, lens, d=0.6, glow=1.0, exposure=0.0):
     centre = eye + f * d
     ob.matrix_world = Matrix.Translation(centre + u * (aspect * s / 2)) @ Matrix((f, -r, u)).transposed().to_4x4() @ \
         Matrix.Scale(s, 4)
-    look(eye, target, lens=lens, fstop=16.0, focus=d)
+    look(eye, target, lens=lens * zoom, fstop=16.0, focus=d)
     S.cam.data.dof.use_dof = False
     sc = bpy.context.scene
     sc.view_settings.view_transform = "Standard"
@@ -617,35 +802,41 @@ def p0_horizon(u, t, b):
     """P0.1: black; a thin cold line comes out of it, the horizon, the camera on the water facing it."""
     a = ease(clamp((b + 2) / 4.0))
     W.set_sky("s1", 0.12 * a)
-    look(P0_EYE, P0_TARGET, lens=32, fstop=8.0)
+    look(P0_EYE + Vector((-1.2 * (1 - u), 0.0, 0.0)), P0_TARGET, lens=32, fstop=8.0)
     bpy.context.scene.view_settings.exposure = -0.4
     S.shutter.hide_render = False
 
 
 def p0_letters(u, t, b):
     """P0.2: the sun rises behind a wall we cannot see yet: two letters of light in the dark, their long
-    reflections running to the lens."""
+    reflections running to the lens; the light leaps a little on every beat."""
     aim_sun(P0_EYE)
-    energy(S.sun, 5.0 * ease(clamp((b - 2) / 0.5)))
+    energy(S.sun, 5.0 * ease(clamp((b - 2) / 0.5)) * (0.7 + 0.5 * since_beat(0.22)))
     S.sun_disc.hide_render = False
     W.set_sky("s1", 0.14)
     haze(0.004)
     S.shutter.hide_render = False
-    look(P0_EYE + Vector((1.0 * u, -0.2 * u, 0.0)), P0_TARGET, lens=32, fstop=8.0)
+    look(P0_EYE + Vector((1.6 * snap((b - 2.0) * 2) / 4, -0.3 * u, 0.0)), P0_TARGET, lens=32 + 8 * u, fstop=8.0)
     bpy.context.scene.view_settings.exposure = -0.4
 
 
 def p0_layers(u, t, b):
-    """P0.3: a layer of light a downbeat: the wall's outline against the brightening sky (4), the window opens on
-    the dawn (5), and on the 6th downbeat she is there before it, a drawn girl standing on the water."""
+    """P0.3: a layer of light a downbeat, a new place for the camera with it: the wall's outline against the
+    brightening sky from far along the water (4), low under the window as it opens on the dawn (5), and on the 6th
+    downbeat she is there before it, a drawn girl standing on the water."""
     dawn(1.0, sky=1.8 * (0.25 + 0.75 * ease(clamp(b - 4.0))), toward=P0_EYE)
     S.shutter.hide_render = b >= 5.0
-    if b < 6.0:
-        look(P0_EYE + Vector((1.0 + 1.0 * u, -0.2 - 0.2 * u, 0.0)), P0_TARGET, lens=32, fstop=8.0)
+    if b < 5.0:
+        look(P0_EYE + Vector((1.6 + 1.2 * snap((b - 4.0) * 4) / 4, -0.3, 0.0)), P0_TARGET, lens=38, fstop=8.0)
         return
-    v = clamp(b - 6.0)
-    eye = Vector((-7.4, -3.7, 0.9)) + Vector((0.6, 0.3, 0.0)) * v
+    if b < 6.0:
+        v = snap((b - 5.0) * 4) / 4
+        look(Vector((-11.0 + 1.5 * v, 5.0 - 0.8 * v, 0.3)), (-0.4, -0.2, 3.3), lens=30, fstop=8.0)
+        return
+    v = snap((b - 6.0) * 4) / 4
+    eye = Vector((-7.4, -3.7, 0.9)) + Vector((1.5, 0.6, 0.0)) * v
     show("kv", eye=eye)
+    _T.gain = 1.6
     look(eye, (-1.4, -1.0, 1.6), lens=35, fstop=4.0, focus=(-1.6, -1.2, 1.2))
 
 
@@ -656,40 +847,47 @@ def p0_through(u, t, b):
     k = ease(u) ** 2
     eye = Vector((-4.0, -1.8, 1.5)).lerp(Vector((-0.02, -0.9, 2.6)), k)
     look(eye, (1.0, -0.9, 2.7), lens=28, fstop=5.6)
+    _T.blur = dict(scale=1.0 + 0.12 * k)
     if u > 0.9:
         into("a1", zoom=1.0 + 0.4 * (1 - (u - 0.9) / 0.1))
 
 
 def p1_light(u, t, b):
-    """P1.1: inside A1. Her window is the real sky: the camera pans two degrees and the clouds slide behind the
-    frame; dust in the beam is 3D; on every downbeat a cloud's shadow passes over her."""
+    """P1.1: inside A1. Her window is the real sky: the camera pans and the clouds slide behind the frame; dust in
+    the beam is 3D; on every downbeat a cloud's shadow passes over her. Half way the camera is nearer her."""
     dawn(1.0)
     shade = 1.0 - 0.25 * math.exp(-((b % 1.0) - 0.3) ** 2 / 0.02)
-    into("a1", zoom=1.08, pan=-1.0 + 2.0 * u, glow=shade)
+    if b < 10.0:
+        into("a1", zoom=1.08 + 0.05 * u, pan=-1.5 + 4.0 * u, glow=shade)
+    else:
+        into("a1", zoom=1.5 + 0.2 * u, at_point=face("a1", 0.0, -0.06), pan=1.0 - 2.0 * u, glow=shade)
     pic, plate = INTO["a1"]
     eye, f, r, uu, lens, tw, th = plate_frame(plate)
     dust(eye + f * 1.6 + Vector((0.0, 0.0, -2.2)))
 
 
 def p1_eyes(u, t, b):
-    """P1.2: A5 closed-eyed, on the downbeat of 13 A5 open-eyed: the same picture, her eyes open."""
+    """P1.2: A5 closed-eyed, on the downbeat of 13 A5 open-eyed: the same picture, her eyes open, the camera going in
+    on them as they do."""
     dawn(1.0)
     key = "a5o" if b >= 13.0 and "a5o" in S.into else "a5"
-    into(key, zoom=1.04 + 0.04 * u)
+    near = 1.0 - math.exp(-6.0 * max(0.0, b - 13.0))
+    into(key, zoom=1.12 + 0.06 * u + 0.5 * near, at_point=face(key, 0.0, -0.02 * near))
 
 
 def p1_drop(u, t, b):
     """P1.3: macro, the glass of water on the sill, the dawn behind it; on the downbeat of 15 a rose drop falls
-    into it and blooms down through the water, the film's first colour."""
+    into it and blooms down through the water, the film's first colour; the camera drifts in, and starts at the drop."""
     dawn(1.0)
     S.glass_light.hide_render = False
     S.glass_light.location.z = 1.5                             # behind the glass (it sees the low panes, inverted)
     g = S.glass_at
-    # from a little above: through the water the glass sees the sky in the panes, not the sill and the transom
-    look(g + Vector((-0.5, 0.1, 0.2)), g + Vector((0.0, 0.0, 0.05)), lens=85, fstop=2.8)
+    # level with the water, the window behind it: from above it saw the sill through the water, brown
+    v = clamp((t - at(15.0)) / 1.4)
+    near = 0.1 * u + 0.05 * (1.0 - math.exp(-5.0 * v))
+    look(g + Vector((-0.5 + near, 0.08, 0.075)), g + Vector((0.0, 0.0, 0.07)), lens=85, fstop=2.8)
     bpy.context.scene.cycles.glossy_bounces = 14
     bpy.context.scene.cycles.max_bounces = bpy.context.scene.cycles.transmission_bounces = 14
-    v = clamp((t - at(15.0)) / 1.4)
     if t >= at(15.0) - 0.15:
         if t < at(15.0):                                       # the drop, falling
             k = (at(15.0) - t) / 0.15
@@ -701,21 +899,22 @@ def p1_drop(u, t, b):
 
 def p1_seep(u, t, b):
     """P1.4: the same red in 2D: inside Q1 (A5 open-eyed) it soaks into her hair from the roots, and a wisp of
-    ink runs down the air before her face (3D)."""
+    ink runs down the air before her face (3D); a step nearer on each downbeat."""
     dawn(1.0)
     key = "a5o" if "a5o" in S.into else "a5"
-    into(key, zoom=1.1 + 0.06 * u)
+    into(key, zoom=1.2 + 0.32 * snap(b - 16.0, 7.0) / 4, at_point=face(key, 0.03 * u, -0.04))
+    _T.gain = 1.3
     seep(key, ease(u))                                          # (a wisp of ink before her face read as a nosebleed)
 
 
 def p1_glass_top(u, t, b):
-    """P1.5: straight down on the glass, the ink turning in it; the camera rises and the glass's mouth becomes a
-    red ring on the sea, thirty metres down: the same swirl, the wall's reflection beside it, her small at the
-    window."""
+    """P1.5: straight down on the glass, the ink turning in it; the camera rises, turning, and the glass's mouth
+    becomes a red ring on the sea, thirty metres down: the same swirl, the wall's reflection beside it, her small at
+    the window."""
     dawn(1.0)
     g = S.glass_at
     h = 0.12 * math.exp(math.log(30.0 / 0.12) * ease(u))
-    look(g + Vector((0.0, 0.0, 0.1 + h)), g, lens=50, fstop=8.0, up=(1, 0, 0))
+    look(g + Vector((0.0, 0.0, 0.1 + h)), g, lens=50, fstop=8.0, up=(1, 0, 0), roll=55.0 * u)
     ink(S.glass_ink, g + Vector((0.0, 0.0, 0.06)), (0.022, 0.022, 0.03), 3.0, 0.15)
     if u > 0.35:                                               # the red on the sea under the window: ink at the surface
         k = ease((u - 0.35) / 0.4)                             # (the sea's own glow was a flat red floor in v4)
@@ -726,52 +925,71 @@ def p1_glass_top(u, t, b):
         reveal("sea", ease((b - 23.0) / 0.9))
 
 
-def whip_world(u, t, b):
-    """P2: the world between the whips: skimming the water along the wall."""
-    eye = Vector((-9.0 + 2.0 * u, -6.0 + 3.0 * u, 0.45))
-    look(eye, (0.0, 1.0, 2.2), lens=32, fstop=8.0)
+def whip_world(u, t, b, side=1.0):
+    """P2: the world between the whips: skimming the water along the wall, from one side and then the other."""
+    eye = Vector((-9.0 + 3.0 * u, side * (-6.0 + 3.5 * u), 0.45))
+    look(eye, (0.0, side * 1.0, 2.2), lens=28, fstop=8.0)
 
 
 WHIP = {24: "a2", 25: "a3", 26: "a4", 27: "a1w"}
 
 
 def p2_whip(u, t, b):
-    """P2.1-2.2: a whip a bar, from the world into a picture's front and back out; a crack of light on every
-    downbeat, in 3D (the water, the wall, the glass) and in 2D (across the picture)."""
+    """P2.1-2.2: a whip a bar, from the world into a picture's front and back out, one way and the other way; the
+    whip overshoots and settles on the beat; a crack of light on every downbeat, in 3D (the water, the wall, the glass)
+    and in 2D (across the picture)."""
     dawn(1.0)
     bar = int(math.floor(b))
     v = b - bar
     key = WHIP.get(bar, "a2")
+    side = 1.0 if bar % 2 else -1.0
     if 0.3 <= v < 0.85 and key in S.into:
-        into(key, zoom=1.06, pan=6.0 * (1 - ease(clamp((v - 0.3) / 0.12))))
+        x = clamp((v - 0.3) / 0.14)
+        into(key, zoom=1.1 + 0.16 * (v - 0.3), pan=side * 14.0 * overshoot(x), at_point=face(key, 0.0, -0.03))
+        _T.gain = 1.8
+        if x < 1.0:
+            _T.blur = dict(amount=0.10 * (1 - x), direction=0.0 if side > 0 else math.pi)
     else:
-        whip_world(v, t, b)
-        if v < 0.3:
-            S.cam.rotation_euler.rotate_axis("Y", math.radians(-25.0 * ease(clamp((v - 0.22) / 0.08))))
-    bpy.context.scene.render.use_motion_blur = 0.22 <= v < 0.34 or 0.8 <= v < 0.9
+        whip_world(v, t, b, side)
+        out = clamp((v - 0.2) / 0.1) if v < 0.3 else 1 - clamp((v - 0.85) / 0.1)
+        if out > 0:
+            S.cam.matrix_world = S.cam.matrix_world @ Matrix.Rotation(math.radians(side * 32.0 * ease(out)), 4, "Y")
+            _T.blur = dict(amount=0.12 * out, direction=math.pi if side > 0 else 0.0)
     name = ("sea", "wall", "glass", "sea")[bar % 4]
     reveal(name, ease(clamp(v / 0.2)))
     flash()
 
 
 def p2_wind(u, t, b):
-    """P2.3: the wind: the clouds run, the water roughens, the glass's water shivers."""
+    """P2.3: the wind: the clouds run, the water roughens, her hair streams, and the camera goes round her close to;
+    then low on the water with the whole wall and the sky running over it."""
     dawn(1.0)
     put(S.sea_bump, 0.35)
-    bpy.data.objects["sky"].rotation_euler.z = math.radians(4.0 * u)       # the clouds run
-    look(Vector((-12.0, 4.0, 1.2)) + Vector((0.0, -3.0 * u, 0.0)), (0.0, -0.5, 2.6), lens=28, fstop=8.0)
-    show("kv", eye=S.eye)
+    bpy.data.objects["sky"].rotation_euler.z += math.radians(10.0 * u)       # the clouds run
+    if b < 29.0:
+        v = snap((b - 28.0) * 4, 3.5) / 4
+        ang = math.radians(-155.0 + 45.0 * v)
+        her = Vector((-1.6, -1.2, 1.0))
+        eye = her + Vector((3.6 * math.cos(ang), 3.6 * math.sin(ang), 0.1))
+        show("kv", eye=eye)
+        _T.gain, _T.wind = 2.6, (0.02, 0.006)
+        look(eye, her + Vector((0.0, 0.0, 0.15)), lens=40, fstop=3.2)
+    else:
+        look(Vector((-12.0, 4.0, 0.3)) + Vector((1.5, -6.0 * (b - 29.0), 0.0)), (0.0, -0.5, 3.0), lens=22, fstop=8.0)
+        show("kv", eye=S.eye)
+        _T.gain, _T.wind = 2.2, (0.015, 0.004)
 
 
 def p2_out(u, t, b):
-    """P2.4: the dawn goes out a beat at a time: the world dark but for the crack's red and the letters."""
+    """P2.4: the dawn goes out a beat at a time, the camera a step further off with each: the world dark but for the
+    crack's red and the letters."""
     k = 1.0 - 0.25 * beat_in_bar() - 0.25 * ease((b % 0.25) * 4)
     dawn(max(0.0, k))
     energy(S.letters_glow, 400.0 * (1 - max(0.0, k)))
     put(S.letters_em.inputs["Strength"], 3.0 * (1 - max(0.0, k)))
     S.letters_back.hide_render = k >= 1.0
     reveal("sea", 1.0)
-    look((-18.0, 0.0, 0.6), (0.0, 0.6, 2.4), lens=40, fstop=8.0)
+    look((-13.0 - 7.0 * snap((b - 30.0) * 4) / 4, 0.0, 0.6), (0.0, 0.6, 2.4), lens=40, fstop=8.0)
 
 
 def p3_turn(u, t, b):
@@ -783,62 +1001,69 @@ def p3_turn(u, t, b):
     q = show("q1s")
     S.figs["q1u"].hide_render = False
     x, y = q.location.x, q.location.y
-    ang = math.radians(-20.0 + 40.0 * u)
-    eye = Vector((x - 5.2 * math.cos(ang), y - 5.2 * math.sin(ang), 0.55))
+    ang = math.radians(-50.0 + 100.0 * snap((b - 31.0) * 2, 4.0) / 8)
+    dist = 5.2 - 1.6 * clamp((b - 31.0) / 3.5)
+    eye = Vector((x - dist * math.cos(ang), y - dist * math.sin(ang), 0.55))
     facing(q, eye)
     facing(S.figs["q1u"], eye)
     step = 2.0 if b >= 34.0 else 1.0
     phase = ((b % 1.0) * 4 * step) % 2.0
-    down = ease(clamp(phase - 0.5)) if phase < 1.0 else 1.0 - ease(clamp(phase - 1.5))
+    down = ease(clamp((phase - 0.5) * 2)) if phase < 1.0 else 1.0 - ease(clamp((phase - 1.5) * 2))
     target = Vector((x, y, 1.45 - 2.9 * down))
+    _T.gain = 1.3
     look(eye, target, lens=40, fstop=4.0)
     if b >= 34.75:
         k = clamp((b - 34.75) / 0.25)
         ring(at(34.75), x, y, amp=2.0, speed=6.0)
         look(eye.lerp(Vector((x, y, -0.8)), ease(k)), Vector((x, y, -2.0)), lens=40, fstop=4.0)
+        _T.blur = dict(scale=1.0 + 0.1 * k)
 
 
 CHORUS_CAMS = ["skim", "top", "half", "window", "up"]
 
 
 def chorus_cam(kind, u):
-    if kind == "skim":                                     # ① skimming the water towards the wall
-        look((-16.0 + 9.0 * u, -1.5, 0.3), (0.0, 0.0, 1.6), lens=24, fstop=8.0)
-    elif kind == "top":                                    # ② straight down, the ink opening by the wall's reflection
-        look((-3.0, -0.6, 9.0), (-3.0, -0.6, 0.0), lens=28, fstop=8.0, up=(1, 0, 0))
+    if kind == "skim":                                     # ① skimming the water towards the wall, past her
+        look((-16.0 + 12.0 * u, -1.9, 0.3), (0.0, 0.0, 1.6), lens=24, fstop=8.0)
+        show("kv", eye=S.eye)
+    elif kind == "top":                                    # ② straight down, turning, the ink opening by the wall's reflection
+        look((-3.0, -0.6, 7.0 + 4.0 * u), (-3.0, -0.6, 0.0), lens=28, fstop=8.0, up=(1, 0, 0), roll=70.0 * u)
     elif kind == "half":                                   # ③ half in the water: the world above, the deep below
-        look((-9.0 + 2.0 * u, 0.4, 0.0005), (0.0, 0.2, 0.0005), lens=20, fstop=8.0)
+        look((-9.0 + 4.0 * u, 0.4, 0.0005), (0.0, 0.2, 0.0005), lens=20, fstop=8.0)
     elif kind == "window":                                 # ④ through the window towards the horizon
-        e = Vector((-3.0, -1.2, 2.6)).lerp(Vector((3.0, -1.2, 2.6)), ease(u))
+        e = Vector((-3.0, -1.2, 2.6)).lerp(Vector((3.0, -1.2, 2.6)), u)
         look(e, e + Vector((10.0, 0.0, -0.4)), lens=24, fstop=8.0)
-    else:                                                  # ⑤ from under the water, looking up
-        look((-6.0, -1.0, -2.2), (-2.0, -0.6, 1.0), lens=20, fstop=8.0)
+    else:                                                  # ⑤ low on the surface, looking up the wall (not from under
+        #                                                    it: there the sea is a pale flat plate with the sky's edge)
+        look((-6.0 + 2.5 * u, -1.4, 0.03), (-1.0, 0.2, 4.2), lens=18, fstop=8.0)
 
 
 def p4_chorus(u, t, b):
     """P4: a dimension event a beat: (1) push and the negative on paper, (2) a pulse ring over the whole water,
-    (3) ink bursting in the deep, (4) half a beat inside a chorus picture (C1-C4), back to 3D. A camera a bar,
-    five in turn; from bar 41 the deep glows red under the cold mirror."""
+    (3) ink bursting in the deep, (4) a chorus picture (C1-C4), half a beat on the even bars, the whole beat on the
+    odd, her hair flung, then back to 3D. A camera a bar, five in turn, moving in steps on the beats; from bar 41 the
+    deep glows red under the cold mirror."""
     dawn(1.0)
     bar = int(math.floor(b))
     beat = beat_in_bar()
     v = (b % 1.0) * 4 - beat
     red = 0.0 if b < 41 else ease(clamp((b - 41) / 5.0))
     kind = CHORUS_CAMS[(bar - 35) % 5]
-    if beat == 3 and v < 0.5:
+    if beat == 3 and (bar % 2 or v < 0.5):
         key = CHORUS[(bar - 35) % 4]
-        into_free(key, (-8.0, -1.0, -4.0), (-2.0, -0.6, -4.4), 35.0)
+        into_free(key, (-8.0, -1.0, -4.0), (-2.0, -0.6, -4.4), 35.0, zoom=1.06 + 0.22 * (1.0 - math.exp(-5.0 * v)))
         underwater(red=0.4 + red, shafts=0.8)
+        _T.gain = 2.2
         return
-    if kind in ("half", "up"):
+    if kind == "half":
         underwater(red=red)
         put(S.sea_base, (0.55, 0.62, 0.66, 1.0))
-        if kind == "half":
-            S.sea.hide_render = False
+        S.sea.hide_render = False
     else:
         clear_sea(0.35 + 0.4 * red)
         energy(S.red_deep, 9000.0 * red)
-    chorus_cam(kind, b % 1.0)
+    chorus_cam(kind, snap((b % 1.0) * 4) / 4)
+    _T.gain = 2.0
     flash()
     ring(CLK.last_beat(t) if beat == 1 else -10.0, -2.0, -0.6, amp=1.2, speed=7.0, life=0.6)
     if beat >= 2:
@@ -850,26 +1075,29 @@ def p5_spill(u, t, b):
     """P5.1: inside C1 the ink round her rises along her hair; her water is the sea: the camera follows the ink
     out of the picture and up through the surface, and from above the red spreads on the sea."""
     if u < 0.55:
-        into_free("c1", (-8.0, -1.0, -4.0 + 1.2 * u), (-2.0, -0.6, -4.4 + 1.6 * u), 35.0)
+        into_free("c1", (-8.0, -1.0, -4.0 + 1.2 * u), (-2.0, -0.6, -4.4 + 1.6 * u), 35.0, zoom=1.08 + 0.5 * u)
         underwater(red=0.6, shafts=0.8)
+        _T.gain = 2.4
         ink(S.ink, Vector((-7.45, -0.97, -3.95 + 1.3 * u)), (0.004, 0.004, 0.03 + 0.05 * u), 2.5, 0.4)
     else:
         dawn(1.0)
         k = (u - 0.55) / 0.45
         clear_sea(0.55)
         energy(S.red_deep, 9000.0 * 0.6)
-        look((-6.0, -1.0, 0.5 + 6.0 * ease(k)), (-3.0, -0.6, 0.0), lens=28, fstop=8.0)
+        look((-6.0, -1.0, 0.5 + 6.0 * ease(k)), (-3.0, -0.6, 0.0), lens=28, fstop=8.0, roll=-30.0 * k)
         ink(S.ink, Vector((-4.0, -0.8, -0.05)), (2.0 + 2.0 * k, 2.0 + 2.0 * k, 0.12), 1.0, 0.6)
 
 
 def p5_full(u, t, b):
-    """P5.2: the whole sea lit red from below, the cold sky still in its mirror; skimming, a push a beat; the
-    wall's reflection red."""
+    """P5.2: the whole sea lit red from below, the cold sky still in its mirror; skimming, a push a beat, the camera
+    passing close by her; the wall's reflection red."""
     dawn(1.0)
     clear_sea(0.6)
     energy(S.red_deep, 9000.0)
-    look((-14.0 + 6.0 * u, 2.0, 0.25), (0.0, 0.0, 2.0), lens=24, fstop=8.0)
+    v = snap((b - 51.0) * 4, 3.5) / 16
+    look((-14.0 + 12.5 * v, 2.2 - 3.6 * v, 0.25), (0.0, -0.4, 2.0), lens=24, fstop=8.0)
     show("kv", eye=S.eye)
+    _T.gain = 2.0
 
 
 def p5_vertigo(u, t, b):
@@ -883,6 +1111,7 @@ def p5_vertigo(u, t, b):
     lens = 28.0 * dist / 3.0
     eye = her + Vector((-dist * 0.94, -dist * 0.34, 0.2))
     show("kv", eye=eye)
+    _T.gain = 2.0
     look(eye, her + Vector((0.0, 0.0, 0.3)), lens=lens, fstop=5.6)
 
 
@@ -895,27 +1124,39 @@ def p5_cut(u, t, b):
 
 def p6_rain(u, t, b):
     """P6.1: the first night (S2): rain over the whole sea, its rings; the wall dark but for the window; W1 far out
-    on the water, small, in the rain; the camera comes in slowly from behind her."""
+    on the water, small, in the rain; the camera comes in slowly from behind her; then down on the water, long, her
+    small in the rings."""
     rain_night()
     w = show("w1")
-    eye = Vector((-30.0 + 12.0 * ease(u), 1.2, 1.4))
+    _T.wind = (0.006, 0.0)
+    if b < 59.0:
+        eye = Vector((-30.0 + 7.0 * ease(u * 2), 1.2, 1.4))
+        facing(w, eye)
+        look(eye, (-6.0, 0.6, 1.4), lens=35, fstop=5.6)
+        rain3d((eye.x + 6.0, eye.y, 6.0), t, 0.45)
+        return
+    v = (b - 59.0) / 2.0
+    eye = Vector((-20.0 + 2.0 * v, 3.2 - 1.2 * v, 0.1))
     facing(w, eye)
-    look(eye, (-6.0, 0.6, 1.4), lens=35, fstop=5.6)
-    rain3d((eye.x + 6.0, eye.y, 6.0), t, 0.45)
+    look(eye, (-6.0, 0.6, 0.55), lens=85, fstop=4.0)
+    rain3d((eye.x + 5.0, eye.y, 6.0), t, 0.5)
 
 
 def p6_w1(u, t, b):
     """P6.2: W1's back grows, the window's light edges her rose, the rain falls before her, her reflection under
     her; then W2 fills the frame, the rain falling before her face (3D)."""
     rain_night()
+    _T.wind = (0.008, 0.0)
     if b < 62.5:
         w = show("w1")
-        eye = Vector((-12.5 + 2.0 * u, 0.9, 1.25))
+        eye = Vector((-12.5 + 4.0 * u, 0.9, 1.25))
         facing(w, eye)
         look(eye, (-6.0, 0.6, 1.15), lens=45, fstop=4.0)
         rain3d((eye.x + 3.0, eye.y, 6.0), t, 0.45)
     else:
-        into_free("w2", (-9.0, 0.6, 1.4), (-6.0, 0.6, 1.4), 50.0, exposure=0.0)
+        v = (b - 62.5) / 1.5
+        into_free("w2", (-9.0, 0.6, 1.4), (-6.0, 0.6, 1.4), 50.0, exposure=0.0, zoom=1.08 + 0.2 * v)
+        _T.gain = 1.4
         rain3d((-8.4, 0.6, 6.0), t, 0.5)
 
 
@@ -926,6 +1167,7 @@ def p6_side(u, t, b):
     yaw0 = w.rotation_euler.z
     ang = math.pi + yaw0 + math.radians(170.0 * ease(u))
     eye = Vector((w.location.x + 4.0 * math.cos(ang), w.location.y + 4.0 * math.sin(ang), 1.1))
+    _T.flutter = 0.0                                           # a clean edge: she has to become a line
     look(eye, (w.location.x, w.location.y, 0.9), lens=40, fstop=4.0)
     rain3d((w.location.x, w.location.y, 6.0), t, 0.4)
 
@@ -938,7 +1180,7 @@ def p6_lines(u, t, b):
     eye = Vector((-11.0, 1.0, 1.0))
     facing(w, eye)
     tilt = ease(clamp((b - 67.5) * 2.0))
-    look(eye, Vector((-6.0, 0.6, 1.0 - 2.2 * tilt)), lens=40, fstop=4.0, roll=40.0 * tilt)
+    look(eye, Vector((-6.0, 0.6, 1.0 - 2.2 * tilt)), lens=40 + 10 * u, fstop=4.0, roll=40.0 * tilt)
     rain3d((eye.x + 3.0, eye.y, 6.0), t, 0.5)
     if 66.0 <= b < 67.0 and _T.t - CLK.last_beat(_T.t) < 1.6 / FPS:
         put(S.lineart, 1.0)
@@ -953,29 +1195,39 @@ def p7_roll(u, t, b):
     look(eye, (-6.0, 0.6, 0.2), lens=35, fstop=5.6, roll=40.0 + 140.0 * ease(u))
 
 
-URA = [(70, "u1"), (72, None), (73, "u2"), (75, None), (76, "u4"), (77, None)]
+URA = [(70, "u1"), (72, 72), (73, "u2"), (75, 75), (76, "u4"), (77, 77)]
+# the world between her 裏 pictures, somewhere new each time: (eye, its drift, target, lens)
+URA_WORLD = {72: ((-9.0, 1.2, 0.7), (1.0, 0.3, 0.0), (0.0, 2.5, 3.65), 70.0),
+             75: ((-5.0, -6.5, 0.2), (1.2, 0.8, 0.0), (0.0, 1.0, 2.6), 26.0),
+             77: ((-14.0, 5.8, 0.15), (2.0, -1.0, 0.0), (0.0, 0.6, 2.2), 32.0)}
 
 
 def p7_ura(u, t, b):
     """P7.2: her 裏 pictures alternate with the world: U1 (lying on the black water, straight down: her water is
-    the night sea, a ring a beat), the world (the letters glowing rose), U2, the world, U4."""
+    the night sea, a ring a beat, the camera close and travelling up her to the face), the world (the letters glowing
+    rose, seen from a new place each time), U2, the world, U4."""
     night()
     key = None
     for bar0, k in URA:
         if b >= bar0:
             key = k
     if key == "u1":
-        into("u1", zoom=1.04)
+        v = (b - 70.0) / 2.0
+        fu, fv = face("u1")
+        into("u1", zoom=2.4 + 0.5 * v, at_point=(fu + 0.2 * (1 - ease(v)), fv), roll=8.0 * v)
         put(S.sea_bump, 0.0)
+        _T.gain = 1.5
         ring(CLK.last_beat(t), -6.0, 1.0, amp=1.0, speed=1.6, life=1.5)
     elif key == "u2":
-        into("u2", zoom=1.04 + 0.04 * ((b - 73) / 2.0))
+        v = (b - 73.0) / 2.0
+        into("u2", zoom=1.3 + 0.35 * snap(v * 2.0, 4.0) / 2, at_point=face("u2", 0.0, -0.08))
     elif key == "u4":
-        into_free("u4", (-9.0, 0.0, 1.4), (-6.0, 0.0, 1.4), 50.0)
+        into_free("u4", (-9.0, 0.0, 1.4), (-6.0, 0.0, 1.4), 50.0, zoom=1.08 + 0.2 * (b - 76.0))
+        _T.gain = 1.3
     else:
-        v = (b % 1.0)
-        show("u2")
-        look((-16.0 + 2.0 * v, 3.0, 0.4), (0.0, 1.5, 2.6), lens=35, fstop=8.0)
+        eye, drift, to, lens = URA_WORLD[key]
+        v = b - key
+        look(Vector(eye) + Vector(drift) * v, to, lens=lens, fstop=8.0)
 
 
 def p7_reflect(u, t, b):
@@ -984,7 +1236,7 @@ def p7_reflect(u, t, b):
     night(letters=0.6)
     dusk(1.0)
     q = show("q1s")
-    eye = Vector((-8.2, 0.6, 0.6))
+    eye = Vector((-8.2 + 1.6 * u, 0.6 - 1.2 * u, 0.6))
     facing(q, eye)
     back = (b % 1.0) < 0.12
     S.figs["q1u"].hide_render = back
@@ -999,61 +1251,90 @@ def p7_crack(u, t, b):
     night(letters=0.6)
     dusk(1.0)
     q = show("q1s")
-    look((-9.0, -2.5, 1.0), (-3.0, 0.0, 0.3), lens=35, fstop=5.6)
+    look((-9.0 + 1.5 * u, -2.5, 1.0), (-3.0, 0.0, 0.3), lens=35, fstop=5.6)
     facing(q, S.eye)
     reveal("feet", ease(u))
 
 
 def p8_shards(u, t, b):
-    """P8: the surface bursts into hundreds of shards hanging in the air, each a mirror with a moment of her in it;
-    the red deep under them; the camera between them, a cut each half bar, each cut a negative first; on the last
-    beat they make her silhouette."""
+    """P8: the surface bursts: the shards leap up off the water on the first beat and hang in the air, each a mirror
+    with a moment of her in it; the red deep under them; the camera between them, a cut each half bar, close on one
+    shard that turns to face it, each cut a negative first; on the last beat the small ones make her silhouette and
+    the big ones fly off."""
     night(letters=0.4)
     clear_sea(0.6)
     energy(S.red_deep, 9000.0)
     k = (b - 83.0) / 4.0
+    up = 1.0 - math.exp(-7.0 * clamp((b - 83.0) / 0.7))
     gather = ease(clamp((b - 86.0) / 0.9))
+    cut = int(k * 8)
+    v = (k * 8) % 1.0
+    rnd = random.Random(cut)
+    hero = rnd.choice([s for s in S.shards if s.get("grid") is None])
     for s in S.shards:
         ob = s["ob"]
         ob.hide_render = False
         home = s["home"]
-        if s.get("grid") is not None and gather > 0:
-            ob.location = home.lerp(s["grid"], gather)
+        bob = Vector((0.0, 0.0, 0.15 * math.sin(t * 1.3 + s["ph"])))
+        at_home = Vector((home.x, home.y, 0.02)).lerp(home, up) + bob
+        if s.get("grid") is not None:
+            ob.location = at_home.lerp(s["grid"], gather)
         else:
-            ob.location = home + Vector((0.0, 0.0, 0.15 * math.sin(t * 1.3 + s["ph"])))
-        ob.rotation_quaternion = Quaternion(s["spin"], (0.6 * t + s["ph"]) * (1 - gather))
-    cut = int(k * 8)
-    rnd = random.Random(cut)
-    eye = Vector((rnd.uniform(-13.0, -7.0), rnd.uniform(-3.0, 3.0), rnd.uniform(0.6, 3.2)))
-    v = (k * 8) % 1.0
-    look(eye + Vector((1.2 * v, 0.0, 0.0)), (-5.0, 0.0, 1.6), lens=28, fstop=5.6)
+            ob.scale = (s["big"],) * 3
+            ob.location = at_home + (at_home - Vector((-5.0, 0.0, 1.6))) * 2.0 * gather
+        ob.rotation_quaternion = Quaternion(s["spin"], (0.6 * t + s["ph"] + 9.0 * (1.0 - up)) * (1 - gather))
+    pos = hero["ob"].location.copy()
+    if cut < 6:
+        ang = rnd.uniform(0.0, 2 * math.pi)
+        eye = pos + Vector((-2.4 * abs(math.cos(ang)), 2.4 * math.sin(ang), rnd.uniform(-0.3, 0.5)))
+        eye.z = max(0.3, eye.z)
+        hero["ob"].rotation_quaternion = (eye - pos).to_track_quat("X", "Z")
+        look(eye.lerp(pos, 0.12 * v), pos, lens=32, fstop=4.0, roll=rnd.uniform(-20.0, 20.0))
+    else:
+        look((-11.0 + 1.5 * v, rnd.uniform(-1.5, 1.5), 1.4), (-5.0, 0.0, 1.6), lens=30, fstop=5.6)
     if v < 0.15:
         put(S.lineart, 1.0)
 
 
 def p9_run(u, t, b):
-    """P9.1: she runs: 24 mm backing away low over the water before her (R0), each step a ring and a splash, the
-    wall going away behind her, the letters' light far off; a shard of the surface past the lens on the
-    downbeats; the Dutch angle turning each bar."""
-    night()
-    x = -6.0 - 9.0 * u
-    r = show("r0", x=x, y=0.0)
-    eye = Vector((x - 3.2, 0.0, 0.5))
+    """P9.1: she runs: 24 mm backing away low over the water before her (R0), each beat a step: the paper rises, leans
+    and swings, a ring from the foot that lands, her hair streaming; the wall going away behind her, the letters' light
+    far off; a shard of the surface past the lens on the downbeats; the Dutch angle turning each bar."""
+    night(sky=0.6)
+    x = -6.0 - 34.0 * u
+    step = (b * 4.0) % 1.0
+    foot = 1.0 if int(b * 4.0) % 2 else -1.0
+    r = show("r0", x=x, y=0.08 * foot * math.sin(math.pi * step))
+    eye = Vector((x - 2.7, 0.35 * math.sin(u * 7.0), 0.42 + 0.06 * abs(math.sin(math.pi * step))))
     facing(r, eye)
-    r.location.z = S.fig_home["r0"][0].z + 0.05 * abs(math.sin(math.pi * 2 * (b % 0.5)))
-    look(eye, (x, 0.0, 1.0), lens=24, fstop=4.0)
-    ring(CLK.last_beat(t), x + 0.1, 0.0, amp=1.4, speed=3.0, life=0.6)
+    r.location.z += 0.13 * math.sin(math.pi * step)
+    r.rotation_euler.z += math.radians(9.0 * foot * math.sin(math.pi * step))
+    r.rotation_euler.y += math.radians(2.5 * foot)
+    _T.gain, _T.wind = 2.6, (0.01 * foot, 0.012)
+    look(eye, (x, 0.0, 0.95), lens=24, fstop=4.0)
+    ring(CLK.last_beat(t), x - 0.1, 0.12 * foot, amp=1.8, speed=4.5, life=0.5)
+    if (b % 1.0) < 0.14:                                       # a shard past the lens
+        s = S.shards[-1]
+        w = (b % 1.0) / 0.14
+        s["ob"].hide_render = False
+        s["ob"].scale = (3.0,) * 3
+        s["ob"].location = eye + S.fwd * 0.9 + Vector((0.0, 1.3 - 2.6 * w, 0.2 - 0.3 * w))
+        s["ob"].rotation_quaternion = Quaternion((0.3, 0.8, 0.5), t * 3.0)
 
 
 def p9_r0(u, t, b):
-    """P9.2: inside R0, she runs at the lens; on the downbeat of 96 the picture tears down the middle, the only
-    time her picture is torn, and behind it is the real night sea and sky."""
+    """P9.2: inside R0, she runs at the lens and grows and grows; on the downbeat of 96 the picture tears down the
+    middle, the only time her picture is torn, and behind it is the real night sea and sky."""
     night()
+    k = ease(clamp((b - 93.0) / 3.0)) ** 1.6
+    zoom = 1.08 + 0.95 * k
+    _T.gain, _T.wind = 2.8, (0.0, 0.016)
     if b < 96.0:
-        into("r0", zoom=1.0 + 0.25 * ease(clamp((b - 93.0) / 3.0)), at_point=(0.5, 0.7))
+        into("r0", zoom=zoom, at_point=face("r0", 0.0, -0.03))
         return
     w = ease(clamp((b - 96.0) / 0.9))
-    into("r0", zoom=1.25, at_point=(0.5, 0.7))
+    into("r0", zoom=zoom, at_point=face("r0", 0.0, -0.03))
+    _T.blur = dict(scale=1.0 + 0.08 * (1 - w))
     S.into["r0"].hide_render = True
     M = S.into["r0"].matrix_world
     for ob, side in S.halves:                                 # each half on its outer edge, swinging away like a door
@@ -1064,35 +1345,47 @@ def p9_r0(u, t, b):
 
 def p9_back(u, t, b):
     """P9.3: she stops and looks back (KV', 裏, night, rose); behind her the whole sea lifts like a sheet of paper
-    into a black wall of water."""
-    night()
+    into a black wall of water, against a sky bright enough to show it rise."""
+    night(sky=0.35 if b < 98.0 else 1.1)
     if b < 98.0:
-        into("kvn", zoom=1.3, at_point=(0.5, 0.78))
+        into("kvn", zoom=1.25 + 0.2 * (b - 97.0), at_point=face("kvn", 0.0, -0.05), roll=-3.0 * (b - 97.0))
+        _T.gain, _T.wind = 2.2, (0.012, 0.0)
         return
     k = ease(clamp(b - 98.0))
-    show("kvn", eye=(-9.0, -2.4, 1.0))
-    S.lifted.hide_render = False
-    S.lifted.rotation_euler.y = -math.radians(80.0 * k)
-    look((-9.0, -2.4, 1.0), (4.0, -0.4, 3.0 + 6.0 * k), lens=24, fstop=5.6)
+    eye = Vector((-11.0 + 1.5 * k, -3.4, 0.5))
+    show("kvn", x=-7.2, y=-1.8, eye=eye)
+    _T.gain, _T.wind = 2.4, (0.014, 0.0)
+    lift(80.0 * k, 0.0)
+    look(eye, (4.0, -0.4, 1.6 + 7.0 * k), lens=20, fstop=5.6)
 
 
 def p10_tear(u, t, b):
-    """P10, first pass: the lifted sea tears open from the horizon like paper, and outside is the sky (S3); the
-    wall in pieces; she leaps (F1), the scraps whirl round her, the camera rising with her."""
+    """P10, first pass: the lifted sea tears open down the middle from the horizon like paper, and outside is the
+    sky (S3), bright; on the downbeat of 101 the wall bursts into pieces; she leaps (F1), the scraps whirl round her,
+    the camera rising and going round with her."""
     twin_suns((-5.0, 3.5, 1.6), (-5.0, 10.0, 2.5))
     if b < 103.0:
-        S.lifted.hide_render = False
-        S.lifted.rotation_euler.y = -math.radians(80.0)
-        S.lifted.scale.y = max(0.0, 1.0 - ease(u * 2))
-        look((-12.0, -3.0, 1.0), (4.0, 0.0, 6.0), lens=24, fstop=8.0)
-        scraps(Vector((-2.0, 0.0, 3.0)), radius=6.0, height=4.0, swirl=t * 0.6)
+        lift(80.0, 75.0 * ease(clamp((b - 99.0) / 3.5)) ** 1.5)
+        burst = clamp((b - 101.0) / 2.0)
+        if b >= 101.0:
+            hide_wall(True)
+            wall_pieces(1.0 - math.exp(-6.0 * burst), t)
+            if b < 101.1:
+                put(S.lineart, 1.0)
+        v = snap((b - 99.0) * 2, 3.5) / 8
+        look((-14.0 + 4.0 * v, -3.4 + 2.0 * v, 0.7), (4.0, 0.0, 5.0 + 2.0 * v), lens=22, fstop=8.0)
+        scraps(Vector((-2.0, 0.0, 3.0)), radius=6.0, height=4.0, swirl=0.6)
         return
-    f = show("f1")
+    hide_wall(True)
     v = (b - 103.0) / 4.0
-    eye = Vector((-5.0, 3.5, 1.6 + 1.5 * ease(v)))
-    facing(f, eye)
-    look(eye, (-5.0, 10.0, 2.6 + 1.0 * ease(v)), lens=40, fstop=5.6)
-    scraps(Vector((-5.0, 10.0, 2.6)), radius=3.0, height=3.0, swirl=t * 1.4)
+    up = 1.0 - math.exp(-3.5 * v)
+    ang = math.radians(-115.0 + 55.0 * snap(v * 8, 4.0) / 8)
+    her = Vector((-5.0, 10.0, 2.6 + 3.0 * up))
+    eye = her + Vector((6.4 * math.cos(ang), 6.4 * math.sin(ang), -1.0 + 0.4 * v))
+    show("f1", eye=eye, lift=3.0 * up)
+    _T.gain, _T.wind = 2.8, (0.0, 0.012)
+    look(eye, her, lens=40, fstop=5.6, roll=-7.0 + 14.0 * v)
+    scraps(her, radius=3.0, height=3.0, swirl=1.4)
 
 
 FAST = ["f1", "w_sky", "c1", "w_high", "r0", "w_low", "u2", "w_kv", "a1", "w_sky", "kvn", "w_low", "w2", "w_high",
@@ -1101,38 +1394,51 @@ FAST = ["f1", "w_sky", "c1", "w_high", "r0", "w_low", "u2", "w_kv", "a1", "w_sky
 
 
 def p10_fast(u, t, b):
-    """P10, second pass: the same, faster: the sky above and below, no water; the two suns at the ends of the sky;
-    a cut every half bar between the pictures and the 3D sky, every beat in the last four bars, the cold and rose
-    light trading sides each beat."""
+    """P10, second pass: the same, faster: the sky above and below, no water, no wall; the two suns at the ends of the
+    sky; a cut every half bar between the pictures and the 3D sky, every beat in the last four bars, the cold and rose
+    light trading sides each beat; each cut rushes in, the sky's at its own tilt."""
     step = 0.5 if b < 111 else 0.25
     k = int((b - 107.0) / step)
+    v = ((b - 107.0) / step) % 1.0
     item = FAST[k % len(FAST)]
     swap = int(b * 4) % 2 == 1 and b >= 111
+    rush = 1.0 - math.exp(-4.0 * v)
+    hide_wall(True)
     if item.startswith("w_"):
         frm, to = {"w_sky": ((-6.0, 0.0, 1.5), (4.0, 3.0, 9.0)), "w_high": ((-6.0, 0.0, 9.0), (6.0, 0.0, 3.0)),
                    "w_low": ((-6.0, 0.0, 0.3), (6.0, 2.0, 2.0)), "w_kv": ((-8.0, 4.0, 1.4), (6.0, -2.0, 4.0))}[item]
         twin_suns(to if swap else frm, frm if swap else to)
         S.sea.hide_render = True
-        look(frm, to, lens=24, fstop=8.0)
-        scraps(Vector((-2.0, 0.0, 3.0)), radius=8.0, height=5.0, swirl=t * 1.2)
+        rnd = random.Random(k)
+        eye = Vector(frm).lerp(Vector(to), 0.2 * rush)
+        look(eye, to, lens=24, fstop=8.0, roll=rnd.uniform(-35.0, 35.0) + 25.0 * v)
+        scraps(Vector((-2.0, 0.0, 3.0)), radius=8.0, height=5.0, swirl=1.2)
         return
     twin_suns((-5.0, 3.5, 1.6), (-5.0, 10.0, 2.5))
+    _T.gain = 2.6
+    zoom = 1.12 + 0.28 * rush
     if item in ("f1", "r0", "kvn", "a1", "a5", "u1", "u2") and item in S.into and INTO[item][1]:
-        into(item, zoom=1.05)
+        if item in ("u1", "a1"):
+            zoom += 0.8                                        # she is small in these: go to her
+        into(item, zoom=zoom, at_point=face(item, 0.0, -0.03))
     elif item == "q1":
-        into("a5o" if "a5o" in S.into else "a5", zoom=1.1)
+        key = "a5o" if "a5o" in S.into else "a5"
+        into(key, zoom=zoom + 0.1, at_point=face(key))
     elif item in S.into:
-        into_free(item, (-6.0, 0.0, 1.5), (0.0, 0.0, 1.5), 50.0)
+        into_free(item, (-6.0, 0.0, 1.5), (0.0, 0.0, 1.5), 50.0, zoom=zoom)
 
 
 def p10_f2(u, t, b):
     """P10 end: F2 on the first beat of the last bar (one eye cold, one rose); on the last beat the whirl stops,
-    the scraps fall, the water comes back, still."""
+    the scraps fall, the water comes back, still, in the night the back cover is in."""
     if b < 115.25:
         twin_suns((-6.0, 0.0, 1.5), (0.0, 0.0, 1.5))
-        into_free("f2", (-6.0, 0.0, 1.5), (0.0, 0.0, 1.5), 50.0)
+        hide_wall(True)
+        into_free("f2", (-6.0, 0.0, 1.5), (0.0, 0.0, 1.5), 50.0, zoom=1.08 + 0.5 * (b - 115.0))
+        _T.gain = 2.0
         return
-    dawn(0.3, sky=0.6)
+    night(letters=0.5, sky=0.25)
+    put(S.sea_bump, 0.0)
     look((-14.0, 0.0, 1.0), (0.0, 0.0, 2.0), lens=35, fstop=8.0)
     scraps(Vector((-4.0, 0.0, 3.0)), radius=6.0, height=4.0, fall=ease((b - 115.25) / 0.75))
 
@@ -1144,7 +1450,7 @@ def p11_back(u, t, b):
     night(letters=lit, sky=0.2)
     put(S.letters_em.inputs["Strength"], 8.0 * lit)
     # low over the water at the reflection: from straight above the near-black water mirrors next to nothing
-    look((-11.0, 2.5, 1.6), (0.0, 2.5, -3.6), lens=50, fstop=8.0)
+    look((-11.0 + 0.8 * u, 2.5, 1.6), (0.0, 2.5, -3.6), lens=50, fstop=8.0)
     if u > 0.8:
         ring(at(116.0) + 0.85 * (CLK.duration - at(116.0)), -2.4, 2.5, amp=0.4, speed=0.6, life=1.5)
 
@@ -1171,7 +1477,7 @@ SHOTS = [
 
 
 def main():
-    AN.run(FRAMES, SHOTS, CLK, setup, reset, first=FIRST, last=LAST, name="animatic v5")
+    AN.run(FRAMES, SHOTS, CLK, setup, reset, after=alive, first=FIRST, last=LAST, name="animatic v5")
 
 
 if __name__ == "__main__":
