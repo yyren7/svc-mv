@@ -1,2 +1,0 @@
-[["cases/uraomote/scripts/animatic_v4.py", "    w = ease((u - 0.12) / 0.7)\n", "    w = 0.3 + 0.7 * ease(u / 0.8)\n"],
- ["cases/uraomote/scripts/animatic_v4.py", "look(eye, face.lerp(mirror, w), lens=55, fstop=5.6,", "look(eye, face.lerp(mirror, w), lens=40, fstop=5.6,"]]

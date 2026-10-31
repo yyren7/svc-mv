@@ -1,4 +1,0 @@
-drop_yaw tmp/exp/drop_yaw.json "WIDTH=1280 SAMPLES=32 ONLY=P1 AT=0.15,0.5,0.85" 14 16
-top_shift tmp/exp/top_shift.json "WIDTH=1280 SAMPLES=32 ONLY=P1 AT=0.15,0.85" 20.5 24
-samples64 - "WIDTH=1280 SAMPLES=64 ONLY=P7 AT=0.5" 68 78
-chorus_bright tmp/exp/chorus_bright.json "WIDTH=1280 SAMPLES=32 ONLY=P4" 36.76 36.98

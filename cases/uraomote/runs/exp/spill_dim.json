@@ -1,1 +1,0 @@
-[["cases/uraomote/scripts/animatic_v4.py", "    light(\"c1_cold\", 2.4)                                                       # relief mottled the pink glow\n    v = ease(u)\n", "    v = ease(u)\n    light(\"c1_cold\", 2.4 - 1.4 * v)                                             # relief mottled the pink glow\n"]]

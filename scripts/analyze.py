@@ -1,7 +1,7 @@
 """Timing data for the PV: beats, downbeats, loudness per video frame, sung lines.
 
-    .venv/Scripts/python scripts/analyze.py cases/uraomote/audio/urao_mix.m4a cases/uraomote/audio/urao_vocal.wav \
-        cases/uraomote/audio/urao_lines.jsonl cases/uraomote/audio/urao_timing.json --fps 30
+    .venv/Scripts/python scripts/analyze.py cases/<name>/audio/mix.m4a cases/<name>/audio/vocal.wav \
+        cases/<name>/audio/lines.jsonl cases/<name>/audio/timing.json --fps 30
 
 The lines file is eval_lines.py's lines.jsonl from DDSP-SVC (start / end in seconds), filtered to one song.
 """

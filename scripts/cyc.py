@@ -19,7 +19,7 @@ BASE_SAMPLES = int(os.environ.get("SAMPLES", 256))
 
 def put(sock, v):
     """Set a socket's value only when it changes: setting it again, even to the same value, makes Cycles rebuild
-    the material or light, and forty hybrid prints make that most of a frame's time."""
+    the material or light, and that can be most of a frame's time."""
     cur = sock.default_value
     if isinstance(v, (int, float)):
         if cur != v:

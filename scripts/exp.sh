@@ -6,16 +6,16 @@
 # it, the frames the environment asks for (WIDTH, SAMPLES, AT, ONLY, DEVICE...) rendered to NAME/tmp/out/frames,
 # a contact sheet and full-frame jpgs beside them, then a done flag. Several run beside each other and beside a
 # film pass on the one GPU (each Blender takes ~5.3 GB of the 24); queue.sh launches a list of them as memory
-# allows. Settings, with their defaults for the uraomote case on AutoDL:
+# allows. Settings, with their defaults on AutoDL (CASE and SCRIPT have none):
 #   MAIN=/root/autodl-tmp/svc-mv            the checkout        EXP=/root/autodl-tmp/exp   where worktrees go
-#   CASE=cases/uraomote                     the case            SCRIPT=$CASE/scripts/animatic_v4.py  its shots
+#   CASE=cases/<name>                       the case            SCRIPT=$CASE/scripts/<shots>.py  its shots
 #   BLENDER=/root/autodl-tmp/tools/blender-5.2.2-linux-x64/blender   PY=/root/autodl-tmp/ComfyUI/venv/bin/python
 set -u
 NAME=$1; SPEC=$2; ENVS=$3; FIRST=${4:-0}; LAST=${5:-200}
 MAIN=${MAIN:-/root/autodl-tmp/svc-mv}
 EXP=${EXP:-/root/autodl-tmp/exp}
-CASE=${CASE:-cases/uraomote}
-SCRIPT=${SCRIPT:-$CASE/scripts/animatic_v4.py}
+CASE=${CASE:?set CASE to the case}
+SCRIPT=${SCRIPT:?set SCRIPT to its shots}
 B=${BLENDER:-/root/autodl-tmp/tools/blender-5.2.2-linux-x64/blender}
 P=${PY:-/root/autodl-tmp/ComfyUI/venv/bin/python}
 W=$EXP/$NAME

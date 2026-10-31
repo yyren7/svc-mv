@@ -1,6 +1,6 @@
 """Frames + the matching slice of the song -> MP4, with a light film grain.
 
-    .venv/Scripts/python scripts/encode.py cases/uraomote/renders/sample cases/uraomote/audio/urao_mix.m4a cases/uraomote/renders/sample.mp4
+    .venv/Scripts/python scripts/encode.py cases/<name>/renders/sample cases/<name>/audio/mix.m4a cases/<name>/renders/sample.mp4
 """
 import json
 import os
