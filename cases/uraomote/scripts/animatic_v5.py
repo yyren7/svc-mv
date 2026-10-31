@@ -159,7 +159,6 @@ def lights():
     S.sun = W.sun(S.sun_dir, 0.0, 6200, disc=40.0)
     S.sun.rotation_mode = "QUATERNION"
     S.sun_disc = bpy.data.objects["sun_disc"]
-    S.sun.visible_glossy = False                           # (the lamp in the window pane was a second sun beside the disc)
     S.fill = cyc.area_light("fill", (-6.0, -4.8, 3.0), (-1.6, -1.2, 1.2), 4.0, 9000, 0.0, color="#9FB2D8")
     S.fill.visible_glossy = False
     S.window_glow = cyc.area_light("window_glow", (W.WALL_T + 0.9, W.WIN_Y, (W.WIN_Z0 + W.WIN_Z1) / 2),
@@ -525,6 +524,7 @@ def dawn(a=1.0, sky=1.8, disc=True, toward=None):
     aim_sun(toward if toward is not None else STILL_EYE)
     energy(S.sun, 5.0 * a)
     S.sun_disc.hide_render = not (disc and a > 0.05)
+    bpy.data.objects["pane"].hide_render = True                # (what it mirrored was a second sun beside the disc)
     W.set_sky("s1", sky * max(a, 0.08))
     haze(0.003 * max(a, 0.3))
     energy(S.fill, 70.0 * a)
