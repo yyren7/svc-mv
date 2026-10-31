@@ -1041,9 +1041,9 @@ def p2_out(u, t, b):
 
 def p3_turn(u, t, b):
     """P3: her 表 (Q1) on the water at nightfall; in the water her 裏 (the twin) where her reflection should be.
-    The camera at water level turns round her and, a beat at a time (a half beat in bar 34), tilts from her face
-    to the face in the water and back. On the last beat the water bursts in a ring from her feet and the camera
-    dives in."""
+    The camera at water level turns round her and, a bar at a time (two beats in bar 34), tilts from her face to the
+    face in the water, brought up to be seen, and back. On the last beat the water bursts in a ring from her feet and
+    the camera dives in."""
     dusk(1.0)
     q = show("q1s")
     S.figs["q1u"].hide_render = False
@@ -1053,12 +1053,13 @@ def p3_turn(u, t, b):
     eye = Vector((x - dist * math.cos(ang), y - dist * math.sin(ang), 0.55))
     facing(q, eye)
     facing(S.figs["q1u"], eye)
-    step = 2.0 if b >= 34.0 else 1.0
+    step = 1.0 if b >= 34.0 else 0.5                       # (every two beats it rested on her ankles half the time)
     phase = ((b % 1.0) * 4 * step) % 2.0
     down = ease(clamp((phase - 0.5) * 2)) if phase < 1.0 else 1.0 - ease(clamp((phase - 1.5) * 2))
-    target = Vector((x, y, 1.45 - 2.9 * down))
+    target = Vector((x, y, 1.25 - 2.5 * down))
     _T.gain = 1.3
-    look(eye, target, lens=40, fstop=4.0)
+    look(eye, target, lens=55, fstop=4.0)
+    bpy.context.scene.view_settings.exposure += 1.2 * down  # the water's mirror is darker than she is
     if b >= 34.75:
         k = clamp((b - 34.75) / 0.25)
         ring(at(34.75), x, y, amp=2.0, speed=6.0)
