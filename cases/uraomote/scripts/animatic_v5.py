@@ -1056,8 +1056,10 @@ def chorus_cam(kind, u):
     if kind == "skim":                                     # ① skimming the water towards the wall, past her
         look((-16.0 + 12.0 * u, -1.9, 0.3), (0.0, 0.0, 1.6), lens=24, fstop=8.0)
         show("kv", eye=S.eye)
-    elif kind == "top":                                    # ② straight down, turning, the ink opening by the wall's reflection
-        look((-3.0, -0.6, 7.0 + 4.0 * u), (-3.0, -0.6, 0.0), lens=28, fstop=8.0, up=(1, 0, 0), roll=70.0 * u)
+    elif kind == "top":                                    # ② high over her, turning, the wall's reflection beside her
+        # (straight down was a dark empty sea: on the odd bars the picture comes before the ink opens)
+        look((-7.5 + 2.0 * u, -5.5, 5.0 + 1.5 * u), (-2.0, -1.0, 0.8), lens=28, fstop=8.0, roll=-20.0 + 30.0 * u)
+        show("kv", eye=S.eye)
     elif kind == "half":                                   # ③ half in the water: the world above, the deep below
         look((-9.0 + 4.0 * u, 0.4, 0.0005), (0.0, 0.2, 0.0005), lens=20, fstop=8.0)
     else:

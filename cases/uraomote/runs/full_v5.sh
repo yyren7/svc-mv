@@ -30,9 +30,12 @@ if [ "$n" -lt "$want" ]; then
 fi
 OUT=$O/animatic_v5_$W.mp4
 [ "$RATE" = 12 ] || OUT=$O/animatic_v5_${W}_$RATE.mp4
-$P scripts/cut.py $F cases/uraomote/audio/urao_mix.m4a $OUT $RATE >> $L 2>&1
+# the transitions go on the rendered frames, so they can be changed without rendering again
+J=${F}_joined
+$P scripts/joins.py $F $J cases/uraomote/scripts/joins_v5.py $RATE 2>&1 | tee -a $L
+$P scripts/cut.py $J cases/uraomote/audio/urao_mix.m4a $OUT $RATE >> $L 2>&1
 # one frame a second, 36 s a sheet
 for k in $(seq 0 $(( (n - 1) / (36 * RATE) ))); do
-    $P scripts/sheet.py $F $O/sheet${W}_$k.jpg $RATE 6 320 $((k * 36 * RATE)) $(((k + 1) * 36 * RATE - 1)) >> $L 2>&1
+    $P scripts/sheet.py $J $O/sheet${W}_$k.jpg $RATE 6 320 $((k * 36 * RATE)) $(((k + 1) * 36 * RATE - 1)) >> $L 2>&1
 done
 echo "full_v5 $W done $(date), $n frames" | tee -a $L

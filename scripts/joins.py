@@ -4,7 +4,7 @@ as a slide show, so each cut gets a transition from the frames either side of it
     soft   a dissolve
     rush   out through the lens: the old shot zooms up into the new one, which lands (radial blur)
     whip   the old shot flies off and the new one flies in the same way (directional blur)
-    ink    the new shot soaks through the old one in blots, with a rose edge
+    ink    the new shot soaks through the old one in soft blots
 
     python scripts/joins.py <frames> <out> <table.py> <fps> [first_frame last_frame]
 
@@ -22,8 +22,7 @@ import sys
 import numpy as np
 from PIL import Image
 
-ROSE = np.array([0.95, 0.20, 0.32], dtype=np.float32)
-PAD = 0.75                                                 # each side, of the frame's size: mirrored room to move in
+PAD = 0.75                                                # each side, of the frame's size: mirrored room to move in
 
 
 def padded(rgb):
@@ -77,12 +76,10 @@ def join_frame(kind, old, new, a, shutter, direction, field):
         k = a * a * (3 - 2 * a)
         return (old * (1 - k) + new * k) / 255.0
     if kind == "ink":
-        edge = 0.3                                         # wide: a thin edge drew contour lines over the whole frame
+        edge = 0.3                                         # (a coloured edge drew veins over the whole frame, her face too)
         k = np.clip((a * (1 + edge) - field) / edge, 0.0, 1.0)[..., None]
         k = k * k * (3 - 2 * k)
-        out = (old * (1 - k) + new * k) / 255.0
-        band = 4 * k * (1 - k) * 0.3
-        return out * (1 - band) + ROSE * band
+        return (old * (1 - k) + new * k) / 255.0
     if kind == "rush":
         if a < 0.5:
             return smear(old, (1.0 + 0.9 * near_cut(a - shutter), 0.0, 0.0), (1.0 + 0.9 * near_cut(a), 0.0, 0.0))
