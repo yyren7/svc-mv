@@ -159,6 +159,7 @@ def lights():
     S.sun = W.sun(S.sun_dir, 0.0, 6200, disc=40.0)
     S.sun.rotation_mode = "QUATERNION"
     S.sun_disc = bpy.data.objects["sun_disc"]
+    S.sun.visible_glossy = False                           # (the lamp in the window pane was a second sun beside the disc)
     S.fill = cyc.area_light("fill", (-6.0, -4.8, 3.0), (-1.6, -1.2, 1.2), 4.0, 9000, 0.0, color="#9FB2D8")
     S.fill.visible_glossy = False
     S.window_glow = cyc.area_light("window_glow", (W.WALL_T + 0.9, W.WIN_Y, (W.WIN_Z0 + W.WIN_Z1) / 2),
@@ -724,6 +725,18 @@ def hide_wall(h=True):
         ob.hide_render = h
 
 
+def on_picture(pu, pv, zoom, roll, tw, th, margin=0.02):
+    """(pu, pv, zoom) as near what was asked as keeps the whole frame, turned by `roll`, on the picture: past its edge the
+    sky behind shows and she is a card cut off in the air."""
+    sc = bpy.context.scene
+    c, s = abs(math.cos(math.radians(roll))), abs(math.sin(math.radians(roll)))
+    fw, fh = tw, tw * sc.render.resolution_y / sc.render.resolution_x
+    du, dv = (fw * c + fh * s) / (2 * tw), (fw * s + fh * c) / (2 * th)      # half the frame at zoom 1, in u and v
+    zoom = max(zoom, du / (0.5 - margin), dv / (0.5 - margin))
+    du, dv = du / zoom, dv / zoom
+    return min(max(pu, margin + du), 1 - margin - du), min(max(pv, margin + dv), 1 - margin - dv), zoom
+
+
 def into(key, zoom=1.0, at_point=None, pan=0.0, tilt=0.0, roll=0.0, glow=1.0, exposure=0.0, wall=False):
     """Inside picture `key`: the camera at its plate's eye, looking where the plate looked (or at the picture's
     point `at_point` = (u, v) from its bottom left), turned by `pan` and `tilt` degrees, the lens `zoom` times the
@@ -748,6 +761,10 @@ def into(key, zoom=1.0, at_point=None, pan=0.0, tilt=0.0, roll=0.0, glow=1.0, ex
         d = Matrix.Rotation(math.radians(pan), 3, u) @ d
         d = Matrix.Rotation(math.radians(tilt), 3, r) @ d
         target = eye + d
+    d = target - eye
+    d = d / d.dot(f)
+    pu, pv, zoom = on_picture(0.5 + d.dot(r) / (2 * tw), 0.5 + d.dot(u) / (2 * th), zoom, roll, tw, th)
+    target = eye + f + r * (2 * pu - 1) * tw + u * (2 * pv - 1) * th
     lens = 18.0 / tw * zoom                                   # the frame (36 mm wide) as wide as the plate's view
     look(eye, target, lens=lens, fstop=16.0, roll=roll, focus=D_SHEET, up=tuple(u))
     S.cam.data.dof.use_dof = False
@@ -1127,12 +1144,13 @@ def p5_spill(u, t, b):
 
 def p5_full(u, t, b):
     """P5.2: the whole sea lit red from below, the cold sky still in its mirror; skimming, a push a beat, the camera
-    passing close by her; the wall's reflection red."""
+    coming to her and rising (from under her chin her face was gone); the wall's reflection red."""
     dawn(1.0)
     clear_sea(0.6)
     energy(S.red_deep, 9000.0)
     v = surge((b - 51.0) * 4) / 16
-    look((-14.0 + 12.5 * v, 2.2 - 3.6 * v, 0.25), (0.0, -0.4, 2.0), lens=24, fstop=8.0)
+    look((-14.0 + 9.0 * v, 2.2 - 3.4 * v, 0.25 + 0.75 * v), Vector((0.0, -0.4, 2.0)).lerp(Vector((-1.6, -1.2, 1.4)), v),
+         lens=24 + 6 * v, fstop=8.0)
     show("kv", eye=S.eye)
     _T.gain = 2.0
 
@@ -1266,12 +1284,13 @@ def p7_ura(u, t, b):
     else:
         eye, drift, to, lens = URA_WORLD[key]
         v = b - key
-        look(Vector(eye) + Vector(drift) * v, to, lens=lens, fstop=8.0)
+        # what it looks at moves too: round a fixed point the letters stood still in the frame
+        look(Vector(eye) + Vector(drift) * v, Vector(to) + Vector(drift) * 0.4 * v, lens=lens, fstop=8.0)
 
 
 def p7_reflect(u, t, b):
     """P7.3: her 表 on the night water, her reflection her 裏; the camera tilts from her face down over the water
-    line to the face upside down; once a bar the reflection flashes back to 表."""
+    line and closes on the face upside down; once a bar the reflection flashes back to 表."""
     night(letters=0.6)
     dusk(1.0)
     q = show("q1s")
@@ -1282,7 +1301,8 @@ def p7_reflect(u, t, b):
     S.figs["q1m"].hide_render = not back
     facing(S.figs["q1u"], eye)
     facing(S.figs["q1m"], eye)
-    look(eye, Vector((-3.0, 0.0, 1.45 - 2.6 * ease(u))), lens=45, fstop=4.0)
+    look(eye, Vector((-3.0, 0.0, 1.45 - 2.9 * ease(u))), lens=45 + 35 * ease(u), fstop=4.0)
+    bpy.context.scene.view_settings.exposure += 0.8 * ease(u)  # the water's mirror is darker than she is
 
 
 def p7_crack(u, t, b):

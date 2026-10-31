@@ -38,9 +38,12 @@ def pose(pad, w, h, scale, dx, dy):
     return np.asarray(pad.transform((w, h), Image.AFFINE, (a, 0, c, 0, a, f), Image.BILINEAR), dtype=np.float32)
 
 
-def smear(rgb, p0, p1, n=8):
-    """The frame's travel from pose p0 to pose p1 (scale, dx, dy) within the shutter: the average of the poses between."""
+def smear(rgb, p0, p1):
+    """The frame's travel from pose p0 to pose p1 (scale, dx, dy) within the shutter: the average of the poses between,
+    about one a pixel of travel at the frame's corners (a few drew the window's bars as stairs)."""
     h, w = rgb.shape[:2]
+    travel = abs(p1[0] - p0[0]) * math.hypot(w, h) / 2 + math.hypot(p1[1] - p0[1], p1[2] - p0[2])
+    n = min(max(int(travel), 8), 96)
     pad = padded(rgb)
     out = np.zeros_like(rgb, dtype=np.float32)
     for k in range(n):
@@ -54,7 +57,7 @@ def blots(shape, seed):
     h, w = shape[:2]
     rnd = np.random.RandomState(seed)
     field = np.zeros((h, w), dtype=np.float32)
-    for size, amp in ((5, 1.0), (11, 0.5), (23, 0.25), (47, 0.12)):
+    for size, amp in ((3, 1.0), (7, 0.45), (15, 0.15)):
         small = Image.fromarray(rnd.rand(size, int(size * w / h) + 1).astype(np.float32))
         field += amp * np.asarray(small.resize((w, h), Image.BICUBIC))
     order = np.argsort(field, axis=None)
@@ -76,7 +79,7 @@ def join_frame(kind, old, new, a, shutter, direction, field):
         k = a * a * (3 - 2 * a)
         return (old * (1 - k) + new * k) / 255.0
     if kind == "ink":
-        edge = 0.3                                         # (a coloured edge drew veins over the whole frame, her face too)
+        edge = 0.5                                         # (a coloured edge drew veins over the whole frame, her face too)
         k = np.clip((a * (1 + edge) - field) / edge, 0.0, 1.0)[..., None]
         k = k * k * (3 - 2 * k)
         return (old * (1 - k) + new * k) / 255.0
