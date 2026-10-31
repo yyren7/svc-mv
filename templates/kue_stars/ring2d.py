@@ -197,7 +197,7 @@ def frame(args):
     for i in vis:
         b = br[i, fsrc]
         x0, y0 = pos(th[i, fsrc], r[i])
-        if not (0 <= x0 < W and 0 <= y0 < H):
+        if not (-rad <= x0 < W + rad and -rad <= y0 < H + rad):      # 中心出了画，光晕还有一半在里面
             continue
         xs, ys = np.round(x0) + xx, np.round(y0) + yy
         d2 = (xs - x0) ** 2 + (ys - y0) ** 2
