@@ -673,14 +673,15 @@ def alive(t):
     dt = t - beat_t
     i = min(int(beat_t * 30), len(ONSET) - 1)
     hit = min(1.0, max(ONSET[max(0, i - 1):i + 3]) / ONSET_TOP) * math.exp(-dt / 0.14)
+    kick = hit if e >= 0.2 else 0.0                       # (the opening's slow push: a kick on it reads as a stutter)
     loud = LOUD[min(int(t * 30), len(LOUD) - 1)] / LOUD_TOP
     seed = random.Random(int(beat_t * 1000))
     cam = S.cam
     if e > 0 and cam.data.type == "PERSP":
         k = min(1.4, 35.0 / cam.data.lens) * e
-        yaw = k * (0.30 * math.sin(1.7 * t + 0.4) + 0.14 * math.sin(3.7 * t + 2.1) + hit * seed.uniform(-0.7, 0.7))
-        pitch = k * (0.22 * math.sin(1.3 * t + 1.2) + 0.12 * math.sin(4.1 * t) + hit * seed.uniform(-0.7, 0.7))
-        rock = k * (0.45 * math.sin(0.9 * t + 2.0) + hit * seed.uniform(-1.2, 1.2))
+        yaw = k * (0.30 * math.sin(1.7 * t + 0.4) + 0.14 * math.sin(3.7 * t + 2.1) + kick * seed.uniform(-0.7, 0.7))
+        pitch = k * (0.22 * math.sin(1.3 * t + 1.2) + 0.12 * math.sin(4.1 * t) + kick * seed.uniform(-0.7, 0.7))
+        rock = k * (0.45 * math.sin(0.9 * t + 2.0) + kick * seed.uniform(-1.2, 1.2))
         turn = Euler((math.radians(pitch), math.radians(yaw), math.radians(rock)))
         cam.matrix_world = cam.matrix_world @ turn.to_matrix().to_4x4()
     sc = bpy.context.scene
@@ -818,14 +819,14 @@ def p0_horizon(u, t, b):
 
 def p0_letters(u, t, b):
     """P0.2: the sun rises behind a wall we cannot see yet: two letters of light in the dark, their long
-    reflections running to the lens; the light leaps a little on every beat."""
+    reflections running to the lens; the camera pushes in without stopping and the light swells as it goes."""
     aim_sun(P0_EYE)
-    energy(S.sun, 5.0 * ease(clamp((b - 2) / 0.5)) * (0.7 + 0.5 * since_beat(0.22)))
+    energy(S.sun, 5.0 * ease(clamp((b - 2) / 0.5)) * (0.8 + 0.3 * u))
     S.sun_disc.hide_render = False
     W.set_sky("s1", 0.14)
     haze(0.004)
     S.shutter.hide_render = False
-    look(P0_EYE + Vector((1.6 * snap((b - 2.0) * 2) / 4, -0.3 * u, 0.0)), P0_TARGET, lens=32 + 8 * u, fstop=8.0)
+    look(P0_EYE + Vector((1.6 * u, -0.3 * u, 0.0)), P0_TARGET, lens=32 + 8 * u, fstop=8.0)
     bpy.context.scene.view_settings.exposure = -0.4
 
 
@@ -835,14 +836,15 @@ def p0_layers(u, t, b):
     downbeat she is there before it, a drawn girl standing on the water."""
     dawn(1.0, sky=1.8 * (0.25 + 0.75 * ease(clamp(b - 4.0))), toward=P0_EYE)
     S.shutter.hide_render = b >= 5.0
-    if b < 5.0:
-        look(P0_EYE + Vector((1.6 + 1.2 * snap((b - 4.0) * 4) / 4, -0.3, 0.0)), P0_TARGET, lens=38, fstop=8.0)
+    if b < 5.0:                                                 # the same push as P0.2 goes on, at its speed and lens
+        v = b - 4.0
+        look(P0_EYE + Vector((1.6 + 1.0 * v, -0.3, 0.0)), P0_TARGET, lens=40 + 4 * v, fstop=8.0)
         return
     if b < 6.0:
-        v = snap((b - 5.0) * 4) / 4
+        v = b - 5.0
         look(Vector((-11.0 + 1.5 * v, 5.0 - 0.8 * v, 0.3)), (-0.4, -0.2, 3.3), lens=30, fstop=8.0)
         return
-    v = snap((b - 6.0) * 4) / 4
+    v = b - 6.0
     eye = Vector((-7.4, -3.7, 0.9)) + Vector((1.5, 0.6, 0.0)) * v
     show("kv", eye=eye)
     _T.gain = 1.6
@@ -908,10 +910,10 @@ def p1_drop(u, t, b):
 
 def p1_seep(u, t, b):
     """P1.4: the same red in 2D: inside Q1 (A5 open-eyed) it soaks into her hair from the roots, and a wisp of
-    ink runs down the air before her face (3D); a step nearer on each downbeat."""
+    ink runs down the air before her face (3D); the camera creeps nearer without stopping."""
     dawn(1.0)
     key = "a5o" if "a5o" in S.into else "a5"
-    into(key, zoom=1.2 + 0.32 * snap(b - 16.0, 7.0) / 4, at_point=face(key, 0.03 * u, -0.04))
+    into(key, zoom=1.2 + 0.32 * (b - 16.0) / 4, at_point=face(key, 0.03 * u, -0.04))
     _T.gain = 1.3
     seep(key, ease(u))                                          # (a wisp of ink before her face read as a nosebleed)
 
@@ -1228,7 +1230,7 @@ def p7_ura(u, t, b):
         ring(CLK.last_beat(t), -6.0, 1.0, amp=1.0, speed=1.6, life=1.5)
     elif key == "u2":
         v = (b - 73.0) / 2.0
-        into("u2", zoom=1.3 + 0.35 * snap(v * 2.0, 4.0) / 2, at_point=face("u2", 0.0, -0.08))
+        into("u2", zoom=1.3 + 0.35 * v, at_point=face("u2", 0.0, -0.08))
     elif key == "u4":
         into_free("u4", (-9.0, 0.0, 1.4), (-6.0, 0.0, 1.4), 50.0, zoom=1.08 + 0.2 * (b - 76.0))
         _T.gain = 1.3
