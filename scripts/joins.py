@@ -77,11 +77,12 @@ def join_frame(kind, old, new, a, shutter, direction, field):
         k = a * a * (3 - 2 * a)
         return (old * (1 - k) + new * k) / 255.0
     if kind == "ink":
-        edge = 0.06
+        edge = 0.3                                         # wide: a thin edge drew contour lines over the whole frame
         k = np.clip((a * (1 + edge) - field) / edge, 0.0, 1.0)[..., None]
+        k = k * k * (3 - 2 * k)
         out = (old * (1 - k) + new * k) / 255.0
-        band = 4 * k * (1 - k)
-        return out * (1 - 0.7 * band) + ROSE * 0.7 * band
+        band = 4 * k * (1 - k) * 0.3
+        return out * (1 - band) + ROSE * band
     if kind == "rush":
         if a < 0.5:
             return smear(old, (1.0 + 0.9 * near_cut(a - shutter), 0.0, 0.0), (1.0 + 0.9 * near_cut(a), 0.0, 0.0))
