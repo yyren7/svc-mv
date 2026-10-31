@@ -150,7 +150,8 @@ def frame(args):
         A.add(x, y, np.tile(np.array((0.72, 0.82, 1.0), np.float32) * HAIRLINE * 0.6, (m, 1)))
     # 尾巴
     F = th.shape[1]
-    vis = np.flatnonzero(br[:, fsrc] > 0.004)
+    # 光头灭了尾巴还亮着：尾巴窗口里还有亮的就接着画，尾巴慢慢收进灭掉的地方，不会整条一帧没了
+    vis = [i for i in range(len(r)) if br[i, max(fsrc - int(tail[i, fsrc]), 0):fsrc + 1].max() > 0.004]
     for i in vis:
         tk = float(tail[i, fsrc])
         arc = abs(float(th[i, fsrc] - th[i, max(fsrc - int(tk), 0)])) * r[i] * Rpx
